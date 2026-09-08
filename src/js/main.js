@@ -76,7 +76,7 @@ async function boot(stage) {
   const engine = new TextEngine(stage.gl);
   const marks = new Marks(engine);
 
-  updateMirror(state.lang);
+  updateMirror(state.lang, true);
 
   /* Rasterising before the webfonts arrive would bake the fallback face into
      the atlas, so the first layout waits - but only on the language actually
@@ -163,7 +163,7 @@ async function boot(stage) {
     state.lang = next;
     document.documentElement.lang = next === 'zh' ? 'zh-Hans' : 'en';
     try { localStorage.setItem('lang', next); } catch (e) { /* ignore */ }
-    updateMirror(state.lang);
+    updateMirror(state.lang, true);
     syncProxy();
     syncHits();
     state.dirty = true;
@@ -336,6 +336,10 @@ async function boot(stage) {
   /* Hooks for the screenshot harness in scratch; harmless in production. */
   window.__hit = (what) => act(what === 'lang' ? (state.lang === 'en' ? 'lang:zh' : 'lang:en')
     : what === 'cv' ? 'view:cv' : what === 'card' ? 'view:card' : what);
+  window.__atlas = () => engine.atlas.toDataURL('image/png');
+  window.__items = () => scene().items.filter((i) => i.kind === 'text')
+    .map((i) => ({ key: i.key, text: i.run.text, x: Math.round(i.x), y: Math.round(i.y), w: Math.round(i.run.width) }));
+  window.__grid = () => ({ colW: state.grid.colW, left: state.grid.left, cols: state.grid.cols, gutter: state.grid.gutter });
   window.__diag = () => ({
     view: state.view, lang: state.lang, cols: state.grid.cols, dpr: engine.dpr,
     atlas: engine.size, overflow: engine.overflow,
@@ -353,7 +357,7 @@ async function boot(stage) {
    The interactive controls live in the hit layer instead, which is where the
    browser can give them real behaviour.
    --------------------------------------------------------------------------- */
-function updateMirror(lang) {
+function updateMirror(lang, inert) {
   const host = document.getElementById('a11y');
   if (!host) return;
   const t = (n) => (n && n[lang] != null ? n[lang] : '');
@@ -386,6 +390,13 @@ function updateMirror(lang) {
     '</section>',
   ];
   host.innerHTML = out.join('');
+  /* When the canvas is live, the mirror's links are a second copy of links the
+     hit layer already carries at their real positions. Leaving both in the tab
+     order makes a keyboard user visit the email twice. tabindex="-1" takes them
+     out of the tab sequence while keeping them in the accessibility tree, so a
+     screen reader's list of links is still complete. In the no-WebGL fallback
+     the mirror IS the page and they stay focusable. */
+  if (inert) host.querySelectorAll('a').forEach((a) => a.setAttribute('tabindex', '-1'));
 }
 
 function esc(s) {

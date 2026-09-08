@@ -16,11 +16,27 @@ npm run dev      # live server + reload at http://localhost:5173
 npm run build    # production build into dist/
 npm run preview  # serve the built dist/
 npm run fonts    # re-fetch and re-subset the webfonts (see below)
+npm run lint
+npm run check    # drive the built site in a real browser (see below)
+npm run og       # regenerate the link-preview image
 ```
 
-`scripts/og.mjs` regenerates the link-preview image by photographing the built
-site at 1200x630, so the preview can never drift out of date with the card. It
-needs Playwright, which is deliberately not a dependency — see the script.
+`check` and `og` need Playwright, which is deliberately not a dependency — it
+pulls a browser, and both run rarely (`npm i -D playwright && npx playwright
+install chromium`).
+
+**`npm run check` is the important one.** Everything visible here is inside a
+canvas, so the usual safety nets do not apply: a unit test cannot see a glyph,
+and a type error is not the failure mode to worry about. It drives the real
+built site in a real browser and asserts on what it does — that the hit layer
+is made of real anchors and buttons, that tab order is reading order, that a
+rapid triple language toggle leaves the state, the mirror and the drawing
+agreeing, and that the page still says who she is with WebGL removed, with
+`localStorage` throwing, without `Intl.Segmenter`, under
+`prefers-reduced-motion`, at 320x480, and through a resize storm.
+
+`og` regenerates the link preview by photographing the built site at 1200x630,
+so it can never drift out of date with the card.
 
 Deploys on Vercel as a static build (`outputDirectory: dist`).
 

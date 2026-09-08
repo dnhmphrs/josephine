@@ -23,6 +23,24 @@
    page — type and geometry alike — is one texture and one draw call.
    =========================================================================== */
 
+/* Default 'auto' lets the engine round advances to hinted integers. The scratch
+   context measures and the atlas context draws, so if the two disagree by even
+   a fraction of a pixel the error accumulates across a long string: the run's
+   rect is sized from the measurement, the ink is drawn wider than that, and it
+   spills into whatever was packed next to it.
+
+   This has to be re-applied after EVERY assignment to canvas.width, because
+   setting the width resets the whole 2D context to its defaults - which is
+   exactly the kind of state loss that produces a bug you can only see on the
+   longest line on the page. */
+function precise(ctx) {
+  try { ctx.textRendering = 'geometricPrecision'; } catch (e) { /* older engine */ }
+  ctx.textBaseline = 'alphabetic';
+  ctx.textAlign = 'left';
+  try { ctx.letterSpacing = '0px'; } catch (e) { /* we place glyphs ourselves */ }
+  return ctx;
+}
+
 const WHITE_PX = 4;   // reserved opaque white block at the atlas origin
 const GUTTER = 2;     // device px between packed rects, stops neighbours bleeding
 
@@ -41,12 +59,7 @@ export class TextEngine {
     this.scratch = document.createElement('canvas').getContext('2d');
     this.atlas = document.createElement('canvas');
     this.actx = this.atlas.getContext('2d');
-    /* Default 'auto' lets the engine round advances to hinted integers, and
-       measuring and drawing may then disagree by a subpixel - which would cut
-       every glyph slice in the wrong place and smear the morph. */
-    for (const c of [this.scratch, this.actx]) {
-      try { c.textRendering = 'geometricPrecision'; } catch (e) { /* older engine */ }
-    }
+    precise(this.scratch);
     this.texture = gl.createTexture();
     this.cache = new Map();
     this.pending = [];
@@ -109,9 +122,6 @@ export class TextEngine {
     const font = `${spec.italic ? 'italic ' : ''}${weight} ${px}px ${spec.family}`;
     const ctx = this.scratch;
     ctx.font = font;
-    ctx.textBaseline = 'alphabetic';
-    ctx.textAlign = 'left';
-    try { ctx.letterSpacing = '0px'; } catch (e) { /* not supported: we place glyphs ourselves */ }
 
     const gs = graphemes(spec.text);
     const n = gs.length;
@@ -224,10 +234,8 @@ export class TextEngine {
     this.atlas.width = size;
     this.atlas.height = size;
 
-    const c = this.actx;
+    const c = precise(this.actx);
     c.clearRect(0, 0, size, size);
-    c.textBaseline = 'alphabetic';
-    c.textAlign = 'left';
     c.fillStyle = '#fff';
     c.fillRect(0, 0, WHITE_PX, WHITE_PX);
     this.whiteUv = [(WHITE_PX * 0.5) / size, (WHITE_PX * 0.5) / size];

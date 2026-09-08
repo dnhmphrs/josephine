@@ -273,9 +273,13 @@ class Scene {
     return this;
   }
 
+  /* Items append (the chrome paints last, over the content); hits PREPEND, so
+     tab order is reading order - Card, CV, EN, 中, then whatever the page
+     itself offers. Painting order and focus order are different questions and
+     want opposite answers here. */
   absorb(other) {
     this.items.push(...other.items);
-    this.hits.push(...other.hits);
+    this.hits.unshift(...other.hits);
     return this;
   }
 }

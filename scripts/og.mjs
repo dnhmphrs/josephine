@@ -31,7 +31,13 @@ if (!fs.existsSync(path.join(DIST, 'index.html'))) {
   process.exit(1);
 }
 
-const { chromium } = await import('playwright');
+let chromium;
+try {
+  ({ chromium } = await import('playwright'));
+} catch (e) {
+  console.error('Playwright is not installed. It is not a dependency of this project - it pulls a browser:\n\n  npm i -D playwright && npx playwright install chromium\n');
+  process.exit(1);
+}
 
 const MIME = {
   '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
