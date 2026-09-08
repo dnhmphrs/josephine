@@ -23,6 +23,7 @@ import { TextEngine, loadFonts } from './text.js';
 import { createStage, Marks } from './gl.js';
 import { buildScenes, fontSpecs, deferredFontSpecs, INK } from './layout.js';
 import { planLanguage, planView, drawScene, drawPlan, TIMING } from './morph.js';
+import { renderMirror } from './mirror.js';
 
 const DPR_CAP = 2;
 /* The ground drifts about 0.005px a frame, so redrawing it sixty times a
@@ -42,6 +43,7 @@ const state = {
   scenes: null,
   grid: null,
   transition: null,
+  lost: false,
   dirty: true,
   lastDraw: 0,
   hover: null,
@@ -59,14 +61,18 @@ try {
 document.documentElement.lang = state.lang === 'zh' ? 'zh-Hans' : 'en';
 
 const stage = createStage(canvas);
+/* boot() is async and everything after the context exists runs inside it - the
+   atlas allocation, a 2048px texture upload, the first layout. Any of those
+   throwing on a low-memory device would otherwise leave a blank grey rectangle
+   and no way back. */
 if (!stage) fallback();
-else boot(stage);
+else boot(stage).catch(fallback);
 
 /* No WebGL, or a context we could not create: promote the mirror to the
    visible page. Rare, but a researcher's contact details should not depend on
    a GPU. */
 function fallback() {
-  document.body.classList.add('fallback');
+  document.documentElement.classList.add('no-js');
   updateMirror(state.lang);
   if (canvas) canvas.remove();
   if (proxy) proxy.remove();
@@ -82,7 +88,15 @@ async function boot(stage) {
      the atlas, so the first layout waits - but only on the language actually
      being read. The concrete is already painted by CSS underneath, so the wait
      reads as a beat, not a blank. */
-  await loadFonts(fontSpecs(content, innerWidth, state.lang));
+  /* Raced against a deadline. DOM text gets a fallback face after the browser's
+     block period; a canvas gets nothing, so a font request that stalls rather
+     than fails would hold the page at blank concrete indefinitely. If the
+     deadline wins, the first layout uses whatever is available and the deferred
+     pass below re-rasterises when the real faces land. */
+  await Promise.race([
+    loadFonts(fontSpecs(content, innerWidth, state.lang)),
+    new Promise((r) => setTimeout(r, 1500)),
+  ]);
 
   const scene = () => state.scenes[`${state.view}:${state.lang}`];
 
@@ -254,12 +268,37 @@ async function boot(stage) {
      being focused visually lives. :focus-visible keeps it off a mouse click. */
   proxy.addEventListener('focusin', (e) => {
     const el = e.target.closest('.hit');
-    state.focus = el && el.matches(':focus-visible') ? el.dataset.id : null;
+    /* Element.matches() THROWS on a selector the engine cannot parse - it is
+       not a silent false - and the canvas ring is the only focus indicator
+       there is, since the native outline is removed. On an engine without
+       :focus-visible, treat every focus as keyboard focus. */
+    let keyboard = true;
+    try { keyboard = el ? el.matches(':focus-visible') : false; } catch (err) { keyboard = !!el; }
+    state.focus = keyboard && el ? el.dataset.id : null;
     state.dirty = true;
   });
   proxy.addEventListener('focusout', () => { state.focus = null; state.dirty = true; });
 
   /* --- viewport ----------------------------------------------------------- */
+
+  /* A lost context takes every GL object with it, and unless the event is
+     cancelled the browser is spec-bound never to offer it back - the page would
+     be a permanently blank grey rectangle. Cancel it, stop drawing, and rebuild
+     when the browser returns; if it does not come back, fall through to the
+     mirror, which is a readable page. */
+  let lostTimer = 0;
+  canvas.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault();
+    state.lost = true;
+    lostTimer = setTimeout(() => { if (state.lost) fallback(); }, 5000);
+  }, false);
+  canvas.addEventListener('webglcontextrestored', () => {
+    clearTimeout(lostTimer);
+    state.lost = false;
+    stage.restore();
+    engine.restore();
+    relayout();
+  }, false);
 
   addEventListener('scroll', () => { state.dirty = true; }, { passive: true });
 
@@ -297,7 +336,7 @@ async function boot(stage) {
     requestAnimationFrame(frame);
     const dt = Math.min(64, now - last);
     last = now;
-    if (document.hidden || !state.scenes) return;
+    if (document.hidden || state.lost || !state.scenes) return;
 
     const tr = state.transition;
     if (!tr && !state.dirty && now - state.lastDraw < IDLE_FRAME_MS) return;
@@ -368,58 +407,27 @@ async function boot(stage) {
   };
 }
 
-/* ---------------------------------------------------------------------------
-   The accessible mirror.
-
-   The canvas is a picture of text, and a picture of text is not text. This
-   rebuilds the same strings as a real document inside #a11y - headings, a
-   definition list, links - so that screen readers and search engines have
-   something to work with, and so the no-WebGL path has a page to fall back to.
-   The interactive controls live in the hit layer instead, which is where the
-   browser can give them real behaviour.
-   --------------------------------------------------------------------------- */
+/* The mirror's markup comes from mirror.js, which the build also calls to
+   inline the same thing into index.html. This adds the two things a string
+   cannot: the document's own title and description, and the listeners on the
+   language buttons that only the degraded path renders. */
 function updateMirror(lang, inert) {
   const host = document.getElementById('a11y');
   if (!host) return;
   const t = (n) => (n && n[lang] != null ? n[lang] : '');
-  const c = content.card;
 
   document.title = t(content.site.title);
   const desc = document.querySelector('meta[name="description"]');
   if (desc) desc.setAttribute('content', t(content.site.description));
 
-  const out = [
-    '<section>',
-    `<h1>${esc(t(c.name))}</h1>`,
-    `<p>${esc(t(c.role))}. ${esc(t(c.line))}</p>`,
-    '<dl>',
-    ...c.fields.map((f) => `<dt>${esc(t(f.label))}</dt><dd>${esc(t(f.value))}</dd>`),
-    '</dl>',
-    `<p><a href="mailto:${esc(c.contact.email)}">${esc(c.contact.email)}</a>`,
-    ` <a href="${esc(c.contact.linkedin.url)}" rel="me noopener">${esc(c.contact.linkedin.label)}</a></p>`,
-    '</section>',
-    '<section>',
-    `<h2>${esc(t(content.nav.cv))}</h2>`,
-    ...content.cv.flatMap((sec) => [
-      `<h3>${esc(t(sec.section))}</h3><ul>`,
-      ...sec.entries.map((e) => {
-        const bits = [e.year, t(e.title), e.org ? t(e.org) : ''].filter(Boolean);
-        return `<li>${esc(bits.join(' - '))}</li>`;
-      }),
-      '</ul>',
-    ]),
-    '</section>',
-  ];
-  host.innerHTML = out.join('');
-  /* When the canvas is live, the mirror's links are a second copy of links the
-     hit layer already carries at their real positions. Leaving both in the tab
-     order makes a keyboard user visit the email twice. tabindex="-1" takes them
-     out of the tab sequence while keeping them in the accessibility tree, so a
-     screen reader's list of links is still complete. In the no-WebGL fallback
-     the mirror IS the page and they stay focusable. */
-  if (inert) host.querySelectorAll('a').forEach((a) => a.setAttribute('tabindex', '-1'));
-}
-
-function esc(s) {
-  return String(s).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+  host.innerHTML = renderMirror(content, lang, inert);
+  if (inert) {
+    /* Whatever links remain are duplicates of the hit layer's; keep them in the
+       accessibility tree but out of the tab sequence. */
+    host.querySelectorAll('a').forEach((a) => a.setAttribute('tabindex', '-1'));
+  } else {
+    host.querySelectorAll('[data-lang]').forEach((b) => {
+      b.addEventListener('click', () => updateMirror(b.getAttribute('data-lang'), false));
+    });
+  }
 }

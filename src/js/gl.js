@@ -29,11 +29,19 @@ export const CONCRETE = [0.8353, 0.8275, 0.8078];   // #d5d3ce
    against DOM-rendered type. */
 const COVERAGE_GAMMA = 1.35;
 
+/* vPix carries the screen position at the vertex shader's precision. It exists
+   because gl_FragCoord is specified as mediump in GLSL ES 1.00 whatever the
+   fragment default says - so on a device without highp support the dither and
+   the aggregate would be derived from a coordinate that has already lost its
+   mantissa near the bottom of a tall page, and would band on their own. */
 const GROUND_VS = `
 attribute vec2 aPos;
+uniform vec2 uRes;
 varying vec2 vUv;
+varying vec2 vPix;
 void main() {
   vUv = aPos * 0.5 + 0.5;
+  vPix = vUv * uRes;
   gl_Position = vec4(aPos, 0.0, 1.0);
 }`;
 
@@ -74,6 +82,7 @@ uniform vec2  uRes;      // device px
 uniform float uTime;     // seconds
 uniform float uScroll;   // page scroll, in viewport heights
 varying vec2  vUv;       // y up
+varying vec2  vPix;      // device px, at vertex precision
 
 /* Mean of these two is exactly #d5d3ce. Warm-neutral: red above blue. */
 const vec3 CONC_TOP = vec3(0.820, 0.812, 0.792);   // #d1cfca
@@ -173,7 +182,7 @@ void main() {
 
   /* Aggregate. Screen-fixed, so it reads as the tooth of the wall rather than
      as film grain sitting on the page. */
-  col += (vnoise(gl_FragCoord.xy * 0.80) - 0.5) * TOOTH;
+  col += (vnoise(vPix * 0.80) - 0.5) * TOOTH;
 
   /* Dither, last, in the space the framebuffer quantises. Without it the whole
      wash bands into visible contours - the entire ramp is only about eight of
@@ -186,11 +195,10 @@ void main() {
      first and the difference collapses towards zero. A single uniform tap
      actually dithers.
 
-     gl_FragCoord is wrapped first, because on a device without highp the raw
-     coordinate loses enough mantissa near the bottom of a tall page for the
-     pattern to degenerate into bands of its own. */
-  vec2 fc = mod(gl_FragCoord.xy, 256.0);
-  col += (ign(fc) - 0.5) * DITHER;
+     The coordinate comes from vPix rather than gl_FragCoord: see the vertex
+     shader. Wrapped to 256 as well, which costs nothing and keeps the argument
+     small however large the framebuffer is. */
+  col += (ign(mod(vPix, 256.0)) - 0.5) * DITHER;
 
   gl_FragColor = vec4(col, 1.0);
 }`;
@@ -315,9 +323,20 @@ export class Marks {
 
   /* A solid rectangle: the same quad, pointed at the atlas's white texel.
      Rules, underlines, the focus ring and the traces are all this. */
+  /* Snapped to whole device pixels, and never thinner than one. A solid mark
+     has no coverage term - the white texel is alpha 1 across the whole quad and
+     the context is created with antialias:false - so an unsnapped hairline is
+     resolved by the rasteriser's binary pixel-centre test and comes out one
+     device row here and two there. Which is exactly the thing a hairline rule
+     must never do. */
   rect(x, y, w, h, col, alpha) {
+    const d = this.engine.dpr;
     const [u, v] = this.engine.whiteUv;
-    this.quad(x, y, x + w, y + h, u, v, u, v, col, alpha);
+    const x0 = Math.round(x * d) / d;
+    const y0 = Math.round(y * d) / d;
+    const x1 = Math.max(x0 + 1 / d, Math.round((x + w) * d) / d);
+    const y1 = Math.max(y0 + 1 / d, Math.round((y + h) * d) / d);
+    this.quad(x0, y0, x1, y1, u, v, u, v, col, alpha);
   }
 
   strokeRect(x, y, w, h, weight, col, alpha) {
@@ -372,6 +391,11 @@ export class Marks {
 
   /* A run at rest: one quad for the whole bitmap. */
   run(run, penX, baselineY, col, alpha) {
+    /* A run that failed to pack has no atlas rect and its UVs are still zero -
+       which points at the reserved white texel, so drawing it would paint a
+       solid block of ink where the text should be. Missing text is a better
+       failure than a censored bar. */
+    if (!run.rect) return;
     /* A post-tracked run's glyphs are not where the bitmap put them, so it has
        to go out a glyph at a time. Only the name is post-tracked. */
     if (run.post) {
@@ -392,6 +416,7 @@ export class Marks {
      the glyph's own centre and baseline, and an alpha multiplier. Returning a
      falsy value skips the glyph. */
   runTransformed(run, penX, baselineY, col, alpha, xform) {
+    if (!run.rect) return;
     const u = run.uv;
     for (let i = 0; i < run.n; i++) {
       if (run.dw[i] <= 0) continue;
@@ -426,49 +451,70 @@ export function createStage(canvas) {
 
   let ground;
   let marks;
-  try {
+  let gU;
+  let gA;
+  let mU;
+  let mA;
+  let groundBuf;
+  let markBuf;
+  let markCapacity = 0;
+  let dpr = 1;
+  let cssH = 1;
+
+  /* Everything the GPU holds, in one function. A lost context takes all of it
+     with it - programs, buffers, the texture - and the only way back is to
+     make it all again, so it is worth being able to say that in one call. */
+  function setup() {
     ground = program(gl, GROUND_VS, GROUND_FS, 'ground');
     marks = program(gl, MARK_VS, MARK_FS, 'marks');
+
+    gU = {
+      res: gl.getUniformLocation(ground, 'uRes'),
+      time: gl.getUniformLocation(ground, 'uTime'),
+      scroll: gl.getUniformLocation(ground, 'uScroll'),
+    };
+    gA = gl.getAttribLocation(ground, 'aPos');
+
+    mU = {
+      gamma: gl.getUniformLocation(marks, 'uGamma'),
+      scale: gl.getUniformLocation(marks, 'uScale'),
+      offset: gl.getUniformLocation(marks, 'uOffset'),
+      tex: gl.getUniformLocation(marks, 'uTex'),
+    };
+    mA = {
+      pos: gl.getAttribLocation(marks, 'aPos'),
+      uv: gl.getAttribLocation(marks, 'aUv'),
+      col: gl.getAttribLocation(marks, 'aCol'),
+    };
+
+    /* One oversized triangle beats a quad: no diagonal seam, three vertices. */
+    groundBuf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, groundBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+
+    markBuf = gl.createBuffer();
+    markCapacity = 0;
+
+    gl.disable(gl.DEPTH_TEST);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  }
+
+  try {
+    setup();
   } catch (e) {
     return null;
   }
 
-  const gU = {
-    res: gl.getUniformLocation(ground, 'uRes'),
-    time: gl.getUniformLocation(ground, 'uTime'),
-    scroll: gl.getUniformLocation(ground, 'uScroll'),
-  };
-  const gA = gl.getAttribLocation(ground, 'aPos');
-
-  const mU = {
-    gamma: gl.getUniformLocation(marks, 'uGamma'),
-    scale: gl.getUniformLocation(marks, 'uScale'),
-    offset: gl.getUniformLocation(marks, 'uOffset'),
-    tex: gl.getUniformLocation(marks, 'uTex'),
-  };
-  const mA = {
-    pos: gl.getAttribLocation(marks, 'aPos'),
-    uv: gl.getAttribLocation(marks, 'aUv'),
-    col: gl.getAttribLocation(marks, 'aCol'),
-  };
-
-  /* One oversized triangle beats a quad: no diagonal seam, three vertices. */
-  const groundBuf = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, groundBuf);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-
-  const markBuf = gl.createBuffer();
-  let markCapacity = 0;
-
-  gl.disable(gl.DEPTH_TEST);
-  gl.enable(gl.BLEND);
-  gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-
-  let dpr = 1;
-  let cssH = 1;
-
   return {
     gl,
+
+    /* Called after a webglcontextrestored event: every GL object created before
+       the loss is dead, so they are all made again. The caller then has to
+       re-upload the atlas, which relayout() does. */
+    restore() {
+      setup();
+    },
 
     /* Returns the CSS width the layout should use: canvas.width / dpr, not
        innerWidth, so CSS-pixel space and device-pixel space stay exactly

@@ -58,7 +58,10 @@ body {
   position: relative;
   z-index: 1;
   width: 100%;
-  height: 100vh;
+  /* Zero until main.js sets the scene height. It is an in-flow block, so any
+     placeholder height pushes the <noscript> block below it - a full viewport
+     down, exactly where no one whose scripting is off will look for it. */
+  height: 0;
   pointer-events: none;
 }
 
@@ -113,8 +116,10 @@ body {
   border: 0;
 }
 /* Keyboard focus must be visible even though the visual page is on the canvas,
-   so a focused link inside the mirror comes back on screen as a plain chip. */
-.sr a:focus-visible {
+   so a focused link inside the mirror comes back on screen as a plain chip.
+   Scoped away from the fallback, where the mirror is the visible page and
+   teleporting a focused link into the corner would be absurd. */
+body:not(.no-js) .sr a:focus-visible {
   position: fixed;
   left: 16px; top: 16px;
   width: auto; height: auto;
@@ -130,24 +135,26 @@ body {
   border-radius: 2px;
 }
 
+/* Scripting off: #a11y stops being a mirror and becomes the page, and this
+   note explains why it looks like a plain document. */
 .noscript {
   position: relative;
   z-index: 2;
-  max-width: 46ch;
+  max-width: 34em;
   margin: 0;
-  padding: clamp(28px, 8vw, 96px);
-  color: #16161a;
-  font: 400 17px/1.5 ui-serif, Georgia, serif;
+  padding: clamp(28px, 8vw, 96px) clamp(28px, 8vw, 96px) clamp(28px, 8vw, 96px);
+  color: #55565c;
+  font: 400 13px/1.6 "Jost", ui-sans-serif, system-ui, sans-serif;
 }
-.noscript h1 { font-weight: 500; font-size: clamp(34px, 7vw, 56px); letter-spacing: -0.02em; margin: 0 0 0.6em; }
-.noscript p { margin: 0 0 0.8em; }
-.noscript a { color: inherit; }
 
-/* No WebGL, or a context we could not create: the mirror stops being a mirror
-   and becomes the page. Rare, but a researcher's contact details should not
-   depend on a GPU. */
-.fallback .sr {
+/* No WebGL, no successful boot, or no JavaScript at all: the mirror stops
+   being a mirror and becomes the page. Rare, but a researcher's contact
+   details should not depend on a GPU. `no-js` is on <html> from the markup,
+   removed by an inline script the moment scripting proves to be on, and put
+   back by main.js if the canvas turns out not to be usable. */
+.no-js .sr {
   position: static;
+  font-family: "Bodoni Moda Text", "Bodoni Moda", "Noto Serif SC", ui-serif, Georgia, serif;
   width: auto; height: auto;
   margin: 0; padding: clamp(28px, 8vw, 96px);
   max-width: 68ch;
@@ -155,14 +162,28 @@ body {
   clip: auto; clip-path: none;
   white-space: normal;
   color: #16161a;
-  font: 400 17px/1.55 ui-serif, Georgia, "Times New Roman", serif;
+  font: 400 18px/1.55 inherit;
 }
-.fallback h1 { font-weight: 500; font-size: clamp(34px, 7vw, 60px); line-height: 1.02; letter-spacing: -0.025em; margin: 0 0 0.5em; }
-.fallback h2, .fallback h3 { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: #85878c; margin: 2.4em 0 0.8em; }
-.fallback h3 { margin-top: 1.8em; }
-.fallback dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.35em 1.5em; margin: 2em 0; }
-.fallback dt { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #85878c; }
-.fallback ul { list-style: none; margin: 0; padding: 0; }
-.fallback li { margin: 0 0 0.4em; }
-.fallback a { color: inherit; }
-.fallback button { display: none; }
+.no-js h1 { font-family: "Jost", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif; font-weight: 600; font-size: clamp(34px, 7vw, 60px); line-height: 1.02; letter-spacing: -0.025em; margin: 0 0 0.5em; }
+.no-js h2, .no-js h3 { font-family: "Jost", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: #55565c; margin: 2.4em 0 0.8em; }
+.no-js h3 { margin-top: 1.8em; }
+.no-js dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.35em 1.5em; margin: 2em 0; }
+.no-js dt { font-family: "Jost", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #55565c; }
+.no-js ul { list-style: none; margin: 0; padding: 0; }
+.no-js li { margin: 0 0 0.4em; }
+.no-js a { color: inherit; }
+.no-js a:focus-visible { outline: 2px solid #16161a; outline-offset: 3px; }
+/* The language control, which in this path is the only one there is. */
+.no-js button {
+  font: 500 12px/1 "Jost", ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #55565c;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid rgba(22, 22, 26, 0.25);
+  padding: 6px 2px;
+  margin: 2.5em 1.5em 0 0;
+  cursor: pointer;
+}
+.no-js button[aria-pressed='true'] { color: #16161a; border-bottom-color: #16161a; }

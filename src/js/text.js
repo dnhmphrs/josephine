@@ -70,6 +70,12 @@ export class TextEngine {
     this.whiteUv = [0, 0];
   }
 
+  /* The texture died with the context. Making a new name is all that is needed
+     here: the next build() re-uploads the atlas into it. */
+  restore() {
+    this.texture = this.gl.createTexture();
+  }
+
   /* Start a new atlas generation. Everything measured before this is discarded,
      which is what a resize or a DPR change requires (sizes change, so the
      rasterisation does too). */

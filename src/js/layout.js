@@ -276,16 +276,19 @@ class Scene {
     this.items.push({ kind: 'rect', key, x, y, w, h, color: color || RULE, alpha });
   }
 
-  /* Hit regions are generous: the visual mark is a 12px word, but the target
-     that answers a finger is at least the 44px both Apple and WCAG ask for.
+  /* Hit regions are generous: the visual mark may be a 12px word, but the
+     target that answers a finger is at least 44px in BOTH directions - which
+     is the point of the rule, and which flooring only the height quietly
+     misses. "中" sets about 11px wide; the mark is the label, not the button.
      main.js turns each of these into a real focusable DOM element. */
   hit(id, run, x, baseline, meta) {
     const h = Math.max(44, run.lineHeight + 16);
+    const w = Math.max(44, run.width + 12);
     this.hits.push({
       id,
-      x: Math.round(x - 6),
+      x: Math.round(x + run.width / 2 - w / 2),
       y: Math.round(baseline - run.ascent - (h - run.lineHeight) / 2),
-      w: Math.round(run.width + 12),
+      w: Math.round(w),
       h: Math.round(h),
       ...meta,
     });
@@ -319,12 +322,14 @@ function band(scene, content, view, lang, g) {
 
   const card = scene.text('nav.card', content.nav.card[lang], S.nav, g.left, y,
     view === 'card' ? INK : dim, { mode: 'attn' });
-  scene.hit('view:card', card, g.left, y, { key: 'nav.card', label: content.nav.card.en, pressed: view === 'card' });
+  /* The accessible name follows the drawn word, so a screen reader and the
+     canvas never disagree about what the button says. */
+  scene.hit('view:card', card, g.left, y, { key: 'nav.card', label: content.nav.card[lang], lang: lang === 'zh' ? 'zh-Hans' : 'en', pressed: view === 'card' });
 
-  const cvX = g.left + card.width + Math.max(22, g.vw * 0.02);
+  const cvX = g.left + card.width + Math.max(28, g.vw * 0.022);
   const cv = scene.text('nav.cv', content.nav.cv[lang], S.nav, cvX, y,
     view === 'cv' ? INK : dim, { mode: 'attn' });
-  scene.hit('view:cv', cv, cvX, y, { key: 'nav.cv', label: content.nav.cv.en, pressed: view === 'cv' });
+  scene.hit('view:cv', cv, cvX, y, { key: 'nav.cv', label: content.nav.cv[lang], lang: lang === 'zh' ? 'zh-Hans' : 'en', pressed: view === 'cv' });
 
   /* The toggle shows both languages at once: the one you are not reading is
      the button. Nothing here morphs - it is a switch, and a switch that
@@ -333,7 +338,9 @@ function band(scene, content, view, lang, g) {
     lang === 'zh' ? INK : dim, { align: 'right' });
   const zhX = g.right - zh.width;
 
-  const gap = Math.max(16, g.vw * 0.014);
+  /* Wide enough that two 44px targets centred on their marks do not overlap:
+     EN sets about 18px and 中 about 11px, so the gap has to carry the rest. */
+  const gap = Math.max(32, g.vw * 0.022);
   const en = scene.text('nav.en', 'EN', S.nav, zhX - gap, y, lang === 'en' ? INK : dim, { align: 'right' });
   /* 中 is drawn first because EN is positioned relative to it, but the hits go
      in the order they are read - and the hit order is the tab order. */

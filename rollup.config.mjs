@@ -1,9 +1,11 @@
+import fs from 'node:fs';
 import { nodeResolve } from '@rollup/plugin-node-resolve';
 import json from '@rollup/plugin-json';
 import postcss from 'rollup-plugin-postcss';
 import copy from 'rollup-plugin-copy';
 import serve from 'rollup-plugin-serve';
 import livereload from 'rollup-plugin-livereload';
+import { renderMirror } from './src/js/mirror.js';
 
 /* ---------------------------------------------------------------------------
    Build
@@ -46,7 +48,18 @@ export default {
     }),
     copy({
       targets: [
-        { src: 'src/index.html',   dest: 'dist' },
+        {
+          src: 'src/index.html',
+          dest: 'dist',
+          /* The accessible mirror is inlined at build time from the same
+             function main.js uses at runtime, so the page a crawler or a
+             visitor without JavaScript sees is the WHOLE document rather than
+             a hand-written summary that drifts away from content.json. */
+          transform: (contents) => {
+            const content = JSON.parse(fs.readFileSync('src/content/content.json', 'utf8'));
+            return contents.toString().replace('<!--mirror-->', renderMirror(content, 'en', false));
+          },
+        },
         { src: 'src/404.html',     dest: 'dist' },   // Vercel serves this for not-found routes
         { src: 'src/content',      dest: 'dist' },   // content.json shipped for reference/edits
         { src: 'public/*',         dest: 'dist' },   // favicon, square.png, etc.

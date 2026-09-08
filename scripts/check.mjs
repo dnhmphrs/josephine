@@ -17,7 +17,8 @@
    they should, that a rapid triple language toggle leaves the state, the
    mirror and the drawing agreeing, and that the page still says who she is
    with WebGL removed, with localStorage throwing, without Intl.Segmenter,
-   under prefers-reduced-motion, at 320x480, and through a resize storm.
+   under prefers-reduced-motion, at 320x480, through a resize storm, across a
+   lost and restored WebGL context, and with scripting disabled entirely.
 
    Playwright is deliberately NOT a dependency - see scripts/og.mjs.
    =========================================================================== */
@@ -176,6 +177,36 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
   d=await p.evaluate(()=>window.__stage.diag());
   ok('survives a resize storm', d.overflow===0 && d.quads>0, JSON.stringify(d));
   ok('resize storm: no errors', errs.length===0, errs.slice(0,2).join(' | '));
+  await b.close();
+}
+
+/* --- 7. WebGL context loss and restore ------------------------------------ */
+{
+  const b=await chromium.launch({args:GL});
+  const ctx=await b.newContext({viewport:{width:1280,height:800},deviceScaleFactor:2});
+  const p=await ctx.newPage();
+  const errs=[]; p.on('pageerror',e=>errs.push(e.message));
+  await p.goto(URL,{waitUntil:'networkidle'}); await p.waitForTimeout(1800);
+  const lost=await p.evaluate(()=>{ const gl=document.getElementById('stage').getContext('webgl'); const ext=gl.getExtension('WEBGL_lose_context'); if(!ext) return 'no-ext'; ext.loseContext(); setTimeout(()=>ext.restoreContext(),300); return 'ok'; });
+  await p.waitForTimeout(2500);
+  const d=await p.evaluate(()=>window.__stage ? window.__stage.diag() : null);
+  ok('context loss then restore recovers', lost==='no-ext' || (d && d.quads>0), JSON.stringify({lost,d}));
+  ok('context loss: no errors', errs.length===0, errs[0]||'');
+  await b.close();
+}
+
+/* --- 8. scripting disabled ------------------------------------------------ */
+{
+  const b=await chromium.launch({args:GL});
+  const ctx=await b.newContext({viewport:{width:1280,height:800},javaScriptEnabled:false});
+  const p=await ctx.newPage();
+  await p.goto(URL,{waitUntil:'load'});
+  const visible=await p.isVisible('#a11y h1');
+  const top=await p.$eval('#a11y h1', e=>e.getBoundingClientRect().top);
+  ok('no JS: the mirror is visible', visible);
+  ok('no JS: it is above the fold', top>=0 && top<800, 'top='+Math.round(top));
+  ok('no JS: it carries the email', /proton\.me/.test(await p.textContent('#a11y')||''));
+  await p.screenshot({path:`${OUT}/no-js.png`, fullPage:true});
   await b.close();
 }
 

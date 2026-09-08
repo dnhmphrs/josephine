@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="no-js">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -7,6 +7,11 @@
   <meta name="description" content="Josephine Shen — AI policy researcher. Geopolitics and technology governance across China, the EU and the multilateral system. Berlin." />
   <meta name="author" content="Josephine Shen" />
   <meta name="theme-color" content="#d5d3ce" />
+
+  <!-- One class carries both degraded paths. It is removed immediately if
+       scripting is on, and put back by main.js if WebGL turns out not to be -
+       so the stylesheet has a single selector for "the mirror is the page". -->
+  <script>document.documentElement.classList.remove('no-js')</script>
 
   <link rel="icon" href="/favicon.ico" sizes="any" />
 
@@ -57,20 +62,21 @@
        readers, crawlers and anyone whose GPU refuses. Visually hidden, never
        painted. Populated from content.json by main.js; the card is inlined here so
        it survives with JavaScript disabled. -->
-  <main id="a11y" class="sr">
-    <h1>Josephine Shen</h1>
-    <p>AI policy researcher. Geopolitics and technology governance across China, the European Union and the multilateral system.</p>
-    <p>Berlin, Germany. Working in English and 中文.</p>
-    <p><a href="mailto:Josephine.shen@proton.me">Josephine.shen@proton.me</a></p>
-  </main>
+  <!-- The accessible mirror. Every string the canvas draws, as a real
+       document, for screen readers, search engines and anyone whose scripting
+       or GPU is not available - in which case this stops being a mirror and
+       becomes the page. The markup is inlined here at build time and rewritten
+       by main.js on load; both come from src/js/mirror.js, so they cannot
+       disagree. -->
+  <main id="a11y" class="sr"><!--mirror--></main>
 
+  <!-- With scripting off, #a11y above is already the whole document in the
+       accessibility tree and in the page; repeating it here would give the
+       document two <h1>s and two copies of the card that could drift apart.
+       This says only the one thing #a11y cannot. -->
   <noscript>
-    <div class="noscript">
-      <h1>Josephine Shen</h1>
-      <p>AI policy researcher — geopolitics and technology governance.</p>
-      <p>Berlin, Germany · <a href="mailto:Josephine.shen@proton.me">Josephine.shen@proton.me</a></p>
-      <p><small>This site renders in WebGL and needs JavaScript.</small></p>
-    </div>
+    <p class="noscript">This page draws itself in WebGL, and needs JavaScript to
+      do it. What you are reading is the same text, as a plain document.</p>
   </noscript>
 
 <script type="module" src="/js/main.js"></script>
