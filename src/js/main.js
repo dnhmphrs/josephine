@@ -333,18 +333,27 @@ async function boot(stage) {
      them properly the moment the real one lands. */
   loadFonts(deferredFontSpecs(content, innerWidth, state.lang)).then(relayout).catch(() => {});
 
-  /* Hooks for the screenshot harness in scratch; harmless in production. */
-  window.__hit = (what) => act(what === 'lang' ? (state.lang === 'en' ? 'lang:zh' : 'lang:en')
-    : what === 'cv' ? 'view:cv' : what === 'card' ? 'view:card' : what);
-  window.__atlas = () => engine.atlas.toDataURL('image/png');
-  window.__items = () => scene().items.filter((i) => i.kind === 'text')
-    .map((i) => ({ key: i.key, text: i.run.text, x: Math.round(i.x), y: Math.round(i.y), w: Math.round(i.run.width) }));
-  window.__grid = () => ({ colW: state.grid.colW, left: state.grid.left, cols: state.grid.cols, gutter: state.grid.gutter });
-  window.__diag = () => ({
-    view: state.view, lang: state.lang, cols: state.grid.cols, dpr: engine.dpr,
-    atlas: engine.size, overflow: engine.overflow,
-    quads: marks.count, height: Math.round(scene().height),
-  });
+  /* The test surface. scripts/check.mjs drives the built site through this,
+     because there is no other way to ask a canvas what it is showing. Kept
+     small and read-only; `act` is the same function the hit layer calls. */
+  window.__stage = {
+    act,
+    toggleLang: () => act(state.lang === 'en' ? 'lang:zh' : 'lang:en'),
+    diag: () => ({
+      view: state.view, lang: state.lang, cols: state.grid.cols, dpr: engine.dpr,
+      atlas: engine.size, overflow: engine.overflow,
+      quads: marks.count, height: Math.round(scene().height),
+    }),
+    grid: () => ({ ...state.grid, colX: undefined }),
+    /* Every placed run, for checking that nothing overflows its column. */
+    items: () => scene().items.filter((i) => i.kind === 'text').map((i) => ({
+      key: i.key, text: i.run.text,
+      x: Math.round(i.x), y: Math.round(i.y), w: Math.round(i.run.width),
+    })),
+    /* The atlas itself, as a PNG data URL - the fastest way to tell whether a
+       packing or rasterisation bug is in the texture or in the draw. */
+    atlas: () => engine.atlas.toDataURL('image/png'),
+  };
 }
 
 /* ---------------------------------------------------------------------------

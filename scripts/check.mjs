@@ -59,12 +59,12 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
 
   // click CV via the real DOM element
   await p.click('[data-id="view:cv"]'); await p.waitForTimeout(700);
-  let d=await p.evaluate(()=>window.__diag());
+  let d=await p.evaluate(()=>window.__stage.diag());
   ok('clicking CV switches view', d.view==='cv', JSON.stringify(d));
   ok('CV is taller than the viewport at 1280', d.height>0);
 
   await p.click('[data-id="lang:zh"]'); await p.waitForTimeout(1000);
-  d=await p.evaluate(()=>window.__diag());
+  d=await p.evaluate(()=>window.__stage.diag());
   ok('clicking 中 switches language', d.lang==='zh');
   ok('<html lang> follows', (await p.evaluate(()=>document.documentElement.lang))==='zh-Hans');
   ok('mirror follows language', (await p.textContent('#a11y h1'))==='沈菲菲');
@@ -74,7 +74,7 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
   await p.click('[data-id="lang:en"]'); await p.waitForTimeout(120);
   await p.click('[data-id="lang:zh"]'); await p.waitForTimeout(120);
   await p.click('[data-id="lang:en"]'); await p.waitForTimeout(1400);
-  d=await p.evaluate(()=>window.__diag());
+  d=await p.evaluate(()=>window.__stage.diag());
   ok('survives a rapid triple toggle', d.lang==='en', JSON.stringify(d));
   ok('mirror agrees after the storm', (await p.textContent('#a11y h1'))==='Josephine Shen');
 
@@ -88,7 +88,7 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
   await p.evaluate(()=>{document.querySelector('[data-id="view:cv"]').focus()});
   await p.waitForTimeout(200);
   await p.keyboard.press('Enter'); await p.waitForTimeout(700);
-  d=await p.evaluate(()=>window.__diag());
+  d=await p.evaluate(()=>window.__stage.diag());
   ok('Enter activates a control', d.view==='cv');
   await p.screenshot({path:`${OUT}/focus-ring.png`, clip:{x:0,y:0,width:400,height:140}});
 
@@ -104,7 +104,7 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
   const errs=[]; p.on('pageerror',e=>errs.push(e.message));
   await p.goto(URL,{waitUntil:'networkidle'}); await p.waitForTimeout(1800);
   await p.click('[data-id="lang:zh"]'); await p.waitForTimeout(600);
-  const d=await p.evaluate(()=>window.__diag());
+  const d=await p.evaluate(()=>window.__stage.diag());
   ok('reduced motion: morph completes', d.lang==='zh' && d.quads>0, JSON.stringify(d));
   ok('reduced motion: no errors', errs.length===0, errs[0]||'');
   await p.screenshot({path:`${OUT}/reduced.png`});
@@ -137,7 +137,7 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
   const p=await ctx.newPage();
   const errs=[]; p.on('pageerror',e=>errs.push(e.message));
   await p.goto(URL,{waitUntil:'networkidle'}); await p.waitForTimeout(1800);
-  const d=await p.evaluate(()=>window.__diag ? window.__diag() : null);
+  const d=await p.evaluate(()=>window.__stage ? window.__stage.diag() : null);
   ok('localStorage blocked: still boots', !!d, JSON.stringify(d));
   ok('localStorage blocked: no errors', errs.length===0, errs[0]||'');
   await b.close();
@@ -151,7 +151,7 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
   const p=await ctx.newPage();
   const errs=[]; p.on('pageerror',e=>errs.push(e.message));
   await p.goto(URL,{waitUntil:'networkidle'}); await p.waitForTimeout(1800);
-  const d=await p.evaluate(()=>window.__diag ? window.__diag() : null);
+  const d=await p.evaluate(()=>window.__stage ? window.__stage.diag() : null);
   ok('no Intl.Segmenter: still boots', !!d && d.overflow===0, JSON.stringify(d));
   ok('no Intl.Segmenter: no errors', errs.length===0, errs[0]||'');
   await b.close();
@@ -164,12 +164,12 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
   const p=await ctx.newPage();
   const errs=[]; p.on('pageerror',e=>errs.push(e.message));
   await p.goto(URL,{waitUntil:'networkidle'}); await p.waitForTimeout(1800);
-  let d=await p.evaluate(()=>window.__diag());
+  let d=await p.evaluate(()=>window.__stage.diag());
   ok('320x480 lays out', d.cols===1 && d.overflow===0, JSON.stringify(d));
   await p.screenshot({path:`${OUT}/320.png`});
   for (const w of [360,420,700,760,1100,1300,1700,2400,900,500]) { await p.setViewportSize({width:w,height:700}); await p.waitForTimeout(60); }
   await p.waitForTimeout(900);
-  d=await p.evaluate(()=>window.__diag());
+  d=await p.evaluate(()=>window.__stage.diag());
   ok('survives a resize storm', d.overflow===0 && d.quads>0, JSON.stringify(d));
   ok('resize storm: no errors', errs.length===0, errs.slice(0,2).join(' | '));
   await b.close();
