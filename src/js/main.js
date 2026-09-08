@@ -150,8 +150,14 @@ async function boot(stage) {
     return (svhProbe && svhProbe.offsetHeight) || innerHeight;
   }
 
-  function syncProxy() {
-    proxy.style.height = `${Math.ceil(scene().height)}px`;
+  function syncProxy(spanning) {
+    let h = scene().height;
+    if (spanning) {
+      /* Both languages of the current view, so the document cannot shrink
+         under the reader mid-transition. */
+      for (const lang of ['en', 'zh']) h = Math.max(h, state.scenes[`${state.view}:${lang}`].height);
+    }
+    proxy.style.height = `${Math.ceil(h)}px`;
   }
 
   /* --- transitions ------------------------------------------------------- */
@@ -174,8 +180,12 @@ async function boot(stage) {
        elapsed, so correcting yourself feels quicker than committing - which is
        right. Traces are suppressed for the rest of a reversed transition;
        strobing hairlines are the one way this becomes cheap. */
-    if (tr && tr.kind === 'lang' && tr.fromLang === next) {
-      tr.dir = -1;
+    if (tr && tr.kind === 'lang') {
+      /* Both directions: a lang plan always runs between the two languages of
+         the current view, so a third press is a request to run the same plan
+         the other way, not to build a new one. Only flipping on a match would
+         restart from zero and stack a second identical plan on the first. */
+      tr.dir = tr.fromLang === next ? -1 : 1;
       tr.suppressTrace = true;
     } else {
       const fromLang = state.lang;
@@ -187,8 +197,14 @@ async function boot(stage) {
     document.documentElement.lang = next === 'zh' ? 'zh-Hans' : 'en';
     try { localStorage.setItem('lang', next); } catch (e) { /* ignore */ }
     updateMirror(state.lang, true);
-    syncProxy();
-    syncHits();
+    /* The proxy is held at the taller of the two while the morph runs, and the
+       hit layer is left where it is. Committing either at press time would move
+       the ground under a reader who is halfway down the Chinese CV - which is
+       shorter than the English one, so the browser clamps their scroll and the
+       page jumps - and would slide the nav's targets to the new language's
+       geometry ahead of the glyphs they stand for. Both settle in the frame
+       loop when the transition lands. */
+    syncProxy(true);
     state.dirty = true;
   }
 

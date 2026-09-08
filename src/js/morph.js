@@ -231,6 +231,12 @@ export function drawScene(marks, scene, alpha = 1, hoverKey = null) {
 const HOVER_INK = [0.086, 0.086, 0.102];
 
 const lerp = (a, b, t) => a + (b - a) * t;
+
+/* One scratch transform, reused. runTransformed consumes what the callback
+   returns immediately and never keeps it, and a morph across the CV asks for
+   several hundred of these a frame - which is a lot of short-lived garbage to
+   make during the one second of the page's life that must not stutter. */
+const TF = { x: 0, y: 0, s: 1, a: 1 };
 function lerpCol(a, b, t) {
   return [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
 }
@@ -320,10 +326,20 @@ function drawWipe(marks, op, ms) {
   const E = -soft + sweep * e;
   const lag = 0.14 * sweep;
 
-  marks.runTransformed(a.run, x, y, a.color, a.alpha, (i, g) =>
-    ({ x: 0, y: 0, s: 1, a: 1 - smooth(E - soft, E, (g.x0 + g.x1) * 0.5 - x) }));
-  marks.runTransformed(b.run, x, y, b.color, b.alpha, (j, g) =>
-    ({ x: 0, y: 0, s: 1, a: smooth(E - soft - lag, E - lag, (g.x0 + g.x1) * 0.5 - x) }));
+  /* Ahead of the edge the old language is still standing; behind it, it is
+     gone. The new one is the reverse, a lag further back - which is what opens
+     the band of bare concrete between them. Getting these two the wrong way
+     round makes every line flash its translation, sweep back to the original,
+     and then hard-cut, which is precisely what the early-outs above disguise at
+     the two endpoints. */
+  marks.runTransformed(a.run, x, y, a.color, a.alpha, (i, g) => {
+    TF.a = smooth(E - soft, E, (g.x0 + g.x1) * 0.5 - x);
+    return TF;
+  });
+  marks.runTransformed(b.run, x, y, b.color, b.alpha, (j, g) => {
+    TF.a = 1 - smooth(E - soft - lag, E - lag, (g.x0 + g.x1) * 0.5 - x);
+    return TF;
+  });
 }
 
 function drawAttention(marks, op, ms, suppressTrace) {
@@ -336,12 +352,17 @@ function drawAttention(marks, op, ms, suppressTrace) {
      The discipline is that it must be gone before you can study it: if you can
      stop and count the lines, it has failed. */
   if (op.trace && !suppressTrace) {
-    for (const [i, j, k] of op.trace) {
-      const t0 = 150 + 55 * j;
+    op.trace.forEach(([i, j, k], idx) => {
+      /* Scheduled by position in this list, not by the target glyph's index.
+         When the target is the long side - Chinese to English, three glyphs
+         becoming fourteen - the pairs carry j values up to 13, and a schedule
+         of 150 + 55j would start two of the four traces after the transition
+         has already ended. */
+      const t0 = 150 + 55 * idx;
       const draw = smooth(t0, t0 + 180, ms);
-      if (draw <= 0) continue;
+      if (draw <= 0) return;
       const alpha = 0.10 * k * draw * (1 - smooth(t0 + 270, t0 + 430, ms));
-      if (alpha <= 0.002) continue;
+      if (alpha <= 0.002) return;
       /* From just under the departing glyph to the middle of the arriving one.
          Both endpoints on the baseline would draw a horizontal line, which
          reads as an underline rather than as a mapping; the rise is what makes
@@ -352,7 +373,7 @@ function drawAttention(marks, op, ms, suppressTrace) {
       const y1 = cb[j * 2 + 1] - (b.run.capHeight || b.run.ascent * 0.7) * 0.45;
       marks.line(x0, y0, lerp(x0, x1, draw), lerp(y0, y1, draw),
         1 / marks.engine.dpr, a.color, alpha);
-    }
+    });
   }
 
   const scaled = (dx, dy) => {
@@ -368,17 +389,15 @@ function drawAttention(marks, op, ms, suppressTrace) {
   marks.runTransformed(a.run, a.x, a.y, a.color, a.alpha, (i) => {
     const raw = clamp((local - (n > 1 ? 0.05 * (i / (n - 1)) : 0)) / 0.70, 0, 1);
     const move = easeInOut(raw) * scaled(aAnchor[i * 2] - ca[i * 2], aAnchor[i * 2 + 1] - ca[i * 2 + 1]);
-    return {
-      x: (aAnchor[i * 2] - ca[i * 2]) * move,
-      y: (aAnchor[i * 2 + 1] - ca[i * 2 + 1]) * move,
-      s: 1 - 0.09 * easeInOut(raw),
-      /* Alpha runs on RAW time, not on the eased position. easeOutQuint spends
-         half its travel in the first eighth of the clock - which is what makes
-         the landing invisible - so tying opacity to it too would have the whole
-         morph perceptually over in 200ms and the remaining half-second would be
-         a tail nobody sees. */
-      a: 1 - smooth(0.25, 0.80, raw),
-    };
+    TF.x = (aAnchor[i * 2] - ca[i * 2]) * move;
+    TF.y = (aAnchor[i * 2 + 1] - ca[i * 2 + 1]) * move;
+    TF.s = 1 - 0.09 * easeInOut(raw);
+    /* Alpha runs on RAW time, not on the eased position: the position curve
+       spends most of its travel early, which is what makes the landing
+       invisible, and tying opacity to it too would have the morph perceptually
+       over in 200ms with half a second of tail nobody sees. */
+    TF.a = 1 - smooth(0.25, 0.80, raw);
+    return TF;
   });
 
   /* Arrivals. They start where the same matrix says they came from and settle
@@ -387,12 +406,11 @@ function drawAttention(marks, op, ms, suppressTrace) {
     const raw = clamp((local - (0.16 + (m > 1 ? 0.10 * (j / (m - 1)) : 0))) / 0.72, 0, 1);
     const eased = easeInOut(raw);
     const move = (1 - eased) * scaled(bAnchor[j * 2] - cb[j * 2], bAnchor[j * 2 + 1] - cb[j * 2 + 1]);
-    return {
-      x: (bAnchor[j * 2] - cb[j * 2]) * move,
-      y: (bAnchor[j * 2 + 1] - cb[j * 2 + 1]) * move,
-      s: 0.92 + 0.08 * eased,
-      a: smooth(0.10, 0.70, raw),
-    };
+    TF.x = (bAnchor[j * 2] - cb[j * 2]) * move;
+    TF.y = (bAnchor[j * 2 + 1] - cb[j * 2 + 1]) * move;
+    TF.s = 0.92 + 0.08 * eased;
+    TF.a = smooth(0.10, 0.70, raw);
+    return TF;
   });
 }
 
