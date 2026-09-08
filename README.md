@@ -51,6 +51,7 @@ src/
     gl.js               the renderer
     layout.js           the box model
     morph.js            the language morph
+    mirror.js           the accessible document, as a pure function
     main.js             state, transitions, the DOM layers
   styles/main.css       ~120 lines, and none of them style any text
 public/fonts/           subset woff2 + the generated @font-face rules
@@ -103,8 +104,12 @@ The canvas is a picture of text, and a picture of text is not text. Two hidden
 layers keep the page an actual document:
 
 - `#a11y` mirrors every string as real headings, lists and links, for screen
-  readers, search engines, and the case where WebGL is unavailable (where it
-  becomes the visible page).
+  readers, search engines, and the case where WebGL — or JavaScript — is
+  unavailable, where it stops being a mirror and becomes the visible page, set
+  in the same two faces. `mirror.js` renders it as a pure function, which
+  `main.js` writes in on load and which the Rollup build calls to inline the
+  same markup into `index.html`; so the page a crawler sees is the whole
+  document, and there is no second copy to drift away from `content.json`.
 - `#scroll` carries a transparent `<a>` or `<button>` over every interactive
   mark, in content coordinates. Tab order, Enter, the pointer cursor, touch
   slop, the status-bar URL preview, `mailto:` context menus and cmd-click all
@@ -180,6 +185,13 @@ is ever orphaned from its heading.
   dissolve in place.
 - If the atlas will not fit in the GPU's largest texture, the page re-lays out
   at DPR 1 rather than splitting into several draw calls.
+- A lost WebGL context is caught, cancelled (so the browser will offer it back)
+  and rebuilt; if it does not return within five seconds the page falls through
+  to the mirror. The first paint waits on the webfonts, but only for 1.5s — a
+  canvas has no fallback face to paint in the meantime.
+- Text is rasterised at up to 2x device pixels. On a 3x phone the type is
+  therefore upscaled by half; raising the cap is a one-line change in
+  `main.js`, at the cost of a much larger atlas.
 - `_archive/webgpu/` holds the previous WebGPU background — the silk shader
   whose vocabulary (washi, gofun white, ink in damp paper) the current ground
   descends from. Nothing there is bundled.
