@@ -227,7 +227,15 @@ class Scene {
      change: 'attn' for the per-glyph attention morph, anything else for the
      decode wipe. See morph.js. */
   text(key, str, role, x, baseline, color, opts = {}) {
-    const spec = { ...adapt(role, this.lang), text: role.upper ? str.toUpperCase() : str };
+    /* The Chinese corrections apply to Chinese. A string with no Han in it -
+       an email address, "LinkedIn", "2020—22", "AIxist" - is the same object in
+       both languages and must be set identically, or the two scenes hold two
+       nearly-identical runs, the morph treats them as a translation pair, and
+       an email address dissolves into a 10%-smaller copy of itself. */
+    const spec = {
+      ...adapt(role, HAN.test(str) ? this.lang : 'en'),
+      text: role.upper ? str.toUpperCase() : str,
+    };
     const run = this.engine.run(spec);
     let px = x;
     if (opts.align === 'right') px = x - run.width;
@@ -385,9 +393,14 @@ function cardBlock(engine, content, lang, g, shape) {
   y += u * 2.6 + (nameRun.capHeight || nameRun.ascent * 0.72);
   scene.text('card.name', c.name[lang], name, g.left, y, INK, { mode: 'attn', tier: 1, trace: true });
 
+  /* The lede's slot is as tall as the language that needs the most lines, so
+     that everything below it holds still through a morph. The language that
+     needs fewer sits centred in the slot rather than at the top of it, which
+     halves the hole and keeps the card looking composed rather than short. */
   y += u * 2.4 + lineRun.ascent;
+  const slack = Math.max(0, shape.lines - lines.length) * LEAD.line * 0.5;
   lines.forEach((t, i) => {
-    scene.text(`card.line.${i}`, t, S.line, g.left, y + i * LEAD.line, INK_2);
+    scene.text(`card.line.${i}`, t, S.line, g.left, y + slack + i * LEAD.line, INK_2);
   });
   y += (shape.lines - 1) * LEAD.line;
 

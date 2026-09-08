@@ -254,7 +254,7 @@ export function drawPlan(marks, plan, ms, opts = {}) {
 
       case 'out': {
         const { a } = op;
-        const k = 1 - smooth(0, 0.55 * D, ms);
+        const k = 1 - smooth(0, 0.38 * D, ms);
         if (a.kind === 'rect') marks.rect(a.x, a.y, a.w, a.h, a.color, a.alpha * k);
         else marks.run(a.run, a.x, a.y + (reduced ? 0 : -5 * e), a.color, a.alpha * k);
         break;

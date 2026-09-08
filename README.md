@@ -18,6 +18,10 @@ npm run preview  # serve the built dist/
 npm run fonts    # re-fetch and re-subset the webfonts (see below)
 ```
 
+`scripts/og.mjs` regenerates the link-preview image by photographing the built
+site at 1200x630, so the preview can never drift out of date with the card. It
+needs Playwright, which is deliberately not a dependency — see the script.
+
 Deploys on Vercel as a static build (`outputDirectory: dist`).
 
 ## How it works
@@ -34,6 +38,7 @@ src/
     main.js             state, transitions, the DOM layers
   styles/main.css       ~120 lines, and none of them style any text
 public/fonts/           subset woff2 + the generated @font-face rules
+public/og.jpg           the link preview: a photograph of the card itself
 ```
 
 **text.js — the glyph atlas.** Nothing here is DOM text, so type has to become
