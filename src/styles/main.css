@@ -20,6 +20,10 @@ html {
   -webkit-text-size-adjust: 100%;
   scrollbar-width: thin;
   scrollbar-color: #a9a7a2 transparent;
+  /* Reserve the scrollbar's width whether or not it is showing. Without it the
+     canvas is 15px narrower on the scrolling view than on the non-scrolling
+     one, and switching between them reflows the whole page sideways. */
+  scrollbar-gutter: stable;
   /* No smooth-scroll: the canvas reads scrollY every frame and any CSS easing
      on top of that reads as lag. */
 }

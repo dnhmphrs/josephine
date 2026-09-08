@@ -182,12 +182,33 @@ function pieces(text) {
     } else if (ch === ' ') {
       out.push(buf + ' ');
       buf = '';
+    } else if (ch === '-' || ch === '/') {
+      /* A hyphenated compound breaks at its joint before it breaks anywhere
+         worse. The break character stays on the first line, as it should. */
+      out.push(buf + ch);
+      buf = '';
     } else {
       buf += ch;
     }
   }
   if (buf) out.push(buf);
   return out;
+}
+
+/* A token with no break opportunity in it and no room to sit - a URL, a very
+   long compound - has to be cut somewhere, because nothing downstream clips and
+   it would otherwise run off the page. Cut it by character. */
+function hardBreak(engine, role, token, maxW, out) {
+  let cur = '';
+  for (const ch of token) {
+    if (cur && engine.measure({ ...role, text: cur + ch }) > maxW) {
+      out.push(cur);
+      cur = ch;
+    } else {
+      cur += ch;
+    }
+  }
+  return cur;
 }
 
 function wrap(engine, text, role, maxW) {
@@ -201,6 +222,9 @@ function wrap(engine, text, role, maxW) {
       cur = p.trimStart();
     } else {
       cur = next;
+    }
+    if (cur.trim() && engine.measure({ ...role, text: cur.trimEnd() }) > maxW) {
+      cur = hardBreak(engine, role, cur.trimEnd(), maxW, lines);
     }
   }
   if (cur.trim()) lines.push(cur.trimEnd());
@@ -295,12 +319,12 @@ function band(scene, content, view, lang, g) {
 
   const card = scene.text('nav.card', content.nav.card[lang], S.nav, g.left, y,
     view === 'card' ? INK : dim, { mode: 'attn' });
-  scene.hit('view:card', card, g.left, y, { key: 'nav.card', role: 'tab', label: content.nav.card.en, selected: view === 'card' });
+  scene.hit('view:card', card, g.left, y, { key: 'nav.card', label: content.nav.card.en, pressed: view === 'card' });
 
   const cvX = g.left + card.width + Math.max(22, g.vw * 0.02);
   const cv = scene.text('nav.cv', content.nav.cv[lang], S.nav, cvX, y,
     view === 'cv' ? INK : dim, { mode: 'attn' });
-  scene.hit('view:cv', cv, cvX, y, { key: 'nav.cv', role: 'tab', label: content.nav.cv.en, selected: view === 'cv' });
+  scene.hit('view:cv', cv, cvX, y, { key: 'nav.cv', label: content.nav.cv.en, pressed: view === 'cv' });
 
   /* The toggle shows both languages at once: the one you are not reading is
      the button. Nothing here morphs - it is a switch, and a switch that
@@ -308,11 +332,13 @@ function band(scene, content, view, lang, g) {
   const zh = scene.text('nav.zh', '中', { ...S.nav, tracking: 0 }, g.right, y,
     lang === 'zh' ? INK : dim, { align: 'right' });
   const zhX = g.right - zh.width;
-  scene.hit('lang:zh', zh, zhX, y, { key: 'nav.zh', label: '中文', lang: 'zh-Hans', pressed: lang === 'zh' });
 
   const gap = Math.max(16, g.vw * 0.014);
   const en = scene.text('nav.en', 'EN', S.nav, zhX - gap, y, lang === 'en' ? INK : dim, { align: 'right' });
+  /* 中 is drawn first because EN is positioned relative to it, but the hits go
+     in the order they are read - and the hit order is the tab order. */
   scene.hit('lang:en', en, zhX - gap - en.width, y, { key: 'nav.en', label: 'English', lang: 'en', pressed: lang === 'en' });
+  scene.hit('lang:zh', zh, zhX, y, { key: 'nav.zh', label: '中文', lang: 'zh-Hans', pressed: lang === 'zh' });
 
   return y + Math.max(20, g.vw * 0.018);
 }
@@ -369,7 +395,10 @@ function cardBlock(engine, content, lang, g, shape) {
      against the content width and taken down if it would not fit. */
   const nameRole = adapt(S.name, lang);
   const nameW = engine.measure({ ...nameRole, text: c.name[lang] });
-  const fit = nameW > g.contentW ? Math.max(0.8, g.contentW / nameW) : 1;
+  /* No floor. A floor would mean the "never wraps, never overflows" guarantee
+     only holds up to some multiple of the content width, and nothing downstream
+     clips - the name would simply run off the right of the page. */
+  const fit = nameW > g.contentW ? g.contentW / nameW : 1;
   const name = { ...S.name, size: S.name.size * fit };
 
   const nameRun = engine.run({ ...adapt(name, lang), text: c.name[lang] });
@@ -469,11 +498,15 @@ function measureSections(engine, content, lang, g, S) {
     const entries = sec.entries.map((e) => {
       const titles = wrap(engine, e.title[lang], adapt(S.title, lang), g.colW);
       const bits = [e.year, e.org && e.org[lang] ? e.org[lang] : ''].filter(Boolean);
-      const meta = bits.join('  ·  ');
+      /* The meta line wraps like the title does. It is usually one line, but
+         "2023—  ·  Civil society, industry, institutions" in a 328px column is
+         not, and nothing downstream clips: an unwrapped meta line would draw
+         straight over its neighbour and off the page. */
+      const meta = bits.length ? wrap(engine, bits.join('  ·  '), adapt(S.meta, lang), g.colW) : [];
       return {
         e, titles, meta,
         height: probe.ascent + (titles.length - 1) * LEAD.title
-          + (meta ? u * 1.5 + metaProbe.ascent : 0) + u * 2.1,
+          + (meta.length ? u * 1.5 + metaProbe.ascent + (meta.length - 1) * LEAD.meta : 0) + u * 2.1,
       };
     });
     const height = u * 1.6 + h.lineHeight + u * 2 + entries.reduce((a, x) => a + x.height, 0) + u * 2.2;
@@ -497,7 +530,12 @@ function partition(heights, k) {
     for (let i = 0; i <= n; i++) {
       for (let j = 0; j <= i; j++) {
         const v = Math.max(dp[c - 1][j], sum(j, i));
-        if (v < dp[c][i]) { dp[c][i] = v; cut[c][i] = j; }
+        /* <= not <, so that among equally optimal cuts the LAST one wins.
+           With a strict comparison the smallest j survives, which means that
+           whenever the objective is indifferent - fewer sections than columns,
+           say - the reconstruction starves the leftmost columns and the CV
+           opens with a blank column. */
+        if (v <= dp[c][i]) { dp[c][i] = v; cut[c][i] = j; }
       }
     }
   }
@@ -531,9 +569,12 @@ function cvView(engine, content, lang, g, vh, topY, assignment, measured) {
         scene.text(`cv.${si}.${ei}.title.${k}`, t, S.title, x, y + k * m.LEAD.title, INK);
       });
       y += (en.titles.length - 1) * m.LEAD.title;
-      if (en.meta) {
+      if (en.meta.length) {
         y += u * 1.5 + m.metaProbe.ascent;
-        scene.text(`cv.${si}.${ei}.meta`, en.meta, S.meta, x, y, INK_3);
+        en.meta.forEach((t, k) => {
+          scene.text(`cv.${si}.${ei}.meta.${k}`, t, S.meta, x, y + k * m.LEAD.meta, INK_3);
+        });
+        y += (en.meta.length - 1) * m.LEAD.meta;
       }
       y += u * 2.1;
     });
@@ -619,22 +660,24 @@ export function fontSpecs(content, vw, lang) {
     out.push({ family, weight, size, sample });
   };
 
-  const zhText = [
-    content.card.name.zh, content.card.role.zh, content.card.line.zh,
-    ...content.card.fields.map((f) => f.label.zh + f.value.zh),
-    ...content.cv.map((s) => s.section.zh + s.entries.map((e) => e.title.zh + (e.org ? e.org.zh : '')).join('')),
-    content.nav.card.zh, content.nav.cv.zh,
+  /* Every string this language sets, so the request can be made per ROLE
+     rather than per script. It is not enough to ask the display face for Han:
+     the English card sets "English, 中文" in the serif, and asking only the
+     display family for it leaves the first paint of an English page rendering
+     Chinese in whatever the system happens to have. */
+  const strings = [
+    content.card.name[lang], content.card.role[lang], content.card.line[lang],
+    ...content.card.fields.map((f) => f.label[lang] + f.value[lang]),
+    ...content.cv.map((s) => s.section[lang]
+      + s.entries.map((e) => (e.year || '') + e.title[lang] + (e.org ? e.org[lang] : '')).join('')),
+    content.nav.card[lang], content.nav.cv[lang], '中',
   ].join('');
+  const exotic = [...new Set([...strings])].filter((c) => c.codePointAt(0) > 0x7f).join('');
 
   for (const key of Object.keys(S)) {
-    const r = S[key];
+    const r = adapt(S[key], lang);
     add(r.family, r.weight, r.size, 'AaGgQq0123');
-    if (lang === 'zh') {
-      const z = adapt(r, 'zh');
-      for (let i = 0; i < zhText.length; i += 200) add(z.family, z.weight, z.size, zhText.slice(i, i + 200));
-    } else if (r.family === DISPLAY) {
-      add(r.family, r.weight, r.size, '中');
-    }
+    for (let i = 0; i < exotic.length; i += 200) add(r.family, r.weight, r.size, exotic.slice(i, i + 200));
   }
   return out;
 }

@@ -90,7 +90,7 @@ async function boot(stage) {
 
   function relayout() {
     const dpr = Math.min(devicePixelRatio || 1, state.dprCap);
-    const box = stage.resize(innerWidth, liveHeight(), dpr);
+    const box = stage.resize(...viewport(), dpr);
     state.vw = box.cssW;
     state.vhStable = stableHeight();
     const safeTop = safeProbe ? safeProbe.offsetHeight : 0;
@@ -116,15 +116,24 @@ async function boot(stage) {
     state.dirty = true;
   }
 
+  /* How many CSS pixels there actually are to draw into.
+
+     The canvas is position:fixed with inset:0, so its own box is the authority
+     and neither obvious alternative is. innerWidth INCLUDES a classic desktop
+     scrollbar that the box excludes, so sizing the drawing buffer from it makes
+     the buffer wider than the element and the whole page is silently rescaled
+     the moment the CV view introduces a scrollbar. visualViewport.height is the
+     zoomed, visible region, which shrinks under pinch-zoom while a fixed
+     element's box does not. Measure the element. */
+  function viewport() {
+    return [canvas.clientWidth || innerWidth, canvas.clientHeight || innerHeight];
+  }
+
   /* The SMALL viewport height - what is available with the browser chrome at
-     its largest. Layout uses this, so the card is guaranteed to fit in the
+     its largest. LAYOUT uses this, so the card is guaranteed to fit in the
      worst case and never jitters as the iOS bars animate in and out. */
   function stableHeight() {
     return (svhProbe && svhProbe.offsetHeight) || innerHeight;
-  }
-  /* The height right now, which drives only the GL viewport. */
-  function liveHeight() {
-    return (window.visualViewport && window.visualViewport.height) || innerHeight;
   }
 
   function syncProxy() {
@@ -217,13 +226,11 @@ async function boot(stage) {
         if (h.href.startsWith('http')) { el.target = '_blank'; el.rel = 'me noopener'; }
       } else {
         el.type = 'button';
-        if (h.role === 'tab') {
-          el.setAttribute('role', 'tab');
-          el.setAttribute('aria-selected', String(!!h.selected));
-          el.setAttribute('aria-controls', h.id === 'view:card' ? 'p-card' : 'p-cv');
-        } else if (h.pressed !== undefined) {
-          el.setAttribute('aria-pressed', String(h.pressed));
-        }
+        /* Plain toggle buttons, not a tablist. A correct tablist owes the user
+           roving tabindex, arrow-key navigation and a hidden inactive panel;
+           half of that is worse than none, and aria-pressed says the one thing
+           there is to say - which of the two you are looking at. */
+        if (h.pressed !== undefined) el.setAttribute('aria-pressed', String(h.pressed));
       }
       if (h.lang) el.setAttribute('lang', h.lang);
     });
@@ -257,25 +264,26 @@ async function boot(stage) {
   addEventListener('scroll', () => { state.dirty = true; }, { passive: true });
 
   let resizeTimer = 0;
-  addEventListener('resize', () => {
-    /* Collapsing the iOS URL bar fires resize and changes innerHeight by 60-90
-       px. Rebuilding the whole atlas mid-scroll for that is the bug; only a
-       width change or a real change of the stable height is a relayout. */
+  function onResize() {
+    /* Collapsing the iOS URL bar fires resize and changes the live height by
+       60-90px. Rebuilding the whole atlas mid-scroll for that is the bug, so
+       the buffer is resized on every event and the LAYOUT only when something
+       it depends on has actually changed: the width, the small-viewport height,
+       or the pixel ratio (dragging the window to a display with a different
+       one, which leaves the atlas rasterised for the old screen). */
     const dpr = Math.min(devicePixelRatio || 1, state.dprCap);
-    stage.resize(innerWidth, liveHeight(), dpr);
+    const [w, h] = viewport();
+    stage.resize(w, h, dpr);
     state.dirty = true;
-    const nextStable = stableHeight();
-    if (Math.abs(innerWidth - state.vw) < 1
-      && Math.abs(nextStable - state.vhStable) < state.vhStable * 0.2) return;
+    if (Math.abs(w - state.vw) < 1
+      && Math.abs(stableHeight() - state.vhStable) < 2
+      && dpr === engine.dpr) return;
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(relayout, 120);
-  }, { passive: true });
-
+  }
+  addEventListener('resize', onResize, { passive: true });
   if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', () => {
-      stage.resize(innerWidth, liveHeight(), Math.min(devicePixelRatio || 1, state.dprCap));
-      state.dirty = true;
-    }, { passive: true });
+    window.visualViewport.addEventListener('resize', onResize, { passive: true });
   }
 
   if (reduced.addEventListener) reduced.addEventListener('change', () => { state.dirty = true; });
@@ -377,7 +385,7 @@ function updateMirror(lang, inert) {
   if (desc) desc.setAttribute('content', t(content.site.description));
 
   const out = [
-    '<section id="p-card" role="tabpanel" aria-labelledby="Card">',
+    '<section>',
     `<h1>${esc(t(c.name))}</h1>`,
     `<p>${esc(t(c.role))}. ${esc(t(c.line))}</p>`,
     '<dl>',
@@ -386,7 +394,7 @@ function updateMirror(lang, inert) {
     `<p><a href="mailto:${esc(c.contact.email)}">${esc(c.contact.email)}</a>`,
     ` <a href="${esc(c.contact.linkedin.url)}" rel="me noopener">${esc(c.contact.linkedin.label)}</a></p>`,
     '</section>',
-    '<section id="p-cv" role="tabpanel">',
+    '<section>',
     `<h2>${esc(t(content.nav.cv))}</h2>`,
     ...content.cv.flatMap((sec) => [
       `<h3>${esc(t(sec.section))}</h3><ul>`,

@@ -50,12 +50,12 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
   const errs=[]; p.on('pageerror',e=>errs.push(e.message)); p.on('console',m=>{if(m.type()==='error')errs.push(m.text())});
   await p.goto(URL,{waitUntil:'networkidle'}); await p.waitForTimeout(2200);
 
-  const hits = await p.$$eval('#scroll .hit', els => els.map(e=>({tag:e.tagName,id:e.dataset.id,href:e.getAttribute('href'),role:e.getAttribute('role'),sel:e.getAttribute('aria-selected'),pressed:e.getAttribute('aria-pressed'),label:e.textContent,w:e.offsetWidth,h:e.offsetHeight})));
+  const hits = await p.$$eval('#scroll .hit', els => els.map(e=>({tag:e.tagName,id:e.dataset.id,href:e.getAttribute('href'),pressed:e.getAttribute('aria-pressed'),label:e.textContent,w:e.offsetWidth,h:e.offsetHeight})));
   ok('hit layer built', hits.length>=6, JSON.stringify(hits.map(h=>h.id)));
   ok('all targets >= 44px tall', hits.every(h=>h.h>=44));
   ok('mail is a real mailto anchor', hits.some(h=>h.tag==='A'&&/^mailto:/.test(h.href||'')));
   ok('linkedin is a real https anchor', hits.some(h=>h.tag==='A'&&/^https:/.test(h.href||'')));
-  ok('tabs carry role+state', hits.filter(h=>h.role==='tab').length===2 && hits.some(h=>h.sel==='true'));
+  ok('view + language buttons carry pressed state', hits.filter(h=>h.pressed!==null).length===4 && hits.filter(h=>h.pressed==='true').length===2);
 
   // click CV via the real DOM element
   await p.click('[data-id="view:cv"]'); await p.waitForTimeout(700);
@@ -79,11 +79,15 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
   ok('mirror agrees after the storm', (await p.textContent('#a11y h1'))==='Josephine Shen');
 
   // keyboard
-  /* Tab past the browser's own stops (which report as null) and read the
-     order of the page's own controls. */
+  /* Tab past the browser's own stops (which report as null) and read the order
+     of the page's own controls. Compared cyclically: where the walk starts
+     depends on what was focused last, but the sequence must not change. */
+  await p.evaluate(()=>document.activeElement && document.activeElement.blur());
   const order=[];
   for (let i=0;i<10;i++){ await p.keyboard.press('Tab'); const id=await p.evaluate(()=>document.activeElement&&document.activeElement.dataset?document.activeElement.dataset.id:null); if(id&&!order.includes(id)) order.push(id); }
-  ok('tab order is reading order', JSON.stringify(order.slice(0,4))===JSON.stringify(['view:card','view:cv','lang:zh','lang:en']), JSON.stringify(order));
+  const want=['view:card','view:cv','lang:en','lang:zh'];
+  const rotated=order.length===4 && want.some((_,k)=>JSON.stringify(order)===JSON.stringify(want.slice(k).concat(want.slice(0,k))));
+  ok('tab order is reading order', rotated, JSON.stringify(order));
   ok('mirror links are out of the tab sequence', (await p.$$eval('#a11y a', a=>a.every(x=>x.getAttribute('tabindex')==='-1'))));
   await p.evaluate(()=>{document.querySelector('[data-id="view:cv"]').focus()});
   await p.waitForTimeout(200);
