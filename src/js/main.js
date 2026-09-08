@@ -1,156 +1,393 @@
 /* ===========================================================================
-   Josephine Shen — site behaviour
-   ---------------------------------------------------------------------------
-   All visible text lives in ../content/content.json. This file only reads from
-   that JSON and wires the interactions: language toggle (EN / 中), the
-   expanding accordion lists (Themes / Artefacts / Projects), and the font-load
-   gate. To change wording, edit content.json — not this file.
+   Josephine Shen - entry point.
+
+   Wires the four pieces together and owns the two bits of state the whole site
+   has: which view you are on, and which language you are reading.
+
+     content.json  ->  layout.js   builds four scenes (card/cv x en/zh)
+     text.js       ->  rasterises every run into one atlas texture
+     morph.js      ->  interpolates between two scenes
+     gl.js         ->  draws the ground and the marks
+
+   Everything visible is on the canvas. Two invisible DOM layers keep the page
+   an actual document rather than a picture of one: a mirror of every string,
+   for screen readers, crawlers and the no-WebGL path; and a layer of real
+   anchors and buttons positioned over the marks they stand for, so that Tab
+   order, Enter, the pointer cursor, mailto: context menus and cmd-click all
+   work because the browser is doing them, not because we reimplemented them.
    =========================================================================== */
 
-   import content from '../content/content.json';
-   import '../styles/main.css';
-   import './bg.js';   /* +bg : background shader (self-initialising) */
+import content from '../content/content.json';
+import '../styles/main.css';
+import { TextEngine, loadFonts } from './text.js';
+import { createStage, Marks } from './gl.js';
+import { buildScenes, fontSpecs, deferredFontSpecs, INK } from './layout.js';
+import { planLanguage, planView, drawScene, drawPlan, TIMING } from './morph.js';
 
-   const { ui, contact, themes, artefacts, projects } = content;
+const DPR_CAP = 2;
+/* The ground drifts about 0.005px a frame, so redrawing it sixty times a
+   second buys nothing but heat. Five is indistinguishable, and scroll,
+   pointer and transitions all set `dirty` and redraw immediately anyway. */
+const IDLE_FRAME_MS = 200;
 
-   /* current language — starts in English, persists in localStorage */
-   let lang = 'en';
-   try { lang = localStorage.getItem('lang') || 'en'; } catch (e) {}
+const canvas = document.getElementById('stage');
+const proxy = document.getElementById('scroll');
+const svhProbe = document.getElementById('svh');
+const safeProbe = document.getElementById('safe');
+const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 
-   /* ---- helpers ------------------------------------------------------------- */
-   const t = (entry) => (entry && entry[lang] != null ? entry[lang] : '');
+const state = {
+  view: 'card',
+  lang: 'en',
+  scenes: null,
+  grid: null,
+  transition: null,
+  dirty: true,
+  lastDraw: 0,
+  hover: null,
+  focus: null,
+  vw: 0,
+  vhStable: 0,
+  dprCap: DPR_CAP,
+};
 
-   /* Build one accordion <li>. `item` has {title, venue, yr?, hot?, url?, body}.
-      The .drop-body is clipped with max-height:0 in CSS; the open height is
-      measured and applied as an inline pixel value by wireDropdowns(). */
-   function dropItem(item) {
-     const li = document.createElement('li');
-     const hot = item.hot ? ' is-hot' : '';
-     const yr = item.yr ? `<span class="yr">${item.yr}</span>` : '';
-     const more = item.url
-       ? `<a class="more" href="${item.url}">${lang === 'zh' ? '阅读全文 →' : 'Read in full →'}</a>`
-       : '';
-     li.innerHTML = `
-       <button class="tag tag-drop${hot}" type="button" aria-expanded="false">
-         <span class="tag-text">${t(item.title)}</span>
-         <span class="venue">${t(item.venue)}</span>
-         ${yr}
-         <span class="drop-mark" aria-hidden="true">＋</span>
-       </button>
-       <div class="drop-body">
-         <div class="drop-inner">
-           <p>${t(item.body)}</p>
-           ${more}
-         </div>
-       </div>`;
-     return li;
-   }
+try {
+  const saved = localStorage.getItem('lang');
+  if (saved === 'zh' || saved === 'en') state.lang = saved;
+} catch (e) { /* private mode: English it is */ }
 
-   function renderList(id, items) {
-     const ol = document.getElementById(id);
-     if (!ol) return;
-     ol.innerHTML = '';
-     items.forEach((it) => ol.appendChild(dropItem(it)));
-   }
+document.documentElement.lang = state.lang === 'zh' ? 'zh-Hans' : 'en';
 
-   /* Wire accordion open/close. One row open at a time across the whole page.
-      Open = measure the body's natural height and set it as max-height (px);
-      close = set max-height back to 0. A single measured property animating at
-      a single speed — no fighting between competing transitions/units. */
-   function wireDropdowns() {
-     const buttons = Array.from(document.querySelectorAll('.tag-drop'));
+const stage = createStage(canvas);
+if (!stage) fallback();
+else boot(stage);
 
-     const close = (btn) => {
-       btn.setAttribute('aria-expanded', 'false');
-       const body = btn.nextElementSibling;
-       if (body && body.classList.contains('drop-body')) body.style.maxHeight = '0px';
-     };
-     const open = (btn) => {
-       btn.setAttribute('aria-expanded', 'true');
-       const body = btn.nextElementSibling;
-       if (body && body.classList.contains('drop-body')) {
-         body.style.maxHeight = `${body.scrollHeight}px`;
-       }
-     };
+/* No WebGL, or a context we could not create: promote the mirror to the
+   visible page. Rare, but a researcher's contact details should not depend on
+   a GPU. */
+function fallback() {
+  document.body.classList.add('fallback');
+  updateMirror(state.lang, null);
+  if (canvas) canvas.remove();
+  if (proxy) proxy.remove();
+}
 
-     buttons.forEach((btn) => {
-       btn.addEventListener('click', () => {
-         const willOpen = btn.getAttribute('aria-expanded') !== 'true';
-         buttons.forEach(close);          // collapse everything first
-         if (willOpen) open(btn);         // then expand the clicked one
-       });
-     });
-   }
+async function boot(stage) {
+  const engine = new TextEngine(stage.gl);
+  const marks = new Marks(engine);
 
-   /* ---- apply a language --------------------------------------------------- */
-   function setLang(next) {
-     lang = next;
-     document.documentElement.lang = lang === 'zh' ? 'zh' : 'en';
-     document.title = t(content.siteTitle);
+  updateMirror(state.lang, act);
 
-     const meta = document.querySelector('meta[name="description"]');
-     if (meta) meta.setAttribute('content', t(content.metaDescription));
+  /* Rasterising before the webfonts arrive would bake the fallback face into
+     the atlas, so the first layout waits - but only on the language actually
+     being read. The concrete is already painted by CSS underneath, so the wait
+     reads as a beat, not a blank. */
+  await loadFonts(fontSpecs(content, innerWidth, state.lang));
 
-     // fixed [data-i18n] text. SVG <text> nodes don't take innerHTML reliably,
-     // so use textContent for those (their content is plain text anyway).
-     document.querySelectorAll('[data-i18n]').forEach((el) => {
-       const key = el.getAttribute('data-i18n');
-       if (!ui[key] || ui[key][lang] == null) return;
-       const val = ui[key][lang];
-       if (el instanceof SVGElement) el.textContent = val.replace(/<[^>]*>/g, '');
-       else el.innerHTML = val;
-     });
+  const scene = () => state.scenes[`${state.view}:${state.lang}`];
 
-     // section marginalia (CSS reads .row[data-marg]::after { content: attr(data-marg) })
-     document.querySelectorAll('[data-marg-key]').forEach((el) => {
-       const key = el.getAttribute('data-marg-key');
-       if (ui[key] && ui[key][lang] != null) el.setAttribute('data-marg', ui[key][lang]);
-     });
+  /* --- layout ------------------------------------------------------------ */
 
-     // email (static, but label text depends on nothing — fill href + text)
-     document.querySelectorAll('[data-email]').forEach((el) => {
-       el.textContent = contact.email;
-       if (el.tagName === 'A') el.setAttribute('href', `mailto:${contact.email}`);
-     });
+  function relayout() {
+    const dpr = Math.min(devicePixelRatio || 1, state.dprCap);
+    const box = stage.resize(innerWidth, liveHeight(), dpr);
+    state.vw = box.cssW;
+    state.vhStable = stableHeight();
+    const safeTop = safeProbe ? safeProbe.offsetHeight : 0;
 
-     // re-render the lists in the new language, then re-wire (this also wipes
-     // any inline max-height, since the <li>s are rebuilt — all start closed)
-     renderList('themesList', themes);
-     renderList('artefactsList', artefacts);
-     renderList('projectsList', projects);
-     wireDropdowns();
+    engine.reset(dpr);
+    const built = buildScenes(engine, content, state.vw, state.vhStable, safeTop);
+    const atlas = engine.build();
+    state.scenes = built.scenes;
+    state.grid = built.grid;
+    state.transition = null;
 
-     // toggle button state
-     const btn = document.getElementById('langToggle');
-     btn.querySelector('.seg.en').classList.toggle('on', lang === 'en');
-     btn.querySelector('.seg.zh').classList.toggle('on', lang === 'zh');
+    /* Atlas overflow means the page needs more texture than this GPU will give
+       us. One lever, not a multi-atlas state machine: halve the resolution and
+       lay out again. */
+    if (atlas.overflow && state.dprCap > 1) {
+      state.dprCap = 1;
+      relayout();
+      return;
+    }
 
-     try { localStorage.setItem('lang', lang); } catch (e) {}
-   }
+    syncProxy();
+    syncHits();
+    state.dirty = true;
+  }
 
-   /* ---- boot --------------------------------------------------------------- */
-   function init() {
-     setLang(lang);
+  /* The SMALL viewport height - what is available with the browser chrome at
+     its largest. Layout uses this, so the card is guaranteed to fit in the
+     worst case and never jitters as the iOS bars animate in and out. */
+  function stableHeight() {
+    return (svhProbe && svhProbe.offsetHeight) || innerHeight;
+  }
+  /* The height right now, which drives only the GL viewport. */
+  function liveHeight() {
+    return (window.visualViewport && window.visualViewport.height) || innerHeight;
+  }
 
-     document.getElementById('langToggle').addEventListener('click', () => {
-       setLang(lang === 'en' ? 'zh' : 'en');
-     });
+  function syncProxy() {
+    proxy.style.height = `${Math.ceil(scene().height)}px`;
+  }
 
-     // reveal once fonts are ready (avoids fallback-font reflow); safety net at 2s
-     let revealed = false;
-     const reveal = () => {
-       if (revealed) return;
-       revealed = true;
-       document.body.classList.remove('fonts-loading');
-     };
-     if (document.fonts && document.fonts.ready) {
-       document.fonts.ready.then(reveal);
-     }
-     setTimeout(reveal, 2000);
-   }
+  /* --- transitions ------------------------------------------------------- */
 
-   if (document.readyState === 'loading') {
-     document.addEventListener('DOMContentLoaded', init);
-   } else {
-     init();
-   }
+  function begin(plan, kind, opts = {}) {
+    state.transition = {
+      plan, kind, ms: 0, dir: 1,
+      duration: reduced.matches ? TIMING.DURATION_REDUCED : plan.duration,
+      suppressTrace: !!opts.suppressTrace,
+      fromLang: opts.fromLang,
+    };
+    state.dirty = true;
+  }
+
+  function setLang(next) {
+    if (next === state.lang || !state.scenes) return;
+    const tr = state.transition;
+    /* A second press mid-flight reverses the motion rather than snapping or
+       stacking a new plan on top of it. The remaining time is what has already
+       elapsed, so correcting yourself feels quicker than committing - which is
+       right. Traces are suppressed for the rest of a reversed transition;
+       strobing hairlines are the one way this becomes cheap. */
+    if (tr && tr.kind === 'lang' && tr.fromLang === next) {
+      tr.dir = -1;
+      tr.suppressTrace = true;
+    } else {
+      const fromLang = state.lang;
+      begin(planLanguage(marks,
+        state.scenes[`${state.view}:${fromLang}`],
+        state.scenes[`${state.view}:${next}`]), 'lang', { fromLang });
+    }
+    state.lang = next;
+    document.documentElement.lang = next === 'zh' ? 'zh-Hans' : 'en';
+    try { localStorage.setItem('lang', next); } catch (e) { /* ignore */ }
+    updateMirror(state.lang, act);
+    syncProxy();
+    syncHits();
+    state.dirty = true;
+  }
+
+  function setView(next) {
+    if (next === state.view || !state.scenes) return;
+    const from = scene();
+    state.view = next;
+    begin(planView(marks, from, scene()), 'view');
+    scrollTo(0, 0);
+    syncProxy();
+    syncHits();
+  }
+
+  function act(id) {
+    if (id === 'view:card') setView('card');
+    else if (id === 'view:cv') setView('cv');
+    else if (id === 'lang:en') setLang('en');
+    else if (id === 'lang:zh') setLang('zh');
+  }
+
+  /* --- the hit layer ------------------------------------------------------
+     Real elements, absolutely positioned in content coordinates inside the
+     scroll proxy, so they scroll with the document and no scrollY arithmetic
+     exists anywhere in the interaction path. */
+
+  function syncHits() {
+    const hits = scene().hits;
+    while (proxy.children.length > hits.length) proxy.removeChild(proxy.lastChild);
+    hits.forEach((h, i) => {
+      let el = proxy.children[i];
+      const tag = h.href ? 'a' : 'button';
+      if (!el || el.tagName.toLowerCase() !== tag) {
+        const next = document.createElement(tag);
+        next.className = 'hit';
+        next.appendChild(document.createElement('span'));
+        if (el) proxy.replaceChild(next, el);
+        else proxy.appendChild(next);
+        el = next;
+      }
+      el.dataset.id = h.id;
+      el.dataset.key = h.key || '';
+      el.style.left = `${h.x}px`;
+      el.style.top = `${h.y}px`;
+      el.style.width = `${h.w}px`;
+      el.style.height = `${h.h}px`;
+      el.firstChild.textContent = h.label || h.id;
+      if (h.href) {
+        el.setAttribute('href', h.href);
+        if (h.href.startsWith('http')) { el.target = '_blank'; el.rel = 'me noopener'; }
+      } else {
+        el.type = 'button';
+        if (h.role === 'tab') {
+          el.setAttribute('role', 'tab');
+          el.setAttribute('aria-selected', String(!!h.selected));
+          el.setAttribute('aria-controls', h.id === 'view:card' ? 'p-card' : 'p-cv');
+        } else if (h.pressed !== undefined) {
+          el.setAttribute('aria-pressed', String(h.pressed));
+        }
+      }
+      if (h.lang) el.setAttribute('lang', h.lang);
+    });
+  }
+
+  proxy.addEventListener('click', (e) => {
+    const el = e.target.closest('.hit');
+    if (el && el.tagName === 'BUTTON') act(el.dataset.id);
+  });
+  proxy.addEventListener('pointerover', (e) => {
+    const el = e.target.closest('.hit');
+    const key = el ? el.dataset.key : null;
+    if (key !== state.hover) { state.hover = key || null; state.dirty = true; }
+  });
+  proxy.addEventListener('pointerout', (e) => {
+    if (!e.relatedTarget || !e.relatedTarget.closest || !e.relatedTarget.closest('.hit')) {
+      if (state.hover) { state.hover = null; state.dirty = true; }
+    }
+  });
+  /* The focus ring is drawn on the canvas, because that is where the thing
+     being focused visually lives. :focus-visible keeps it off a mouse click. */
+  proxy.addEventListener('focusin', (e) => {
+    const el = e.target.closest('.hit');
+    state.focus = el && el.matches(':focus-visible') ? el.dataset.id : null;
+    state.dirty = true;
+  });
+  proxy.addEventListener('focusout', () => { state.focus = null; state.dirty = true; });
+
+  /* --- viewport ----------------------------------------------------------- */
+
+  addEventListener('scroll', () => { state.dirty = true; }, { passive: true });
+
+  let resizeTimer = 0;
+  addEventListener('resize', () => {
+    /* Collapsing the iOS URL bar fires resize and changes innerHeight by 60-90
+       px. Rebuilding the whole atlas mid-scroll for that is the bug; only a
+       width change or a real change of the stable height is a relayout. */
+    const dpr = Math.min(devicePixelRatio || 1, state.dprCap);
+    stage.resize(innerWidth, liveHeight(), dpr);
+    state.dirty = true;
+    const nextStable = stableHeight();
+    if (Math.abs(innerWidth - state.vw) < 1
+      && Math.abs(nextStable - state.vhStable) < state.vhStable * 0.2) return;
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(relayout, 120);
+  }, { passive: true });
+
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', () => {
+      stage.resize(innerWidth, liveHeight(), Math.min(devicePixelRatio || 1, state.dprCap));
+      state.dirty = true;
+    }, { passive: true });
+  }
+
+  if (reduced.addEventListener) reduced.addEventListener('change', () => { state.dirty = true; });
+
+  /* --- the loop ---------------------------------------------------------- */
+
+  const t0 = performance.now();
+  let last = t0;
+
+  function frame(now) {
+    requestAnimationFrame(frame);
+    const dt = Math.min(64, now - last);
+    last = now;
+    if (document.hidden || !state.scenes) return;
+
+    const tr = state.transition;
+    if (!tr && !state.dirty && now - state.lastDraw < IDLE_FRAME_MS) return;
+    if (!tr && reduced.matches && !state.dirty) return;
+    state.lastDraw = now;
+    state.dirty = false;
+
+    marks.clear();
+    if (tr) {
+      tr.ms += dt * tr.dir;
+      if (tr.ms >= tr.duration || tr.ms <= 0) {
+        /* Land exactly: at the end, draw the destination through the plain
+           snapped path. Trusting the transform to evaluate to an identity
+           leaves it half a pixel out, and the type finishes soft. */
+        state.transition = null;
+        drawScene(marks, scene());
+        syncProxy();
+        syncHits();
+      } else {
+        drawPlan(marks, tr.plan, tr.ms, { reduced: reduced.matches, suppressTrace: tr.suppressTrace });
+      }
+    } else {
+      drawScene(marks, scene(), 1, state.hover);
+    }
+
+    if (state.focus) {
+      const h = scene().hits.find((x) => x.id === state.focus);
+      if (h) marks.strokeRect(h.x - 4, h.y - 4, h.w + 8, h.h + 8, 2, INK, 0.85);
+    }
+
+    const time = reduced.matches ? 0 : (now - t0) / 1000;
+    stage.render(marks, engine.texture, time, scrollY);
+  }
+
+  relayout();
+  requestAnimationFrame(frame);
+
+  /* The other language's faces follow without blocking anything. Its scenes
+     exist from the first layout - the morph needs both sides - so they are
+     briefly measured in a fallback face, off screen, and this re-rasterises
+     them properly the moment the real one lands. */
+  loadFonts(deferredFontSpecs(content, innerWidth, state.lang)).then(relayout).catch(() => {});
+
+  /* Hooks for the screenshot harness in scratch; harmless in production. */
+  window.__hit = (what) => act(what === 'lang' ? (state.lang === 'en' ? 'lang:zh' : 'lang:en')
+    : what === 'cv' ? 'view:cv' : what === 'card' ? 'view:card' : what);
+  window.__diag = () => ({
+    view: state.view, lang: state.lang, cols: state.grid.cols, dpr: engine.dpr,
+    atlas: engine.size, overflow: engine.overflow,
+    quads: marks.count, height: Math.round(scene().height),
+  });
+}
+
+/* ---------------------------------------------------------------------------
+   The accessible mirror.
+
+   The canvas is a picture of text, and a picture of text is not text. This
+   rebuilds the same strings as a real document inside #a11y - headings, a
+   definition list, links - so that screen readers and search engines have
+   something to work with, and so the no-WebGL path has a page to fall back to.
+   The interactive controls live in the hit layer instead, which is where the
+   browser can give them real behaviour.
+   --------------------------------------------------------------------------- */
+function updateMirror(lang) {
+  const host = document.getElementById('a11y');
+  if (!host) return;
+  const t = (n) => (n && n[lang] != null ? n[lang] : '');
+  const c = content.card;
+
+  document.title = t(content.site.title);
+  const desc = document.querySelector('meta[name="description"]');
+  if (desc) desc.setAttribute('content', t(content.site.description));
+
+  const out = [
+    '<section id="p-card" role="tabpanel" aria-labelledby="Card">',
+    `<h1>${esc(t(c.name))}</h1>`,
+    `<p>${esc(t(c.role))}. ${esc(t(c.line))}</p>`,
+    '<dl>',
+    ...c.fields.map((f) => `<dt>${esc(t(f.label))}</dt><dd>${esc(t(f.value))}</dd>`),
+    '</dl>',
+    `<p><a href="mailto:${esc(c.contact.email)}">${esc(c.contact.email)}</a>`,
+    ` <a href="${esc(c.contact.linkedin.url)}" rel="me noopener">${esc(c.contact.linkedin.label)}</a></p>`,
+    '</section>',
+    '<section id="p-cv" role="tabpanel">',
+    `<h2>${esc(t(content.nav.cv))}</h2>`,
+    ...content.cv.flatMap((sec) => [
+      `<h3>${esc(t(sec.section))}</h3><ul>`,
+      ...sec.entries.map((e) => {
+        const bits = [e.year, t(e.title), e.org ? t(e.org) : ''].filter(Boolean);
+        return `<li>${esc(bits.join(' - '))}</li>`;
+      }),
+      '</ul>',
+    ]),
+    '</section>',
+  ];
+  host.innerHTML = out.join('');
+}
+
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+}

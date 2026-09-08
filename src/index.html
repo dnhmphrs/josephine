@@ -2,121 +2,73 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Josephine Shen</title>
-  <meta name="description" content="Josephine Shen — research, facilitation and strategy across AI, security, and the state." />
+  <meta name="description" content="Josephine Shen — AI policy researcher. Geopolitics and technology governance across China, the EU and the multilateral system. Berlin." />
   <meta name="author" content="Josephine Shen" />
-  <meta name="keywords" content="Josephine Shen, AI policy, AI governance, security, research, facilitation, strategy, Berlin" />
+  <meta name="theme-color" content="#d5d3ce" />
 
   <link rel="icon" href="/favicon.ico" sizes="any" />
 
-  <meta property="og:type" content="website" />
+  <meta property="og:type" content="profile" />
   <meta property="og:title" content="Josephine Shen" />
-  <meta property="og:description" content="Josephine Shen — research, facilitation and strategy across AI, security, and the state." />
+  <meta property="og:description" content="AI policy researcher. Geopolitics and technology governance. Berlin." />
   <meta property="og:image" content="https://josephine-shen.vercel.app/square.png" />
   <meta property="og:url" content="https://josephine-shen.vercel.app" />
-  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:card" content="summary" />
   <meta name="twitter:title" content="Josephine Shen" />
-  <meta name="twitter:description" content="Josephine Shen — research, facilitation and strategy across AI, security, and the state." />
+  <meta name="twitter:description" content="AI policy researcher. Geopolitics and technology governance. Berlin." />
   <meta name="twitter:image" content="https://josephine-shen.vercel.app/square.png" />
 
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400;1,6..72,500&family=Archivo:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500&family=Noto+Serif+SC:wght@400;500&display=swap" rel="stylesheet" />
+  <!-- Self-hosted, subset webfonts. No third-party request: see
+       scripts/fetch-fonts.mjs. Preloaded because the WebGL text atlas cannot be
+       rasterised until the real faces are in memory. -->
+  <link rel="preload" href="/fonts/jost-latin.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/fonts/bodoni-moda-latin.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/fonts/noto-sans-sc.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="/fonts/fonts.css" />
   <link rel="stylesheet" href="/assets/styles.css" />
 </head>
-<body class="fonts-loading">
+<body>
 
-<!-- +bg : background shader canvas (kept behind everything, non-interactive) -->
-<canvas id="bg" aria-hidden="true"></canvas>
+  <!-- The entire visible page. Every glyph is rasterised into this canvas by WebGL;
+       there is no DOM text in the render path. -->
+  <canvas id="stage" aria-hidden="true"></canvas>
 
-<div class="wrap" id="wrap">
+  <!-- Native scrolling is preserved by sizing this proxy to the content height
+       and translating the canvas scene by scrollY. It also carries the hit
+       layer: one transparent <a> or <button> per interactive mark, positioned
+       in content coordinates, so tab order, Enter, the pointer cursor, mailto:
+       context menus and cmd-click are the browser's job and not ours. Filled
+       by main.js. -->
+  <div id="scroll"></div>
 
-  <div class="masthead">
-    <div class="mast-main">
-      <p class="index-mark" data-i18n="indexMark"></p>
-      <h1><span class="a" data-i18n="nameA">Josephine</span> <span class="b" data-i18n="nameB">Shen</span></h1>
-      <p class="role" data-i18n="role"></p>
+  <!-- Viewport probes. #svh reports the SMALL viewport height (what is left
+       with the browser chrome at its largest), which drives layout so the card
+       never jitters as the iOS URL bar animates; #safe reports the notch inset,
+       since viewport-fit=cover puts the page under it. -->
+  <div id="svh" aria-hidden="true"></div>
+  <div id="safe" aria-hidden="true"></div>
+
+  <!-- Accessible mirror: the same strings the canvas draws, exposed to screen
+       readers, crawlers and anyone whose GPU refuses. Visually hidden, never
+       painted. Populated from content.json by main.js; the card is inlined here so
+       it survives with JavaScript disabled. -->
+  <main id="a11y" class="sr">
+    <h1>Josephine Shen</h1>
+    <p>AI policy researcher. Geopolitics and technology governance across China, the European Union and the multilateral system.</p>
+    <p>Berlin, Germany. Working in English and 中文.</p>
+    <p><a href="mailto:Josephine.shen@proton.me">Josephine.shen@proton.me</a></p>
+  </main>
+
+  <noscript>
+    <div class="noscript">
+      <h1>Josephine Shen</h1>
+      <p>AI policy researcher — geopolitics and technology governance.</p>
+      <p>Berlin, Germany · <a href="mailto:Josephine.shen@proton.me">Josephine.shen@proton.me</a></p>
+      <p><small>This site renders in WebGL and needs JavaScript.</small></p>
     </div>
-    <div class="meta">
-      <span class="avail" data-i18n="meta_avail"></span>
-      <span data-i18n="meta_city"></span>
-      <span>English · 中文</span>
-      <a href="#" data-email>[ email ]</a>
-    </div>
-  </div>
-
-  <!-- ABOUT -->
-  <div class="row is-about" data-marg-key="about_label">
-    <div class="label" data-i18n="about_label"></div>
-    <div class="content">
-      <p class="lede" data-i18n="about_lede"></p>
-      <p data-i18n="about_p1"></p>
-      <p data-i18n="about_p2"></p>
-      <p class="sub" data-i18n="about_sub"></p>
-    </div>
-  </div>
-
-  <!-- THEMES -->
-  <div class="row" data-marg-key="themes_label">
-    <div class="label" data-i18n="themes_label"></div>
-    <div class="content"><ol class="cites cites-drop" id="themesList"></ol></div>
-  </div>
-
-  <!-- ARTEFACTS -->
-  <div class="row" data-marg-key="artefacts_label">
-    <div class="label" data-i18n="artefacts_label"></div>
-    <div class="content"><ol class="cites cites-drop" id="artefactsList"></ol></div>
-  </div>
-
-  <!-- PROJECTS -->
-  <div class="row" data-marg-key="projects_label">
-    <div class="label" data-i18n="projects_label"></div>
-    <div class="content"><ol class="cites cites-drop" id="projectsList"></ol></div>
-  </div>
-
-  <!-- CONTACT — one card: email + portrait + domain map -->
-  <div class="row r-end contact-row" data-marg-key="contact_marg">
-    <div class="label" data-i18n="contact_label"></div>
-    <div class="content">
-      <div class="contact-row3">
-
-        <div class="cc-main">
-          <p class="cc-mail-wrap"><a class="mail" href="#" data-email>[ email ]</a></p>
-          <p class="sub" data-i18n="contact_sub"></p>
-        </div>
-
-        <figure class="cc-figure" aria-label="The Overlap — domain map">
-          <svg class="domain-svg" viewBox="0 0 480 380" role="img">
-            <circle class="dom-fill" cx="190" cy="150" r="125"/>
-            <circle class="dom-fill" cx="290" cy="150" r="125"/>
-            <circle class="dom-fill" cx="240" cy="245" r="125"/>
-            <!-- <circle class="dom-core" cx="240" cy="183" r="42"/> -->
-            <circle class="dom-core" cx="240" cy="183" r="32"/>
-            <circle class="dom-ring" cx="190" cy="150" r="125"/>
-            <circle class="dom-ring" cx="290" cy="150" r="125"/>
-            <circle class="dom-ring" cx="240" cy="245" r="125"/>
-            <text class="dom-label" x="130" y="95"  data-i18n="dg_state">State</text>
-            <text class="dom-label" x="350" y="95"  data-i18n="dg_industry">Industry</text>
-            <text class="dom-label" x="240" y="325" data-i18n="dg_grassroots">Grassroots</text>
-          </svg>
-        </figure>
-
-      </div>
-    </div>
-  </div>
-
-  <!-- FOOTER -->
-  <footer class="site-footer">
-    <span class="foot-mark">Berlin • 2026</span>
-    <a class="foot-link" href="https://aufbau.io" target="_blank">AUFBAU</a>
-  </footer>
-
-</div>
-
-<button class="lang-toggle" id="langToggle" aria-label="Language — English / 中文">
-  <span class="seg en on">EN</span><span class="seg zh" lang="zh">中</span>
-</button>
+  </noscript>
 
 <script type="module" src="/js/main.js"></script>
 </body>

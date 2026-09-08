@@ -5,6 +5,7 @@
   "description": "Josephine Shen — personal index site. Static, bilingual (EN/中), content-driven.",
   "type": "module",
   "scripts": {
+    "fonts": "node scripts/fetch-fonts.mjs",
     "dev": "rollup -c -w",
     "build": "rollup -c",
     "preview": "serve dist"

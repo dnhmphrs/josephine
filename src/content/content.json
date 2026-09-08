@@ -1,258 +1,288 @@
 {
-  "_readme": "This file holds ALL text shown on the site. Edit the values, not the keys. Every entry has an English (en) and Chinese (zh) version — keep both filled in. You can use simple HTML inside the text: <br/> is a line break, <b>…</b> is bold, &amp; is the & symbol, <sup>…</sup> is superscript. Don't rename keys or remove commas/quotes/brackets. After editing, save and redeploy.",
-  "siteTitle": {
-    "en": "Josephine Shen",
-    "zh": "沈菲菲"
-  },
-  "metaDescription": {
-    "en": "Josephine Shen — research, facilitation and governance strategy across AI, security, and the state.",
-    "zh": "沈菲菲——横跨人工智能、安全与国家的研究、协调与战略。"
-  },
-  "ui": {
-    "indexMark": {
-      "en": "Josephine Shen<sup>®</sup> &nbsp;/&nbsp; 沈菲菲",
-      "zh": "沈菲菲<sup>®</sup> &nbsp;/&nbsp; Josephine Shen"
+  "_readme": "ALL text on the site lives here, in English (en) and Chinese (zh). Nothing is rendered from HTML, so this file is the only place to edit wording. Keep both languages filled: the language toggle morphs one into the other and a missing value leaves a hole on screen. Do not rename keys. Plain text only - no HTML tags, no <br/>: line breaks are decided by the layout engine. Card runs carry no terminal punctuation - a card states, it does not narrate. An entry marked \"placeholder\": true is a real thing with a fact still missing; read its \"note\", fill the value in, then delete both keys. After adding any NEW Chinese character, run `npm run fonts` - the CJK webfonts are subset to exactly the characters this file uses.",
+  "site": {
+    "title": {
+      "en": "Josephine Shen",
+      "zh": "沈菲菲"
     },
-    "nameA": {
-      "en": "Josephine",
-      "zh": "沈"
+    "description": {
+      "en": "Josephine Shen - AI policy researcher. Geopolitics and technology governance across China, the EU and the multilateral system. Berlin.",
+      "zh": "沈菲菲，人工智能政策研究者。研究地缘政治与技术治理，横跨中国、欧盟与多边体系。柏林。"
+    }
+  },
+  "nav": {
+    "card": {
+      "en": "Card",
+      "zh": "名片"
     },
-    "nameB": {
-      "en": "Shen",
-      "zh": "菲菲"
+    "cv": {
+      "en": "CV",
+      "zh": "简历"
+    },
+    "lang": {
+      "en": "EN",
+      "zh": "中"
+    }
+  },
+  "card": {
+    "name": {
+      "en": "Josephine Shen",
+      "zh": "沈菲菲"
     },
     "role": {
-      "en": "Research, Speaker, Strategy Design across Society, Security &amp; States.<br>A practice for the institutions, communities and companies shaping how advanced AI meets the public good.",
-      "zh": "横跨人工智能、安全与国家的研究、协调与战略。<br>为塑造先进人工智能如何服务公共利益的机构、社区与企业而工作。"
+      "en": "AI Policy Researcher",
+      "zh": "人工智能政策研究者"
     },
-    "meta_avail": {
-      "en": "Available for Research Collaboration, Policy Advisory and Speaker roles",
-      "zh": "开放合作"
+    "line": {
+      "en": "Geopolitics and technology governance, across China, the European Union and the multilateral system",
+      "zh": "地缘政治与技术治理研究，横跨中国、欧盟与多边体系"
     },
-    "meta_city": {
-      "en": "Berlin, DE",
-      "zh": "德国 · 柏林"
-    },
-    "about_label": {
-      "en": "About",
-      "zh": "简介"
-    },
-    "about_lede": {
-      "en": "Research, facilitation and strategy for the institutions, communities and companies shaping how advanced AI meets the public good.",
-      "zh": "为塑造先进人工智能如何服务公共利益的机构、社区与企业，提供研究、协调与战略支持。"
-    },
-    "about_p1": {
-      "en": "Josephine is an AI policy researcher, bridgemaker, political organiser and strategist based in Berlin. Her work focuses on systemic analysis and political strategy with a focus on Geopolitics &amp; Technology Governance (China &amp; EU). Her work has bridged across civil society, industry and institutions to center critical risks of technology to the forefront of political design. With industry experience in Machine Learning, and as a visiting researcher to the United Nations Nuclear Non-Proliferation Treaty Conference (UN NPTC), she specialises in multilateral and systemic framing of technology and its impacts.",
-      "zh": "沈菲菲是一位常驻柏林的人工智能政策研究者、桥梁搭建者、政治组织者与战略家。她的工作聚焦于系统性分析与政治战略，尤其关注地缘政治与技术治理（中国与欧盟）。她的工作跨越公民社会、产业与机构，致力于将技术的关键风险置于政治设计的核心。凭借在机器学习领域的产业经验，以及作为联合国核不扩散条约大会（UN NPTC）访问研究员的经历，她专长于以多边与系统性的视角审视技术及其影响。"
-    },
-    "about_sub": {
-      "en": "Based in Berlin. Working across English &amp; Mandarin （Chinese）.",
-      "zh": "工作语言：英文 &amp; 中文。"
-    },
-    "themes_label": {
-      "en": "Themes",
-      "zh": "主题"
-    },
-    "artefacts_label": {
-      "en": "Artefacts",
-      "zh": "器物"
-    },
-    "projects_label": {
-      "en": "Projects",
-      "zh": "项目"
-    },
-    "dg_state":      { "en": "State",      "zh": "国家" },
-    "dg_industry":   { "en": "Industry",   "zh": "产业" },
-    "dg_grassroots": { "en": "Grassroots", "zh": "基层" },
-    "contact_label": {
-      "en": "Contact",
-      "zh": "联系"
-    },
-    "contact_marg": {
-      "en": "//",
-      "zh": "//"
-    },
-    "contact_sub": {
-      "en": "For collaborations, briefings, convenings, or correspondence. &nbsp;—&nbsp; linkedin.com/in/josephinesb",
-      "zh": "合作、简报、召集或来函，欢迎联系。 &nbsp;—&nbsp; linkedin.com/in/josephinesb"
-    },
-    "error_msg": {
-      "en": "Aiyo, méiyǒu!",
-      "zh": "哎哟，没有！"
-    },
-    "error_back": {
-      "en": "Back home",
-      "zh": "返回首页"
+    "fields": [
+      {
+        "label": {
+          "en": "Based",
+          "zh": "驻地"
+        },
+        "value": {
+          "en": "Berlin",
+          "zh": "柏林"
+        }
+      },
+      {
+        "label": {
+          "en": "Languages",
+          "zh": "工作语言"
+        },
+        "value": {
+          "en": "English, 中文",
+          "zh": "中文、英文"
+        }
+      },
+      {
+        "label": {
+          "en": "Currently",
+          "zh": "现职"
+        },
+        "value": {
+          "en": "Fellow, AIxist",
+          "zh": "AIxist 研究员"
+        }
+      },
+      {
+        "label": {
+          "en": "Available for",
+          "zh": "可洽"
+        },
+        "value": {
+          "en": "Research, advisory, speaking",
+          "zh": "研究合作、政策咨询、公开演讲"
+        }
+      }
+    ],
+    "contact": {
+      "label": {
+        "en": "Contact",
+        "zh": "联系"
+      },
+      "email": "Josephine.shen@proton.me",
+      "linkedin": {
+        "label": "LinkedIn",
+        "url": "https://linkedin.com/in/josephinesb"
+      }
     }
   },
-  "contact": {
-    "email": "Josephine.shen@proton.me"
-  },
-  "themes": [
+  "cv": [
     {
-      "title": {
-        "en": "Technology Industry Trends and Impact of Artificial Intelligence",
-        "zh": "科技产业趋势与人工智能的影响"
+      "section": {
+        "en": "Now",
+        "zh": "现在"
       },
-      "venue": {
-        "en": "rules &amp; compliance",
-        "zh": "规则与合规"
-      },
-      "body": {
-        "en": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
-        "zh": "占位文本。此处展开为该主题的简短描述，说明所涉及的工作与判断。"
-      }
+      "entries": [
+        {
+          "year": "2025—",
+          "title": {
+            "en": "Fellow",
+            "zh": "研究员"
+          },
+          "org": {
+            "en": "AIxist",
+            "zh": "AIxist"
+          }
+        },
+        {
+          "year": "2024—",
+          "title": {
+            "en": "Labour movements and public-interest technology",
+            "zh": "劳工运动与公共利益技术"
+          },
+          "org": {
+            "en": "Research and facilitation",
+            "zh": "研究与协调"
+          }
+        }
+      ]
     },
     {
-      "title": {
-        "en": "Geopolitical Analysis",
-        "zh": "地缘政治分析"
-      },
-      "venue": {
-        "en": "agencies &amp; leverage",
-        "zh": "机构与杠杆"
-      },
-      "body": {
-        "en": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
-        "zh": "占位文本。此处展开为该主题的简短描述，说明所涉及的工作与判断。"
-      }
-    },
-    {
-      "title": {
-        "en": "Public Interest AI and Society: Social movements and Labour Changes",
-        "zh": "公共利益人工智能与社会：社会运动与劳工变迁"
-      },
-      "venue": {
-        "en": "measurement &amp; safety",
-        "zh": "测量与安全"
-      },
-      "body": {
-        "en": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
-        "zh": "占位文本。此处展开为该主题的简短描述，说明所涉及的工作与判断。"
-      }
-    }
-  ],
-  "artefacts": [
-    {
-      "title": {
-        "en": "Artificial Intelligence in Nuclear Regulation Frameworks: Trends in Security Narratives and Regulatory Change",
-        "zh": "核监管框架中的人工智能：安全叙事与监管变革的趋势"
-      },
-      "venue": {
-        "en": "briefing",
-        "zh": "简报"
-      },
-      "body": {
-        "en": "This article provides a snapshot on how Artificial Intelligence emerges as a dominant topic in traditional international security environments and outlines the impact of these topics and how it is interacting with a rapidly changing regulatory environment.",
-        "zh": "本文简要呈现人工智能如何在传统国际安全领域中成为主导议题，并概述这些议题的影响，以及它如何与快速变化的监管环境相互作用。"
-      }
-    },
-    {
-      "title": {
-        "en": "Ontological Insecurity: Sovereignty, Nationalism and how the EU navigates the China-US Competition for Market Dominance of Artificial Intelligence",
-        "zh": "本体性不安全：主权、民族主义，以及欧盟如何在中美争夺人工智能市场主导权的竞争中寻路"
-      },
-      "venue": {
-        "en": "working paper",
-        "zh": "工作论文"
-      },
-      "body": {
-        "en": "This Working Paper provides an analysis of how the emergence of sovereignty narrative around technological infrastructure and AI is a symptom of geopolitical insecurity as market forces are concentrated in the China-US bind. Consequently, as nationalism and defense heighten across European countries, the sovereignty argument leverages this approach as it races to find security. From this lens, taking on theories and frameworks from social movement strategies, the paper provides pointers for how institutions and movements can prepare capabilities and infrastructure for protecting public interest.",
-        "zh": "本工作论文分析了围绕技术基础设施与人工智能的主权叙事的兴起，如何在市场力量集中于中美博弈之际，成为地缘政治不安全的一种症候。因此，随着民族主义与国防议题在欧洲各国不断升温，主权论述便借助这一路径，在寻求安全的竞逐中加以运用。从这一视角出发，本文借鉴社会运动策略的理论与框架，为机构与运动如何构建保护公共利益的能力与基础设施提供了方向。"
-      }
-    }
-  ],
-  "projects": [
-    {
-      "title": {
-        "en": "Fellow, AIxist",
-        "zh": "AIxist 研究员"
-      },
-      "venue": {
-        "en": "fellowship",
-        "zh": "研究员"
-      },
-      "yr": "(2025—)",
-      "hot": true,
-      "body": {
-        "en": "Fellow investigating how geopolitical trends in artificial intelligence agendas are shaping society, labour and national security measures.",
-        "zh": "作为研究员，探究人工智能议程中的地缘政治趋势如何塑造社会、劳工与国家安全举措。"
-      }
-    },
-    {
-      "title": {
-        "en": "Facilitating Labour Movements and Public Interest Technology",
-        "zh": "协调劳工运动与公共利益技术"
-      },
-      "venue": {
-        "en": "Society",
-        "zh": "社会"
-      },
-      "yr": "(2024—)",
-      "body": {
-        "en": "Researching and facilitating discussions happening in Labour movements around the impact of the Technology Industry.",
-        "zh": "研究并协调劳工运动中围绕技术产业影响的讨论。"
-      }
-    },
-    {
-      "title": {
-        "en": "Workshops &amp; Convening",
-        "zh": "工作坊与召集"
-      },
-      "venue": {
-        "en": "convening",
-        "zh": "召集"
-      },
-      "yr": "(2023—)",
-      "body": {
-        "en": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
-        "zh": "占位文本。此处展开为该项目的简短描述。"
-      }
-    },
-    {
-      "title": {
-        "en": "Organising",
-        "zh": "组织工作"
-      },
-      "venue": {
-        "en": "organising",
-        "zh": "组织"
-      },
-      "yr": "(2023)",
-      "body": {
-        "en": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
-        "zh": "占位文本。此处展开为该项目的简短描述。"
-      }
-    },
-    {
-      "title": {
+      "section": {
         "en": "Research",
         "zh": "研究"
       },
-      "venue": {
-        "en": "research",
-        "zh": "研究"
-      },
-      "yr": "(2022—)",
-      "body": {
-        "en": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
-        "zh": "占位文本。此处展开为该项目的简短描述。"
-      }
+      "entries": [
+        {
+          "year": "",
+          "title": {
+            "en": "Geopolitics and technology governance",
+            "zh": "地缘政治与技术治理"
+          },
+          "org": {
+            "en": "China and the EU",
+            "zh": "中国与欧盟"
+          }
+        },
+        {
+          "year": "",
+          "title": {
+            "en": "Artificial intelligence in international security",
+            "zh": "国际安全中的人工智能"
+          },
+          "org": {
+            "en": "Non-proliferation, regulation",
+            "zh": "防扩散与监管"
+          }
+        },
+        {
+          "year": "",
+          "title": {
+            "en": "Public-interest AI, labour and social movements",
+            "zh": "公共利益人工智能、劳工与社会运动"
+          },
+          "org": {
+            "en": "Civil society",
+            "zh": "公民社会"
+          }
+        }
+      ]
     },
     {
-      "title": {
-        "en": "Industry &amp; ML",
-        "zh": "产业与机器学习"
+      "section": {
+        "en": "Writing",
+        "zh": "论述"
       },
-      "venue": {
-        "en": "industry",
-        "zh": "产业"
+      "entries": [
+        {
+          "year": "",
+          "title": {
+            "en": "Ontological Insecurity: sovereignty, nationalism and the EU in the China–US AI race",
+            "zh": "本体性不安全：主权、民族主义与中美人工智能竞逐中的欧盟"
+          },
+          "org": {
+            "en": "Working paper",
+            "zh": "工作论文"
+          },
+          "placeholder": true,
+          "note": "Add the year and, if it is published, the venue."
+        },
+        {
+          "year": "",
+          "title": {
+            "en": "AI in nuclear regulation: security narratives and regulatory change",
+            "zh": "核监管中的人工智能：安全叙事与监管变革"
+          },
+          "org": {
+            "en": "Briefing",
+            "zh": "简报"
+          },
+          "placeholder": true,
+          "note": "Add the year and, if it is published, the venue."
+        }
+      ]
+    },
+    {
+      "section": {
+        "en": "Convening",
+        "zh": "召集"
       },
-      "yr": "(2020—22)",
-      "body": {
-        "en": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
-        "zh": "占位文本。此处展开为该项目的简短描述。"
-      }
+      "entries": [
+        {
+          "year": "2023—",
+          "title": {
+            "en": "Workshops and convenings",
+            "zh": "工作坊与召集"
+          },
+          "org": {
+            "en": "Civil society, industry, institutions",
+            "zh": "公民社会、产业与机构"
+          }
+        },
+        {
+          "year": "2023",
+          "title": {
+            "en": "Political organising",
+            "zh": "政治组织工作"
+          },
+          "org": {
+            "en": "Berlin",
+            "zh": "柏林"
+          }
+        }
+      ]
+    },
+    {
+      "section": {
+        "en": "Background",
+        "zh": "履历"
+      },
+      "entries": [
+        {
+          "year": "",
+          "title": {
+            "en": "Visiting researcher",
+            "zh": "访问研究员"
+          },
+          "org": {
+            "en": "UN Non-Proliferation Treaty Conference",
+            "zh": "联合国核不扩散条约大会"
+          },
+          "placeholder": true,
+          "note": "Add the year of the NPT Conference attended."
+        },
+        {
+          "year": "2022—",
+          "title": {
+            "en": "Independent research",
+            "zh": "独立研究"
+          },
+          "org": {
+            "en": "Technology and the state",
+            "zh": "技术与国家"
+          }
+        },
+        {
+          "year": "2020—22",
+          "title": {
+            "en": "Machine learning",
+            "zh": "机器学习"
+          },
+          "org": {
+            "en": "Industry",
+            "zh": "产业界"
+          }
+        }
+      ]
     }
-  ]
+  ],
+  "error": {
+    "code": {
+      "en": "404",
+      "zh": "404"
+    },
+    "message": {
+      "en": "Nothing at this address.",
+      "zh": "此处没有页面。"
+    },
+    "back": {
+      "en": "Back to the card",
+      "zh": "返回名片"
+    }
+  }
 }
