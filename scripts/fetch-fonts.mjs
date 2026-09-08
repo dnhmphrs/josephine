@@ -71,9 +71,15 @@ function curl(url, binary) {
    fallback chain only kicks in per missing glyph, so it costs nothing to let
    the CJK face cover the ASCII it may be asked for. */
 function charset() {
-  const json = fs.readFileSync(path.join(ROOT, 'src', 'content', 'content.json'), 'utf8');
+  /* content.json is where all the site's text lives, but 404.html carries its
+     own - it is deliberately plain DOM, since an error page that needs a GPU to
+     tell you a URL is wrong has misunderstood its job. */
+  const sources = [
+    path.join(ROOT, 'src', 'content', 'content.json'),
+    path.join(ROOT, 'src', '404.html'),
+  ].map((f) => fs.readFileSync(f, 'utf8')).join('');
   const set = new Set();
-  for (const ch of json) if (ch.codePointAt(0) > 0x20) set.add(ch);
+  for (const ch of sources) if (ch.codePointAt(0) > 0x20) set.add(ch);
   for (const ch of 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,:;()[]{}-—–/@&%·、。，；：？！“”‘’（）《》') set.add(ch);
   return [...set].sort().join('');
 }

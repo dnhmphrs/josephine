@@ -85,7 +85,7 @@ const vec3 INK      = vec3(0.541, 0.549, 0.565);   // #8a8c90
    ink reads as wet. Set WET to 0.0 to remove it; nothing else depends on it. */
 const vec3 LILAC    = vec3(0.416, 0.298, 0.769);   // #6a4cc4
 
-const float WASH   = 0.120;        // peak ink density
+const float WASH   = 0.105;        // peak ink density
 const float WET    = 0.050;        // lilac in the ink, proportional to density
 const float TOOTH  = 0.011;        // aggregate grain
 const float DITHER = 2.0 / 255.0;  // 1/255 is pure TPDF; 2 also reads as surface
@@ -120,9 +120,12 @@ void main() {
   float t = uTime * DRIFT;
 
   /* The slab. One mix, and nothing else: no mottle, no vignette. Both were
-     tried and both were removed - the dither below already gives the surface
-     its material. */
-  vec3 col = mix(CONC_BOT, CONC_TOP, vUv.y);
+     tried and both were removed - the dither and the aggregate below already
+     give the surface its material. The mix runs on a diagonal rather than
+     straight down, so the light pools away from the wash instead of on top of
+     it: a vertical ramp puts its brightest band exactly where the ink sits and
+     the two cancel. */
+  vec3 col = mix(CONC_BOT, CONC_TOP, clamp(0.5 + 0.62 * (vUv.y - 0.5) - 0.34 * (vUv.x - 0.5), 0.0, 1.0));
 
   /* The gesture. Centre proportional to width, so it stays right of centre
      from a phone to an ultrawide, drifting on two periods that never coincide. */
@@ -135,7 +138,12 @@ void main() {
      turns into a full-width band sitting under the name, which is a different
      picture from the one this is. */
   vec2 e = vec2(min(0.44 + 0.16 * aspect, 0.62 * aspect), 0.34);
-  vec2 q = (p - c) / e;
+  /* Rotated off the axes. Everything else in this shader - the noise lattice,
+     the ground ramp, the viewport itself - is aligned to x and y, and a mass
+     that shares that alignment reads as a gradient someone applied rather than
+     as a stroke someone made. Twenty degrees is enough. */
+  vec2 r0 = (p - c) / e;
+  vec2 q = vec2(r0.x * 0.940 - r0.y * -0.342, r0.x * -0.342 + r0.y * 0.940);
 
   /* Asymmetric falloff - tighter above, bleeding below. This is the difference
      between a brushed form and a radial gradient: the upper edge, the one that
@@ -153,7 +161,11 @@ void main() {
   d += (vnoise(p * 12.0 + 31.7) - 0.5) * 0.075;
 
   float wash = 1.0 - smoothstep(0.16, 1.06, d);
-  wash *= mix(0.72, 1.0, w + 0.5);                       // pooling
+  /* Pooling: densest where the lobe noise pushed the edge outward, which is
+     w BELOW zero. Reading the multiplier off w directly puts the minimum
+     exactly where the mass is deepest, which is the opposite of how ink
+     settles. */
+  wash *= mix(0.72, 1.0, 0.5 - w);
   float rim = smoothstep(0.02, 0.16, d) * (1.0 - smoothstep(0.16, 0.34, d));
 
   vec3 ink = mix(INK, LILAC, WET * wash);
@@ -164,9 +176,21 @@ void main() {
   col += (vnoise(gl_FragCoord.xy * 0.80) - 0.5) * TOOTH;
 
   /* Dither, last, in the space the framebuffer quantises. Without it the whole
-     wash bands into visible contours. */
-  vec2 fc = gl_FragCoord.xy;
-  col += (ign(fc) - ign(fc + vec2(37.0, 17.0))) * DITHER;
+     wash bands into visible contours - the entire ramp is only about eight of
+     the 256 available levels deep.
+
+     One tap, not two. The obvious way to build a triangular PDF is to
+     difference two offset taps, but IGN is a dot product inside a fract: an
+     offset of (37,17) adds dot((37,17), k) = 2.5823 to the argument, and the
+     outer fract removes the integer part, so the second tap is very nearly the
+     first and the difference collapses towards zero. A single uniform tap
+     actually dithers.
+
+     gl_FragCoord is wrapped first, because on a device without highp the raw
+     coordinate loses enough mantissa near the bottom of a tall page for the
+     pattern to degenerate into bands of its own. */
+  vec2 fc = mod(gl_FragCoord.xy, 256.0);
+  col += (ign(fc) - 0.5) * DITHER;
 
   gl_FragColor = vec4(col, 1.0);
 }`;

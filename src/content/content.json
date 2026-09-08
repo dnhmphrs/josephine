@@ -270,19 +270,5 @@
         }
       ]
     }
-  ],
-  "error": {
-    "code": {
-      "en": "404",
-      "zh": "404"
-    },
-    "message": {
-      "en": "Nothing at this address.",
-      "zh": "此处没有页面。"
-    },
-    "back": {
-      "en": "Back to the card",
-      "zh": "返回名片"
-    }
-  }
+  ]
 }

@@ -67,7 +67,7 @@ else boot(stage);
    a GPU. */
 function fallback() {
   document.body.classList.add('fallback');
-  updateMirror(state.lang, null);
+  updateMirror(state.lang);
   if (canvas) canvas.remove();
   if (proxy) proxy.remove();
 }
@@ -76,7 +76,7 @@ async function boot(stage) {
   const engine = new TextEngine(stage.gl);
   const marks = new Marks(engine);
 
-  updateMirror(state.lang, act);
+  updateMirror(state.lang);
 
   /* Rasterising before the webfonts arrive would bake the fallback face into
      the atlas, so the first layout waits - but only on the language actually
@@ -163,7 +163,7 @@ async function boot(stage) {
     state.lang = next;
     document.documentElement.lang = next === 'zh' ? 'zh-Hans' : 'en';
     try { localStorage.setItem('lang', next); } catch (e) { /* ignore */ }
-    updateMirror(state.lang, act);
+    updateMirror(state.lang);
     syncProxy();
     syncHits();
     state.dirty = true;

@@ -2,95 +2,66 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Error — Josephine Shen</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Not found — Josephine Shen</title>
   <meta name="robots" content="noindex" />
   <link rel="icon" href="/favicon.ico" sizes="any" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400;1,6..72,500&family=Archivo:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500&family=Noto+Serif+SC:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/fonts/fonts.css" />
   <style>
-    :root{
-      --paper:#efece3; --ink:#111114; --ink-2:#54555b; --ink-3:#8e8f95;
-      --rule:#cbc7ba; --hot:#6a4cc4; --hot-2:#5238a8;
-      --serif:"Newsreader",Georgia,serif; --sans:"Archivo",Helvetica,Arial,sans-serif;
-      --mono:"Spline Sans Mono",ui-monospace,monospace;
-      --pad:clamp(20px,4.5vw,80px);
+    /* The index is a WebGL canvas; this page deliberately is not. An error page
+       that needs a GPU, a texture atlas and a font subset to tell you a URL is
+       wrong has misunderstood its job. Same concrete, same two faces, plain DOM. */
+    :root { --concrete:#d5d3ce; --ink:#16161a; --ink-2:#4a4c52; --ink-3:#55565c; }
+    * { box-sizing: border-box; }
+    html { background: var(--concrete); -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      min-height: 100svh;
+      display: flex;
+      align-items: center;
+      padding: clamp(24px, 5.5vw, 80px);
+      background: var(--concrete);
+      color: var(--ink);
+      font: 400 clamp(20px, 2.2vw, 30px)/1.42 "Bodoni Moda Lede", "Bodoni Moda", ui-serif, Georgia, serif;
+      -webkit-font-smoothing: antialiased;
     }
-    :root:lang(zh){ --serif:"Newsreader","Noto Serif SC",serif; --sans:"Archivo","Noto Sans SC",sans-serif; --mono:"Spline Sans Mono","Noto Sans SC",monospace; }
-    *{box-sizing:border-box;margin:0;padding:0;}
-    html{background:var(--paper);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;}
-    ::selection{background:var(--hot);color:#fff;}
-    body{
-      min-height:100vh; background:transparent; color:var(--ink);
-      font-family:var(--serif);
-      display:flex; align-items:center; justify-content:center;
-      padding:var(--pad); position:relative; overflow:hidden;
+    main { max-width: 30em; }
+    .eyebrow {
+      font: 500 clamp(11px, 0.9vw, 13px)/1.2 "Jost", ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--ink-3);
+      margin: 0 0 clamp(18px, 2vw, 28px);
     }
-    #bg {
-      position: fixed; inset: 0;
-      width: 100%; height: 100%;
-      transform: scale(1.15); /* Visually scales it up to create an overscroll buffer */
-      z-index: 0;
-      display: block;
-      pointer-events: none;
+    h1 {
+      font: 600 clamp(44px, 6.5vw, 104px)/0.98 "Jost", ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: -0.03em;
+      margin: 0 0 clamp(20px, 2.4vw, 34px);
     }
-
-    .err{ position:relative; z-index:1; text-align:center; max-width:40ch; }
-    .err-code{ font-family:var(--mono); font-size:12px; font-weight:500; letter-spacing:0.16em; text-transform:uppercase; color:var(--hot-2); margin-bottom:clamp(14px,2vw,22px); }
-    .err-msg{ font-family:var(--serif); font-style:italic; font-weight:400; font-size:clamp(38px,8vw,56px); line-height:1.0; letter-spacing:-0.025em; color:var(--ink); }
-    .err-home{
-      display:inline-flex; align-items:center; gap:9px; margin-top:clamp(28px,4vw,44px);
-      font-family:var(--mono); font-size:12px; font-weight:500; letter-spacing:0.08em; text-transform:uppercase;
-      color:var(--ink); text-decoration:none; border:1px solid var(--ink); padding:9px 16px;
-      transition:background .2s,color .2s,border-color .2s;
+    p { margin: 0; color: var(--ink-2); }
+    p + p { margin-top: 0.35em; font-size: 0.86em; }
+    p:lang(zh) { font-family: "Noto Serif SC", ui-serif, serif; }
+    .back {
+      display: inline-block;
+      margin-top: clamp(26px, 3vw, 42px);
+      font: 500 clamp(11px, 0.9vw, 12.5px)/1.2 "Jost", ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--ink);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(22, 22, 26, 0.3);
+      padding-bottom: 4px;
     }
-    .err-home .arr{ transition:transform .3s cubic-bezier(.2,.7,.2,1); }
-    .err-home:hover{ background:var(--ink); color:var(--paper); }
-    .err-home:hover .arr{ transform:translateX(-4px); }
-    @media (prefers-reduced-motion:reduce){ *{transition:none!important;} }
+    .back:hover { border-bottom-color: var(--ink); }
   </style>
 </head>
-
 <body>
-
-  <!-- +bg : background shader canvas (kept behind everything, non-interactive) -->
-  <canvas id="bg" aria-hidden="true"></canvas>
-
-  <main class="err">
-    <p class="err-code" id="errCode">Error</p>
-    <h1 class="err-msg" id="errMsg">Aiyo, méiyǒu!</h1>
-    <a class="err-home" href="/" id="errHome"><span class="arr">&larr;</span><span id="errHomeLabel">Back home</span></a>
+  <main>
+    <p class="eyebrow">404</p>
+    <h1>Nothing here</h1>
+    <p>There is no page at this address.</p>
+    <p lang="zh-Hans">此处没有页面。</p>
+    <a class="back" href="/">Back to the card</a>
   </main>
-
-  <script type="module" src="/js/main.js"></script>
-  
-  <script>
-  (function(){
-    var lang = 'en';
-    try { lang = localStorage.getItem('lang') || 'en'; } catch(e){}
-    if (lang !== 'zh') lang = 'en';
-    document.documentElement.lang = lang;
-
-    var code = '404';
-    try {
-      var q = new URLSearchParams(location.search).get('code');
-      if (q && /^\d{3}$/.test(q)) code = q;
-      else if (document.body.dataset.code) code = document.body.dataset.code;
-    } catch(e){}
-    document.getElementById('errCode').textContent = '[ ' + code + ' ]';
-
-    fetch('/content/content.json')
-      .then(function(r){ return r.json(); })
-      .then(function(c){
-        var ui = c.ui || {};
-        var pick = function(k, fb){ return (ui[k] && ui[k][lang] != null) ? ui[k][lang] : fb; };
-        document.getElementById('errMsg').textContent      = pick('error_msg', 'Aiyo, méiyǒu!');
-        document.getElementById('errHomeLabel').textContent = pick('error_back', 'Back home');
-      })
-      .catch(function(){});
-  })();
-  </script>
-
 </body>
 </html>

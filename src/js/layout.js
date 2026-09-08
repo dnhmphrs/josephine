@@ -20,14 +20,15 @@
    colour: on a page this bare, one would become the loudest thing on it.
 
    All three clear 4.5:1 against the concrete AND against the darkest point of
-   the wash, which is the constraint that sets them - the quiet grey a designer
-   reaches for first, around #85878c, measures 2.4:1 and is unreadable by any
-   standard once it is under the wash in the lower right. The hierarchy is
+   the wash - the second half is the constraint that actually sets them, since
+   the CV's lower columns scroll straight through the wash. The quiet grey a
+   designer reaches for first, around #85878c, measures 2.4:1 on bare concrete
+   and 2.2:1 over the wash, which is unreadable by any standard. The hierarchy is
    carried by size, weight and tracking instead: an 11px capital tracked to
    +0.2em reads as an annotation whatever its value. */
 export const INK = [0.086, 0.086, 0.102];    // #16161a  primary       12.1:1
 export const INK_2 = [0.290, 0.298, 0.322];  // #4a4c52  prose          5.7:1
-export const INK_3 = [0.357, 0.361, 0.380];  // #5b5c61  labels, meta   4.5:1
+export const INK_3 = [0.333, 0.337, 0.361];  // #55565c  labels, meta   4.9:1
 export const RULE = [0.086, 0.086, 0.102];   // primary, drawn at low alpha
 
 /* Two voices, and the pairing is the brief resolved rather than split.
@@ -56,7 +57,6 @@ export const RULE = [0.086, 0.086, 0.102];   // primary, drawn at low alpha
 const DISPLAY = '"Jost", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif';
 const SERIF_D = '"Bodoni Moda Lede", "Bodoni Moda", "Noto Serif SC", ui-serif, Georgia, serif';
 const SERIF_T = '"Bodoni Moda Text", "Bodoni Moda", "Noto Serif SC", ui-serif, Georgia, serif';
-const isSerif = (family) => family === SERIF_D || family === SERIF_T;
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -314,7 +314,31 @@ function band(scene, content, view, lang, g) {
    is optically centred and its height depends on how many lines the prose and
    the field values take - which is not knowable until they are set.
    --------------------------------------------------------------------------- */
-function cardBlock(engine, content, lang, g) {
+/* How many lines each slot of the card needs, in one language. The card is
+   laid out to the LARGER of the two, so the two languages share one grid: the
+   bottom rule, the email and every field sit at the same y whichever language
+   you are reading. Without this the Chinese card - which is consistently more
+   compact - pulls everything below the lede upward, and a morph turns into a
+   reflow with two languages visible in two different places at once. */
+function cardShape(engine, content, lang, g) {
+  const S = scale(g.vw);
+  const c = content.card;
+  const perRow = g.cols <= 2 ? 2 : 4;
+  const fieldW = (g.contentW - g.gutter * (perRow - 1)) / perRow;
+  const proseW = Math.min(g.contentW, 30 * S.line.size);
+  const lines = wrap(engine, c.line[lang], adapt(S.line, lang), proseW).length;
+  const counts = c.fields.map((f) => wrap(engine, f.value[lang], adapt(S.value, lang), fieldW - 10).length);
+  const rows = Math.ceil(c.fields.length / perRow);
+  const rowLines = [];
+  for (let r = 0; r < rows; r++) {
+    let mx = 1;
+    for (let i = r * perRow; i < Math.min(counts.length, (r + 1) * perRow); i++) mx = Math.max(mx, counts[i]);
+    rowLines.push(mx);
+  }
+  return { lines, rowLines };
+}
+
+function cardBlock(engine, content, lang, g, shape) {
   const scene = new Scene(engine, lang, g);
   const S = scale(g.vw);
   const c = content.card;
@@ -348,14 +372,7 @@ function cardBlock(engine, content, lang, g) {
     f, texts: wrap(engine, f.value[lang], adapt(S.value, lang), fieldW - 10),
   }));
   const rows = Math.ceil(fields.length / perRow);
-  const rowLines = [];
-  for (let r = 0; r < rows; r++) {
-    let mx = 1;
-    for (let i = r * perRow; i < Math.min(fields.length, (r + 1) * perRow); i++) {
-      mx = Math.max(mx, fields[i].texts.length);
-    }
-    rowLines.push(mx);
-  }
+  const rowLines = shape.rowLines;
 
   const LEAD = { line: lead(S.line), value: lead(S.value) };
 
@@ -372,7 +389,7 @@ function cardBlock(engine, content, lang, g) {
   lines.forEach((t, i) => {
     scene.text(`card.line.${i}`, t, S.line, g.left, y + i * LEAD.line, INK_2);
   });
-  y += (lines.length - 1) * LEAD.line;
+  y += (shape.lines - 1) * LEAD.line;
 
   y += u * 3.6 + labelRun.ascent;
   const fieldTop = y;
@@ -534,7 +551,15 @@ export function buildScenes(engine, content, vw, vh, safeTop = 0) {
      does not jump when the morph starts. When it is taller than the space it
      has, it anchors to the top instead: centring content that overflows hides
      the top of it, which on this page is the name. */
-  const cards = { en: cardBlock(engine, content, 'en', g), zh: cardBlock(engine, content, 'zh', g) };
+  const shapes = { en: cardShape(engine, content, 'en', g), zh: cardShape(engine, content, 'zh', g) };
+  const shape = {
+    lines: Math.max(shapes.en.lines, shapes.zh.lines),
+    rowLines: shapes.en.rowLines.map((n, i) => Math.max(n, shapes.zh.rowLines[i])),
+  };
+  const cards = {
+    en: cardBlock(engine, content, 'en', g, shape),
+    zh: cardBlock(engine, content, 'zh', g, shape),
+  };
   const blockH = Math.max(cards.en.blockH, cards.zh.blockH);
   const free = vh - topY;
   const cardTop = Math.round(topY + Math.max(g.u * 3, (free - blockH) * 0.42));

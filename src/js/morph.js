@@ -290,22 +290,34 @@ export function drawPlan(marks, plan, ms, opts = {}) {
 
 /* One soft vertical edge sweeps the line. The target lags the source by a
    seventh of the sweep, which is what opens the travelling band of bare
-   concrete between the two languages. */
+   concrete between the two languages.
+
+   Both runs are drawn at the SAME interpolated position rather than each at its
+   own. The two languages do not set to the same measure - Chinese is usually
+   shorter, so a line that wraps four times in English wraps twice in Chinese -
+   and everything below a run therefore sits somewhere else on the other side.
+   Drawing each where it belongs leaves the old language hanging over the new
+   one further down the card. Interpolating the position makes the wipe what it
+   should be: one line, in one place, changing language. */
 function drawWipe(marks, op, ms) {
   const { a, b, start, dur } = op;
   const local = clamp((ms - start) / dur, 0, 1);
   if (local <= 0) { marks.run(a.run, a.x, a.y, a.color, a.alpha); return; }
   if (local >= 1) { marks.run(b.run, b.x, b.y, b.color, b.alpha); return; }
 
+  const e = easeSine(local);
+  const x = lerp(a.x, b.x, e);
+  const y = lerp(a.y, b.y, e);
+
   const soft = Math.max(24, 1.2 * a.run.spec.size);
   const sweep = Math.max(a.run.width, b.run.width) + soft * 2;
-  const E = -soft + sweep * easeSine(local);
+  const E = -soft + sweep * e;
   const lag = 0.14 * sweep;
 
-  marks.runTransformed(a.run, a.x, a.y, a.color, a.alpha, (i, g) =>
-    ({ x: 0, y: 0, s: 1, a: 1 - smooth(E - soft, E, (g.x0 + g.x1) * 0.5 - a.x) }));
-  marks.runTransformed(b.run, b.x, b.y, b.color, b.alpha, (j, g) =>
-    ({ x: 0, y: 0, s: 1, a: smooth(E - soft - lag, E - lag, (g.x0 + g.x1) * 0.5 - b.x) }));
+  marks.runTransformed(a.run, x, y, a.color, a.alpha, (i, g) =>
+    ({ x: 0, y: 0, s: 1, a: 1 - smooth(E - soft, E, (g.x0 + g.x1) * 0.5 - x) }));
+  marks.runTransformed(b.run, x, y, b.color, b.alpha, (j, g) =>
+    ({ x: 0, y: 0, s: 1, a: smooth(E - soft - lag, E - lag, (g.x0 + g.x1) * 0.5 - x) }));
 }
 
 function drawAttention(marks, op, ms, suppressTrace) {

@@ -2,17 +2,21 @@
   "name": "josephine-shen",
   "version": "1.0.0",
   "private": true,
-  "description": "Josephine Shen — personal index site. Static, bilingual (EN/中), content-driven.",
+  "description": "Josephine Shen - identity card and compressed CV, rendered entirely in WebGL. Static, bilingual (EN/\u4e2d).",
   "type": "module",
   "scripts": {
     "fonts": "node scripts/fetch-fonts.mjs",
     "dev": "rollup -c -w",
     "build": "rollup -c",
-    "preview": "serve dist"
+    "preview": "serve dist",
+    "lint": "eslint ."
   },
   "devDependencies": {
+    "@eslint/js": "^9.0.0",
     "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-node-resolve": "^15.2.3",
+    "eslint": "^9.0.0",
+    "globals": "^15.0.0",
     "postcss": "^8.4.35",
     "rollup": "^4.9.0",
     "rollup-plugin-copy": "^3.5.0",
