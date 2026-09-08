@@ -433,7 +433,7 @@ function cardBlock(engine, content, lang, g, shape) {
   y += u * 2.4 + lineRun.ascent;
   const slack = Math.max(0, shape.lines - lines.length) * LEAD.line * 0.5;
   lines.forEach((t, i) => {
-    scene.text(`card.line.${i}`, t, S.line, g.left, y + slack + i * LEAD.line, INK_2);
+    scene.text(`card.line.${i}`, t, S.line, g.left, y + slack + i * LEAD.line, INK_2, { mode: 'attn' });
   });
   y += (shape.lines - 1) * LEAD.line;
 
@@ -449,7 +449,7 @@ function cardBlock(engine, content, lang, g, shape) {
     scene.text(`card.field.${i}.label`, entry.f.label[lang], S.label, x, rowY, INK_3, { mode: 'attn' });
     const v0 = rowY + u * 1.7 + valueRun.ascent;
     entry.texts.forEach((t, k) => {
-      scene.text(`card.field.${i}.value.${k}`, t, S.value, x, v0 + k * LEAD.value, INK);
+      scene.text(`card.field.${i}.value.${k}`, t, S.value, x, v0 + k * LEAD.value, INK, { mode: 'attn' });
     });
   });
   for (let r = 0; r < rows; r++) {
@@ -461,7 +461,7 @@ function cardBlock(engine, content, lang, g, shape) {
   scene.rect('card.rule.bottom', g.left, Math.round(y), g.contentW, 1, RULE, 0.26);
 
   y += u * 2.4 + mailRun.ascent;
-  const mail = scene.text('card.mail', c.contact.email, S.mail, g.left, y, INK);
+  const mail = scene.text('card.mail', c.contact.email, S.mail, g.left, y, INK);   /* same run in both languages: it persists */
   scene.hit('mail', mail, g.left, y, { key: 'card.mail', href: `mailto:${c.contact.email}`, label: c.contact.email });
   scene.rect('card.mail.rule', g.left, Math.round(y + mailRun.descent * 0.5), mail.width, 1, INK, 0.3);
 

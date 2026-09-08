@@ -29,9 +29,12 @@
    Three tiers, because the page has three kinds of text:
      1. The name and its eyebrow get the full attention morph, and the name
         alone gets the trace. This is the signature.
-     2. Short tracked labels get the same mechanism with the travel capped, so
-        a nav item does not fly across the page to become two characters.
-     3. Everything else gets the decode wipe: one soft edge sweeps the line,
+     2. The rest of the card - its lede, its labels, its field values, the nav -
+        gets the same mechanism with the travel capped at 0.6em, so a 12px nav
+        item does not fly the width of the page to become one character. The
+        card is what you are looking at when you press the toggle, so the card
+        is what morphs.
+     3. The CV gets the decode wipe: one soft edge sweeps the line,
         the old language lifts just ahead of it and the new one lands just
         behind, and a narrow band of bare concrete travels between them. Ink
         lifts, ground shows, ink lands - the one place the sumi-e reference
@@ -47,9 +50,12 @@ const FLOOR = 0.02;   // uniform tail, so no glyph is ever left unattended
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const easeInOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
-/* The last fifth is nearly stationary, so the eye never catches the moment a
-   glyph snaps back onto the device-pixel grid at the end. */
-const easeOutQuint = (x) => 1 - Math.pow(1 - x, 5);
+/* Position runs on easeInOutCubic: it puts the motion in the MIDDLE of the
+   window, which is the only place the eye can read it as travel, and its
+   derivative still falls to zero at the end so nobody catches the moment a
+   glyph snaps back onto the device-pixel grid. An easeOut of any high order
+   spends half its distance in the first eighth of the clock and the morph is
+   perceptually over before it has begun. */
 const easeSine = (x) => 0.5 - 0.5 * Math.cos(Math.PI * clamp(x, 0, 1));
 const smooth = (a, b, x) => {
   const t = clamp((x - a) / (b - a), 0, 1);
@@ -336,10 +342,14 @@ function drawAttention(marks, op, ms, suppressTrace) {
       if (draw <= 0) continue;
       const alpha = 0.10 * k * draw * (1 - smooth(t0 + 270, t0 + 430, ms));
       if (alpha <= 0.002) continue;
+      /* From just under the departing glyph to the middle of the arriving one.
+         Both endpoints on the baseline would draw a horizontal line, which
+         reads as an underline rather than as a mapping; the rise is what makes
+         it legible as one glyph pointing at another. */
       const x0 = ca[i * 2];
-      const y0 = ca[i * 2 + 1] + 2;
+      const y0 = ca[i * 2 + 1] + a.run.descent * 0.55;
       const x1 = cb[j * 2];
-      const y1 = cb[j * 2 + 1] + 2;
+      const y1 = cb[j * 2 + 1] - (b.run.capHeight || b.run.ascent * 0.7) * 0.45;
       marks.line(x0, y0, lerp(x0, x1, draw), lerp(y0, y1, draw),
         1 / marks.engine.dpr, a.color, alpha);
     }
@@ -356,23 +366,33 @@ function drawAttention(marks, op, ms, suppressTrace) {
      step with the travel leaves the middle of the transition empty, and an
      empty middle reads as a page that broke rather than a word that changed. */
   marks.runTransformed(a.run, a.x, a.y, a.color, a.alpha, (i) => {
-    const delay = n > 1 ? 0.05 * (i / (n - 1)) : 0;
-    const u = easeOutQuint(clamp((local - delay) / 0.7, 0, 1));
-    const dx = aAnchor[i * 2] - ca[i * 2];
-    const dy = aAnchor[i * 2 + 1] - ca[i * 2 + 1];
-    const f = scaled(dx, dy) * u;
-    return { x: dx * f, y: dy * f, s: 1 - 0.09 * u, a: 1 - smooth(0.45, 1, u) };
+    const raw = clamp((local - (n > 1 ? 0.05 * (i / (n - 1)) : 0)) / 0.70, 0, 1);
+    const move = easeInOut(raw) * scaled(aAnchor[i * 2] - ca[i * 2], aAnchor[i * 2 + 1] - ca[i * 2 + 1]);
+    return {
+      x: (aAnchor[i * 2] - ca[i * 2]) * move,
+      y: (aAnchor[i * 2 + 1] - ca[i * 2 + 1]) * move,
+      s: 1 - 0.09 * easeInOut(raw),
+      /* Alpha runs on RAW time, not on the eased position. easeOutQuint spends
+         half its travel in the first eighth of the clock - which is what makes
+         the landing invisible - so tying opacity to it too would have the whole
+         morph perceptually over in 200ms and the remaining half-second would be
+         a tail nobody sees. */
+      a: 1 - smooth(0.25, 0.80, raw),
+    };
   });
 
   /* Arrivals. They start where the same matrix says they came from and settle
      into place a little later, so the two populations cross. */
   marks.runTransformed(b.run, b.x, b.y, b.color, b.alpha, (j) => {
-    const delay = 0.16 + (m > 1 ? 0.10 * (j / (m - 1)) : 0);
-    const u = easeOutQuint(clamp((local - delay) / 0.72, 0, 1));
-    const dx = bAnchor[j * 2] - cb[j * 2];
-    const dy = bAnchor[j * 2 + 1] - cb[j * 2 + 1];
-    const f = scaled(dx, dy) * (1 - u);
-    return { x: dx * f, y: dy * f, s: 0.92 + 0.08 * u, a: smooth(0, 0.5, u) };
+    const raw = clamp((local - (0.16 + (m > 1 ? 0.10 * (j / (m - 1)) : 0))) / 0.72, 0, 1);
+    const eased = easeInOut(raw);
+    const move = (1 - eased) * scaled(bAnchor[j * 2] - cb[j * 2], bAnchor[j * 2 + 1] - cb[j * 2 + 1]);
+    return {
+      x: (bAnchor[j * 2] - cb[j * 2]) * move,
+      y: (bAnchor[j * 2 + 1] - cb[j * 2 + 1]) * move,
+      s: 0.92 + 0.08 * eased,
+      a: smooth(0.10, 0.70, raw),
+    };
   });
 }
 

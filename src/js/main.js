@@ -351,6 +351,10 @@ async function boot(stage) {
       view: state.view, lang: state.lang, cols: state.grid.cols, dpr: engine.dpr,
       atlas: engine.size, overflow: engine.overflow,
       quads: marks.count, height: Math.round(scene().height),
+      /* Elapsed ms of the running transition, or null. The only way to sample
+         the morph at a known point: a screenshot's own latency is larger than
+         several of its phases. */
+      t: state.transition ? Math.round(state.transition.ms) : null,
     }),
     grid: () => ({ ...state.grid, colX: undefined }),
     /* Every placed run, for checking that nothing overflows its column. */
