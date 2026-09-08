@@ -3,6 +3,7 @@ import { nodeResolve } from '@rollup/plugin-node-resolve';
 import json from '@rollup/plugin-json';
 import postcss from 'rollup-plugin-postcss';
 import copy from 'rollup-plugin-copy';
+import terser from '@rollup/plugin-terser';
 import serve from 'rollup-plugin-serve';
 import livereload from 'rollup-plugin-livereload';
 import { renderMirror } from './src/js/mirror.js';
@@ -46,6 +47,10 @@ export default {
       minimize: !dev,
       sourceMap: dev,
     }),
+    /* Production only. This file is heavily commented on purpose - the comments
+       are most of what makes a hand-written WebGL text engine maintainable -
+       and they belong in the source, not in the bundle. */
+    !dev && terser({ format: { comments: false } }),
     copy({
       targets: [
         {
