@@ -494,13 +494,15 @@ export function drawScene(marks, scene, alpha = 1, hoverKey = null, reveal = nul
        and the toggle stays where it was put. */
     const y = it.fixed ? it.y + fixedY : it.y;
     let a = it.alpha * alpha;
-    if (!it.fixed && scene.edge) {
-      const rect = it.kind === 'rect';
+    /* Rules are never faded, only type. A hairline at sixteen percent passing
+       under the toggle is nothing; a threshold rule dissolving while the word
+       that names it stays put is a page coming apart. The frame of the
+       document is always drawn - the same rule the seals follow. */
+    if (!it.fixed && it.kind !== 'rect' && scene.edge) {
       /* In scope only if the mark reaches into the toggle's column. */
-      if (it.edge || it.x + (rect ? it.w : it.run.width) > scene.edge.x0) {
-        const h = rect ? it.h : (it.run.inkAscent || it.run.ascent || 0);
-        const bottom = it.y - fixedY + (rect ? it.h : (it.run.inkDescent || 0));
-        a *= edgeFade(bottom, scene.edge, h);
+      if (it.edge || it.x + it.run.width > scene.edge.x0) {
+        const bottom = it.y - fixedY + (it.run.inkDescent || 0);
+        a *= edgeFade(bottom, scene.edge, it.run.inkAscent || it.run.ascent || 0);
         if (a <= 0.002) continue;
       }
     }

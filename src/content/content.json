@@ -53,162 +53,195 @@
       }
     }
   },
-  "areas": [
+  "blocks": [
     {
-      "title": {
-        "en": "Geopolitics and technology governance",
-        "zh": "地缘政治与技术治理"
+      "key": "work",
+      "label": {
+        "en": "Research and writing",
+        "zh": "研究与写作"
       },
-      "org": {
-        "en": "China and the EU",
-        "zh": "中国与欧盟"
-      }
-    },
-    {
-      "title": {
-        "en": "Artificial intelligence in international security",
-        "zh": "国际安全中的人工智能"
-      },
-      "org": {
-        "en": "Non-proliferation, regulation",
-        "zh": "防扩散与监管"
-      }
-    },
-    {
-      "title": {
-        "en": "Public-interest AI, labour and social movements",
-        "zh": "公共利益人工智能、劳工与社会运动"
-      },
-      "org": {
-        "en": "Civil society",
-        "zh": "公民社会"
-      }
-    }
-  ],
-  "cv": [
-    {
-      "section": {
-        "en": "Now",
-        "zh": "现在"
-      },
-      "entries": [
+      "sections": [
         {
-          "year": "2025—■",
-          "title": {
-            "en": "Fellow",
-            "zh": "研究员"
+          "section": {
+            "en": "Research",
+            "zh": "研究"
           },
-          "org": {
-            "en": "AIxist",
-            "zh": "AIxist"
-          }
+          "entries": [
+            {
+              "title": {
+                "en": "Geopolitics and technology governance",
+                "zh": "地缘政治与技术治理"
+              },
+              "org": {
+                "en": "China and the EU",
+                "zh": "中国与欧盟"
+              }
+            },
+            {
+              "title": {
+                "en": "Artificial intelligence in international security",
+                "zh": "国际安全中的人工智能"
+              },
+              "org": {
+                "en": "Non-proliferation, regulation",
+                "zh": "防扩散与监管"
+              }
+            },
+            {
+              "title": {
+                "en": "Public-interest AI, labour and social movements",
+                "zh": "公共利益人工智能、劳工与社会运动"
+              },
+              "org": {
+                "en": "Civil society",
+                "zh": "公民社会"
+              }
+            }
+          ]
         },
         {
-          "year": "2024—■",
-          "title": {
-            "en": "Labour movements and public-interest technology",
-            "zh": "劳工运动与公共利益技术"
+          "section": {
+            "en": "Writing",
+            "zh": "论述"
           },
-          "org": {
-            "en": "Research and facilitation",
-            "zh": "研究与协调"
-          }
+          "entries": [
+            {
+              "year": "",
+              "title": {
+                "en": "Ontological Insecurity: Sovereignty, Nationalism and how the EU navigates the China-US Competition for Market Dominance of Artificial Intelligence",
+                "zh": "本体性不安全：主权、民族主义，以及欧盟如何在中美争夺人工智能市场主导权的竞争中寻路"
+              },
+              "org": {
+                "en": "Working paper",
+                "zh": "工作论文"
+              },
+              "placeholder": true,
+              "note": "Add the year, and the venue if it is published. Title is verbatim - do not shorten it."
+            },
+            {
+              "year": "",
+              "title": {
+                "en": "Artificial Intelligence in Nuclear Regulation Frameworks: Trends in Security Narratives and Regulatory Change",
+                "zh": "核监管框架中的人工智能：安全叙事与监管变革的趋势"
+              },
+              "org": {
+                "en": "Briefing",
+                "zh": "简报"
+              },
+              "placeholder": true,
+              "note": "Add the year, and the venue if it is published. Title is verbatim - do not shorten it."
+            }
+          ]
         }
       ]
     },
     {
-      "section": {
-        "en": "Writing",
-        "zh": "论述"
+      "key": "mid",
+      "_note": "PLACEHOLDER. Rename the label and add sections; it renders as a tagged rule and a reserved band until then.",
+      "label": {
+        "en": "Projects",
+        "zh": "项目"
       },
-      "entries": [
-        {
-          "year": "",
-          "title": {
-            "en": "Ontological Insecurity: Sovereignty, Nationalism and how the EU navigates the China-US Competition for Market Dominance of Artificial Intelligence",
-            "zh": "本体性不安全：主权、民族主义，以及欧盟如何在中美争夺人工智能市场主导权的竞争中寻路"
-          },
-          "org": {
-            "en": "Working paper",
-            "zh": "工作论文"
-          },
-          "placeholder": true,
-          "note": "Add the year, and the venue if it is published. Title is verbatim - do not shorten it."
-        },
-        {
-          "year": "",
-          "title": {
-            "en": "Artificial Intelligence in Nuclear Regulation Frameworks: Trends in Security Narratives and Regulatory Change",
-            "zh": "核监管框架中的人工智能：安全叙事与监管变革的趋势"
-          },
-          "org": {
-            "en": "Briefing",
-            "zh": "简报"
-          },
-          "placeholder": true,
-          "note": "Add the year, and the venue if it is published. Title is verbatim - do not shorten it."
-        }
-      ]
+      "sections": []
     },
     {
-      "section": {
-        "en": "Convening",
-        "zh": "召集"
+      "key": "cv",
+      "label": {
+        "en": "CV",
+        "zh": "简历"
       },
-      "entries": [
+      "sections": [
         {
-          "year": "2023—■",
-          "title": {
-            "en": "Workshops and convenings",
-            "zh": "工作坊与召集"
+          "section": {
+            "en": "Now",
+            "zh": "现在"
           },
-          "org": {
-            "en": "Civil society, industry, institutions",
-            "zh": "公民社会、产业与机构"
-          }
+          "entries": [
+            {
+              "year": "2025—■",
+              "title": {
+                "en": "Fellow",
+                "zh": "研究员"
+              },
+              "org": {
+                "en": "AIxist",
+                "zh": "AIxist"
+              }
+            },
+            {
+              "year": "2024—■",
+              "title": {
+                "en": "Labour movements and public-interest technology",
+                "zh": "劳工运动与公共利益技术"
+              },
+              "org": {
+                "en": "Research and facilitation",
+                "zh": "研究与协调"
+              }
+            }
+          ]
         },
         {
-          "year": "2023",
-          "title": {
-            "en": "Political organising",
-            "zh": "政治组织工作"
+          "section": {
+            "en": "Convening",
+            "zh": "召集"
           },
-          "org": {
-            "en": "Berlin",
-            "zh": "柏林"
-          }
-        }
-      ]
-    },
-    {
-      "section": {
-        "en": "Background",
-        "zh": "履历"
-      },
-      "entries": [
-        {
-          "year": "",
-          "title": {
-            "en": "Visiting researcher",
-            "zh": "访问研究员"
-          },
-          "org": {
-            "en": "UN Nuclear Non-Proliferation Treaty Conference",
-            "zh": "联合国核不扩散条约大会"
-          },
-          "placeholder": true,
-          "note": "Add the year of the NPT Conference attended."
+          "entries": [
+            {
+              "year": "2023—■",
+              "title": {
+                "en": "Workshops and convenings",
+                "zh": "工作坊与召集"
+              },
+              "org": {
+                "en": "Civil society, industry, institutions",
+                "zh": "公民社会、产业与机构"
+              }
+            },
+            {
+              "year": "2023",
+              "title": {
+                "en": "Political organising",
+                "zh": "政治组织工作"
+              },
+              "org": {
+                "en": "Berlin",
+                "zh": "柏林"
+              }
+            }
+          ]
         },
         {
-          "year": "2020—22",
-          "title": {
-            "en": "Machine learning",
-            "zh": "机器学习"
+          "section": {
+            "en": "Background",
+            "zh": "履历"
           },
-          "org": {
-            "en": "Industry",
-            "zh": "产业界"
-          }
+          "entries": [
+            {
+              "year": "",
+              "title": {
+                "en": "Visiting researcher",
+                "zh": "访问研究员"
+              },
+              "org": {
+                "en": "UN Nuclear Non-Proliferation Treaty Conference",
+                "zh": "联合国核不扩散条约大会"
+              },
+              "placeholder": true,
+              "note": "Add the year of the NPT Conference attended."
+            },
+            {
+              "year": "2020—22",
+              "title": {
+                "en": "Machine learning",
+                "zh": "机器学习"
+              },
+              "org": {
+                "en": "Industry",
+                "zh": "产业界"
+              }
+            }
+          ]
         }
       ]
     }
