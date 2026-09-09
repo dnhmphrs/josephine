@@ -19,12 +19,18 @@
 
    The ground is light, which buys back the contrast that lets the secondary
    values be genuinely quiet - #5B584C is a soft warm grey rather than a
-   near-black doing an impression of one, and it still measures 5.0:1 over the
+   near-black doing an impression of one, and it still measures 4.77:1 over the
    deepest point of the wash, which is the constraint that actually sets it.
-   Restraint here is a consequence of the ground, not a compromise with it. */
-export const INK = [0.133, 0.129, 0.118];    // #22211e  primary       11.8:1
-export const INK_2 = [0.310, 0.298, 0.263];  // #4f4c43  prose          6.3:1
-export const INK_3 = [0.357, 0.345, 0.298];  // #5b584c  labels, meta   5.0:1
+   Restraint here is a consequence of the ground, not a compromise with it.
+
+   The ratios below are measured, not nominal: the shader is evaluated on a
+   grid across time, both axes of the window and the whole length of the
+   document, and each ink is checked against the darkest result. That is the
+   number that has to clear 4.5:1, and it is what caps the wash - a deeper one
+   would take the meta line under. */
+export const INK = [0.133, 0.129, 0.118];    // #22211e  primary       10.8:1
+export const INK_2 = [0.310, 0.298, 0.263];  // #4f4c43  prose          5.7:1
+export const INK_3 = [0.357, 0.345, 0.298];  // #5b584c  labels, meta   4.77:1
 export const RULE = [0.133, 0.129, 0.118];   // primary, drawn at low alpha
 
 /* ---- the two voices -------------------------------------------------------
@@ -134,6 +140,11 @@ function scale(vw) {
        an address is not a heading, and at the serif's body size it was reading
        as one. Small enough to be a footnote, large enough to be a target. */
     link: { family: SERIF, size: f(14, 15.5), lh: 1.35, weight: 400, tracking: 0, zh: { k: 1 } },
+    /* The availability value, in the serif, on the dateline's baseline. Set
+       BELOW the tracked label beside it rather than level with it: a roman at
+       the label's own size out-weighs it and takes the emphasis, and the
+       label is the part that has to be read first. */
+    avail: { family: SERIF, size: f(12.5, 14), lh: 1.2, weight: 400, tracking: 0, zh: { k: 0.94, floor: 12.5 } },
   };
 }
 
@@ -304,6 +315,12 @@ class Scene {
     this.g = g;
     this.items = [];
     this.hits = [];
+    /* Redaction seals - see seal(). */
+    this.seals = [];
+    /* Where the document has to have faded out by, under the fixed toggle.
+       head() measures it; gl.js reads it. Null until then, and drawScene
+       treats null as "no edge", which is what a scene without a toggle wants. */
+    this.edge = null;
     this.height = 0;
   }
 
@@ -335,6 +352,12 @@ class Scene {
     this.items.push({
       kind: 'text', key, run, x: px, y: baseline,
       color: color || INK, alpha: opts.alpha === undefined ? 1 : opts.alpha,
+      seal: opts.seal || null,
+      fixed: !!opts.fixed,
+      /* Forces a mark into the toggle column's fade even though its own box
+         does not reach x0. For the half of a two-run line whose other half
+         does: they are one statement and must go out together. */
+      edge: !!opts.edge,
     });
     return run;
   }
@@ -344,8 +367,23 @@ class Scene {
     return this.place(key, this.prepare(str, role), x, baseline, color, opts);
   }
 
-  rect(key, x, y, w, h, color, alpha) {
-    this.items.push({ kind: 'rect', key, x, y, w, h, color: color || RULE, alpha });
+  rect(key, x, y, w, h, color, alpha, opts = {}) {
+    this.items.push({ kind: 'rect', key, x, y, w, h, color: color || RULE, alpha, fixed: !!opts.fixed });
+  }
+
+  /* Declare a seal: a group of runs that arrive under a bar of ink and are
+     released together when the seal crosses the reveal line. The unit is the
+     GROUP rather than the run, because a two-line title whose second line
+     resolved out of step with its first would read as a fault. `top` is where
+     the group sits in the document; `delay` staggers a row across its columns
+     so a band opens left to right rather than all at once.
+
+     Only the body is sealed. The opening never is - a name coming out from
+     behind a censor bar is a joke about classified documents, and this is a
+     page for someone who works on non-proliferation. */
+  seal(key, top, delay = 0) {
+    this.seals.push({ key, top: Math.round(top), delay });
+    return key;
   }
 
   /* Hit regions are generous: the visual mark may be an 11px word, but the
@@ -358,6 +396,7 @@ class Scene {
     const w = Math.max(44, run.width + 12);
     this.hits.push({
       id,
+      fixed: !!(meta && meta.fixed),
       x: Math.round(x + run.width / 2 - w / 2),
       y: Math.round(baseline - run.ascent - (h - run.lineHeight) / 2),
       w: Math.round(w),
@@ -399,6 +438,12 @@ const HAIRLINE = 0.16;
    Two phases, because the name has to be measured against the space this
    leaves and drawn before it: plan() reserves the runs and reports the width,
    draw() puts them on a baseline it is given. */
+/* The toggle is the one mark on the page that does not belong to the
+   document: it belongs to the window. It is drawn FIXED - the renderer adds
+   the scroll back for it - so it holds the position it takes at the top of the
+   page for the whole scroll, which is both what a control should do and the
+   only way it stays reachable on a document this long. Its hit region is
+   fixed too, in its own layer outside the scroll proxy; see main.js. */
 function planToggle(scene, content, lang, g) {
   const S = scale(g.vw);
   const on = S.nav;
@@ -415,22 +460,26 @@ function planToggle(scene, content, lang, g) {
 
   return {
     width: en.width + gap + 1 + gap + zh.width,
+    /* How far below its own baseline the toggle's ink reaches, so the page can
+       be told where its top edge has to be clear. */
+    descent: Math.max(en.inkDescent || 0, zh.inkDescent || 0),
     draw(y) {
-      scene.place('nav.zh', zh, g.right, y, lang === 'zh' ? INK : INK_3, { align: 'right' });
+      scene.place('nav.zh', zh, g.right, y, lang === 'zh' ? INK : INK_3, { align: 'right', fixed: true });
       const barX = g.right - zh.width - gap;
       /* A hairline, not a slash: a slash is a glyph and would take the colour
          and weight of one side or the other. The rule belongs to neither. It
          is drawn to the INK of the mark beside it, not to the font box, so it
          is exactly as tall as 中 and no taller. */
       const barH = Math.round(zh.inkAscent || zh.capHeight);
-      scene.rect('nav.bar', barX, Math.round(y - barH), 1, barH, RULE, 0.3);
-      scene.place('nav.en', en, barX - gap, y, lang === 'en' ? INK : INK_3, { align: 'right' });
+      scene.rect('nav.bar', barX, Math.round(y - barH), 1, barH, RULE, 0.3, { fixed: true });
+      scene.place('nav.en', en, barX - gap, y, lang === 'en' ? INK : INK_3, { align: 'right', fixed: true });
 
       /* ONE hit, spanning both marks and the rule between them, and generous
          around all of it. Everything in it does the same thing. */
       const x0 = barX - gap - en.width;
       const span = { width: g.right - x0, lineHeight: en.lineHeight, ascent: en.ascent };
       scene.hit('lang:toggle', span, x0, y, {
+        fixed: true,
         key: 'nav.en',
         other: lang === 'en' ? 'zh' : 'en',
         lang: lang === 'zh' ? 'zh-Hans' : 'en',
@@ -503,6 +552,7 @@ function head(scene, content, lang, g) {
   scene.place('index.name', nameRun, g.left, y0, INK);
   nav.draw(y0);
 
+
   /* The credential line. Segments are measured first, then packed into as many
      lines as they need - one at every width this site sees, two on a narrow
      phone in Chinese - and separated by the same hairline the toggle uses,
@@ -525,6 +575,22 @@ function head(scene, content, lang, g) {
   });
 
   let y = y0 + nameRun.inkDescent + u * 2 + runs[0].ascent;
+
+  /* The fingerprint, on the credential line's baseline at the other end of the
+     measure. It is the first 32 hex digits of a hash of the content (see
+     rollup.config.mjs), and it is here because a page that has removed its own
+     title, its description and every other way of being identified still has
+     to be able to say WHICH document it is. A name would undo the whole
+     exercise; a checksum says the same thing to a machine and nothing at all
+     to an index. It also does the compositional work the head was missing -
+     the right side of the page was empty from the toggle down, and this closes
+     it with a mark that is deliberately unreadable. */
+  /* Three seals across the head, not one per line. The redaction is a device
+     for the page arriving, and a device that fires twenty times at once is a
+     flicker; three bands opening a beat apart is a document being cleared. */
+  const credSeal = scene.seal('head.cred', y, 0);
+
+
   rows.forEach((row, ri) => {
     let x = g.left;
     row.forEach((i, k) => {
@@ -532,12 +598,74 @@ function head(scene, content, lang, g) {
         scene.rect(`index.cred.${ri}.${k}`, Math.round(x + sep), Math.round(y - barH), 1, barH, RULE, 0.3);
         x += sep * 2 + 1;
       }
-      scene.place(creds[i].key, runs[i], x, y, creds[i].color);
+      scene.place(creds[i].key, runs[i], x, y, creds[i].color, { seal: credSeal });
       x += runs[i].width;
     });
     if (ri < rows.length - 1) y += lead(S.role);
   });
-  y += runs[0].descent;
+
+  /* Availability, at the other end of the dateline's last baseline.
+
+     Two things were wrong with it beside the sentence. It was ORPHANED - the
+     only thing on the page aligned to nothing, floating in the white to the
+     right of the lede with no baseline under it and no edge but the margin.
+     And it was set in the same tracked capitals as the dateline, at the same
+     weight, so it read as a second dateline that had come adrift, which is
+     the one thing it must not be.
+
+     Both are fixed by giving it a baseline that already exists and a form of
+     its own. The rail is the right margin, which the toggle already occupies
+     directly above, so the top of the page closes as a band: what she is on
+     the left, what she is open to on the right, the control above them both.
+
+     The form is a caption, not a banner. AVAILABLE FOR stays in the small
+     tracked capitals - it is a label and should look like one - and the value goes
+     into the SERIF, in sentence case, which is the register of something said
+     rather than something declared. A list of three in tracked capitals is a
+     banner however quietly it is set; the same three words in a roman are a
+     note in the margin. That is the whole difference between "looking for
+     work" and "settled, and available". */
+  const av = c.available;
+  const avLabel = scene.prepare(av.label[lang], S.label);
+  const avValue = scene.prepare(av.value[lang], S.avail);
+  const avGap = Math.round(Math.max(8, u * 0.7));
+  const avW = avLabel.width + avGap + avValue.width;
+  const avSeal = scene.seal('head.avail', y, 90);
+  /* Only if it clears the dateline it shares the line with, by a full gutter.
+     Otherwise it drops to its own baseline underneath, still on the right. */
+  const avInline = avW + g.gutter <= g.contentW - used;
+  let avY = y;
+  if (!avInline) avY = y + lead(S.role) + Math.round(u * 0.5);
+  scene.place('index.available.value', avValue, g.right - avValue.width, avY, INK_2, { seal: avSeal });
+  scene.place('index.available', avLabel, g.right - avW, avY, INK_3, { seal: avSeal, edge: true });
+
+  /* The toggle's column, in viewport coordinates, handed to the renderer.
+
+     The toggle is fixed, so the document slides under it, and a control
+     sitting on a half-read line is what would give the whole page away. The
+     answer is not to fade the top of the page - that was the first attempt and
+     it was wrong in the most obvious way, because the name is AT the toggle's
+     height, so the head went out the instant the page moved a pixel. Nothing
+     is faded except what actually passes beneath the control: a mark is in
+     scope only if its right edge reaches into x0, which is the toggle's own
+     left edge less half a gutter. The name, the dateline, the sentence and
+     every left-hand column are never touched at all.
+
+     Inside that column a mark loses its ink as it rises: whole at FULL, gone
+     at CLEAR. FULL is the availability line's own ink, because that is the
+     topmost thing in this column when the page is at rest - so at rest
+     everything here is at full strength and there is no step the moment
+     scrolling starts. CLEAR is the frame: the same margin the name's ink
+     touches. What passes directly under the toggle lands around a quarter
+     alpha - a ghost the control reads cleanly over, rather than a hole cut in
+     the page. */
+  scene.edge = {
+    x0: Math.round(g.right - nav.width - g.gutter * 0.5),
+    clear: Math.round(top),
+    full: Math.round(avY + avValue.inkDescent + 2),
+  };
+
+  y = avY + runs[0].descent;
 
   /* The sentence. Tied to the grid, but capped at 22em - about fifty
      characters, and short enough that the block reads as a statement rather
@@ -554,11 +682,12 @@ function head(scene, content, lang, g) {
   const lines = balance(scene.engine, c.line[lang], ledeRole, ledeW);
 
   y += u * 5 + ledeRun.ascent;
+  const ledeSeal = scene.seal('head.lede', y, 90);
   lines.forEach((t, i) => {
-    scene.text(`index.lede.${i}`, t, S.lede, g.left, y + i * ledeLead, INK_2);
+    scene.text(`index.lede.${i}`, t, S.lede, g.left, y + i * ledeLead, INK_2, { seal: ledeSeal });
   });
-  y += (lines.length - 1) * ledeLead + ledeRun.descent;
 
+  y += (lines.length - 1) * ledeLead + ledeRun.descent;
   return y;
 }
 
@@ -666,7 +795,9 @@ function cvBlock(scene, content, lang, g, y0, measured) {
     scene.rect(`cv.${si}.rule`, ruleX, Math.round(y), g.right - ruleX, 1, RULE, HAIRLINE);
     let top = y + sec.topPad;
 
-    scene.text(`cv.${si}.head`, sec.sec.section[lang], S.section, g.left, top + sec.head.ascent, INK_3);
+    const headSeal = scene.seal(`cv.${si}.head`, top, 0);
+    scene.text(`cv.${si}.head`, sec.sec.section[lang], S.section, g.left, top + sec.head.ascent, INK_3,
+      { seal: headSeal });
     if (!m.hang) top += sec.head.lineHeight + u * 2.6;
 
     sec.entries.forEach((en, ei) => {
@@ -676,19 +807,24 @@ function cvBlock(scene, content, lang, g, y0, measured) {
       let ey = top;
       for (let r = 0; r < row; r++) ey += sec.rowH[r];
 
+      /* One seal an ENTRY, not a run: a two-line title whose second line
+         resolved out of step with its first reads as a fault rather than as a
+         mask. The stagger is by COLUMN, so a band opens left to right. */
+      const seal = scene.seal(`cv.${si}.${ei}`, ey, col * 55);
+
       ey += sec.probe.ascent;
       en.titles.forEach((t, k) => {
-        scene.text(`cv.${si}.${ei}.title.${k}`, t, S.title, x, ey + k * sec.titleLead, INK);
+        scene.text(`cv.${si}.${ei}.title.${k}`, t, S.title, x, ey + k * sec.titleLead, INK, { seal });
       });
       ey += (en.titles.length - 1) * sec.titleLead;
 
       if (en.org.length || en.year) {
         ey += u * 1.4 + sec.metaProbe.ascent;
         en.org.forEach((t, k) => {
-          scene.text(`cv.${si}.${ei}.org.${k}`, t, S.meta, x, ey + k * sec.metaLead, INK_3);
+          scene.text(`cv.${si}.${ei}.org.${k}`, t, S.meta, x, ey + k * sec.metaLead, INK_3, { seal });
         });
         if (en.year) {
-          scene.text(`cv.${si}.${ei}.year`, en.year, S.year, x + m.trackW, ey, INK_3, { align: 'right' });
+          scene.text(`cv.${si}.${ei}.year`, en.year, S.year, x + m.trackW, ey, INK_3, { align: 'right', seal });
         }
       }
     });
@@ -722,24 +858,21 @@ function footer(scene, content, lang, g, y0) {
   const c = content.index;
   const u = g.u;
 
+  /* The rules are NEVER sealed. The frame of the document is always drawn,
+     whatever is or is not legible inside it. */
   scene.rect('foot.rule', g.left, Math.round(y0), g.contentW, 1, RULE, HAIRLINE);
 
-  const availLabel = scene.prepare(c.available.label[lang], S.label);
-  const availValue = scene.prepare(c.available.value[lang], S.link);
-  let y = y0 + u * 2.8 + availValue.ascent;
-  scene.place('foot.avail.label', availLabel, g.left, y, INK_3);
-  scene.place('foot.avail.value', availValue, g.left + availLabel.width + Math.round(Math.max(12, u * 1.4)), y, INK_3);
-  y += availValue.descent;
-
-  /* The last line of the page is how to reach her, at the two edges of the
-     measure - the same span the name and the toggle open on. */
+  /* Availability has gone up to the head, beside the sentence. What is left
+     here is one line: how to reach her, at the two edges of the measure - the
+     same span the name and the toggle open on. */
   const mailRun = scene.prepare(c.contact.email, S.link);
-  y += u * 2.8 + mailRun.ascent;
+  const y = y0 + u * 3.2 + mailRun.ascent;
+  const seal = scene.seal('foot.links', y - mailRun.ascent, 0);
 
-  const mail = scene.place('foot.mail', mailRun, g.left, y, INK);
+  const mail = scene.place('foot.mail', mailRun, g.left, y, INK, { seal });
   scene.hit('mail', mail, g.left, y, { key: 'foot.mail', href: `mailto:${c.contact.email}`, label: c.contact.email });
 
-  const li = scene.text('foot.linkedin', c.contact.linkedin.label, S.link, g.right, y, INK, { align: 'right' });
+  const li = scene.text('foot.linkedin', c.contact.linkedin.label, S.link, g.right, y, INK, { align: 'right', seal });
   scene.hit('linkedin', li, g.right - li.width, y, { key: 'foot.linkedin', href: c.contact.linkedin.url, label: c.contact.linkedin.label });
 
   return y + mailRun.descent;
