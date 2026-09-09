@@ -78,9 +78,11 @@ const lerp = (a, b, t) => a + (b - a) * t;
    The gutter is a fraction of the CONTENT, not of the viewport: past the
    maximum width the block must be frozen, and a viewport-relative gutter would
    keep prising the columns apart out to 2560 while the content stood still. */
-export function grid(vw, safeTop = 0) {
+export function grid(vw, safeTop = 0, safeSide = 0) {
   const cols = vw < 720 ? 1 : vw < 1120 ? 2 : vw < 1600 ? 3 : 4;
-  const margin = clamp(vw * 0.055, 24, 80);
+  /* The margin also has to clear the landscape sensor housing, which
+     viewport-fit=cover puts the page underneath. */
+  const margin = Math.max(safeSide, clamp(vw * 0.055, 24, 80));
   const contentW = Math.round(Math.min(vw - margin * 2, 1440));
   const left = Math.round((vw - contentW) / 2);
   const gutter = Math.round(clamp(contentW * 0.030, 20, 44));
@@ -201,7 +203,12 @@ function pieces(text) {
 function hardBreak(engine, role, token, maxW, out) {
   let cur = '';
   for (const ch of token) {
-    if (cur && engine.measure({ ...role, text: cur + ch }) > maxW) {
+    /* A cut that would open the next line with 、 or 。 is not a cut. Refusing
+       it here matters because this runs AFTER the line breaker's own 禁则
+       guard: without it, the guard declines a break, hands the overlong line
+       down, and this re-cuts it blindly at exactly the place the guard was
+       protecting. */
+    if (cur && !NO_LINE_START.includes(ch) && engine.measure({ ...role, text: cur + ch }) > maxW) {
       out.push(cur);
       cur = ch;
     } else {
@@ -597,8 +604,8 @@ function cvView(engine, content, lang, g, vh, topY, assignment, measured) {
    Builds all four scenes against one atlas generation. Call engine.reset()
    before and engine.build() after: everything measured in between is what
    gets rasterised. */
-export function buildScenes(engine, content, vw, vh, safeTop = 0) {
-  const g = grid(vw, safeTop);
+export function buildScenes(engine, content, vw, vh, safeTop = 0, safeSide = 0) {
+  const g = grid(vw, safeTop, safeSide);
   const S = scale(vw);
   const scenes = {};
 

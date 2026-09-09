@@ -6,7 +6,7 @@ are drawn by the GPU.
 
 ## Stack
 
-Plain HTML, a very small stylesheet, and five vanilla ES modules bundled by
+Plain HTML, a very small stylesheet, and six vanilla ES modules bundled by
 Rollup. No framework, no Three.js, no runtime dependencies at all. Fonts are
 self-hosted and subset. All visible text lives in `src/content/content.json`.
 
@@ -53,7 +53,7 @@ src/
     morph.js            the language morph
     mirror.js           the accessible document, as a pure function
     main.js             state, transitions, the DOM layers
-  styles/main.css       ~120 lines, and none of them style any text
+  styles/main.css       ~190 lines, and none of them style any text
 public/fonts/           subset woff2 + the generated @font-face rules
 public/og.jpg           the link preview: a photograph of the card itself
 ```
@@ -134,9 +134,15 @@ decides line breaks.
 
 **After adding a Chinese character that was not already on the site, run
 `npm run fonts`.** The CJK faces are subset to exactly the characters this file
-uses — about 220 of them, which is how 7MB of Noto becomes 55kB — so a new
-character is a missing glyph until they are regenerated. English edits never
-need it; the Latin faces carry full `latin` + `latin-ext`.
+uses — 226 of them, which is how several megabytes of Noto becomes 56kB and
+74kB — so a new character is a missing glyph until they are regenerated.
+English edits never need it; the Latin faces carry full `latin` + `latin-ext`.
+
+`npm run fonts` also regenerates `public/fonts/OFL.txt` from the same tables
+that produce `fonts.css`. A hand-maintained licence file drifts, and OFL 1.1
+requires each font's copyright notice to travel with the font — so a list that
+credits a face the directory no longer holds is not a stale formality, it is
+the condition of redistribution unmet.
 
 ## Typography
 
@@ -192,6 +198,9 @@ is ever orphaned from its heading.
 - Text is rasterised at up to 2x device pixels. On a 3x phone the type is
   therefore upscaled by half; raising the cap is a one-line change in
   `main.js`, at the cost of a much larger atlas.
+- Printing takes the same path as the no-JavaScript case: the mirror, unclipped,
+  as a plain document. A fixed canvas would put one screenful on the first sheet
+  and nothing after it, which is not a CV.
 - `_archive/webgpu/` holds the previous WebGPU background — the silk shader
   whose vocabulary (washi, gofun white, ink in damp paper) the current ground
   descends from. Nothing there is bundled.

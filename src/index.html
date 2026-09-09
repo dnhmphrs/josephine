@@ -34,6 +34,10 @@
   <link rel="preload" href="/fonts/jost-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" href="/fonts/bodoni-moda-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" href="/fonts/noto-sans-sc.woff2" as="font" type="font/woff2" crossorigin />
+  <!-- The Chinese serif is on the English critical path too: the Languages
+       field reads "English, 中文", and those two characters are set in the
+       serif. Discovered here rather than found only when the atlas asks. -->
+  <link rel="preload" href="/fonts/noto-serif-sc.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="/fonts/fonts.css" />
   <link rel="stylesheet" href="/assets/styles.css" />
 </head>

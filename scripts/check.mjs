@@ -210,6 +210,23 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
   await b.close();
 }
 
+/* --- 9. the link preview is not stale ------------------------------------- */
+{
+  /* og.jpg is a photograph of the built site, so it can go quietly out of date
+     the moment anything upstream of the card changes - and once has: it was
+     taken between a rendering bug and its fix, and shipped with the last letter
+     of the email address sliced off. */
+  const newest = (dir) => fs.readdirSync(dir, { withFileTypes: true }).reduce((t, e) => {
+    const f = path.join(dir, e.name);
+    return Math.max(t, e.isDirectory() ? newest(f) : fs.statSync(f).mtimeMs);
+  }, 0);
+  const og = path.join(ROOT, '..', 'public', 'og.jpg');
+  const src = newest(path.join(ROOT, '..', 'src'));
+  ok('the link preview is newer than the source it photographs',
+    fs.existsSync(og) && fs.statSync(og).mtimeMs >= src,
+    'run: npm run build && npm run og');
+}
+
 server.close();
 console.log(results.join('\n'));
 const failures = results.filter((r) => r.startsWith('FAIL')).length;

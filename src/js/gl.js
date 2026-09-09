@@ -178,7 +178,11 @@ void main() {
   float rim = smoothstep(0.02, 0.16, d) * (1.0 - smoothstep(0.16, 0.34, d));
 
   vec3 ink = mix(INK, LILAC, WET * wash);
-  col = mix(col, ink, wash * WASH + rim * wash * 0.06);
+  /* Capped at WASH. The rim peaks exactly where the wash does - both terms hit
+     their maximum at d = 0.16 - so uncapped the darkest ground is 6% deeper
+     than the number the ink palette's contrast was derived from, and the CV's
+     smallest grey drops below 4.5:1 where it scrolls through it. */
+  col = mix(col, ink, min(WASH, wash * WASH + rim * wash * 0.06));
 
   /* Aggregate. Screen-fixed, so it reads as the tooth of the wall rather than
      as film grain sitting on the page. */

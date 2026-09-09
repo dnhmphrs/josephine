@@ -172,28 +172,28 @@
         {
           "year": "",
           "title": {
-            "en": "Ontological Insecurity: sovereignty, nationalism and the EU in the China–US AI race",
-            "zh": "本体性不安全：主权、民族主义与中美人工智能竞逐中的欧盟"
+            "en": "Ontological Insecurity: Sovereignty, Nationalism and how the EU navigates the China-US Competition for Market Dominance of Artificial Intelligence",
+            "zh": "本体性不安全：主权、民族主义，以及欧盟如何在中美争夺人工智能市场主导权的竞争中寻路"
           },
           "org": {
             "en": "Working paper",
             "zh": "工作论文"
           },
           "placeholder": true,
-          "note": "Add the year and, if it is published, the venue."
+          "note": "Add the year, and the venue if it is published. Title is verbatim - do not shorten it."
         },
         {
           "year": "",
           "title": {
-            "en": "AI in nuclear regulation: security narratives and regulatory change",
-            "zh": "核监管中的人工智能：安全叙事与监管变革"
+            "en": "Artificial Intelligence in Nuclear Regulation Frameworks: Trends in Security Narratives and Regulatory Change",
+            "zh": "核监管框架中的人工智能：安全叙事与监管变革的趋势"
           },
           "org": {
             "en": "Briefing",
             "zh": "简报"
           },
           "placeholder": true,
-          "note": "Add the year and, if it is published, the venue."
+          "note": "Add the year, and the venue if it is published. Title is verbatim - do not shorten it."
         }
       ]
     },
@@ -240,7 +240,7 @@
             "zh": "访问研究员"
           },
           "org": {
-            "en": "UN Non-Proliferation Treaty Conference",
+            "en": "UN Nuclear Non-Proliferation Treaty Conference",
             "zh": "联合国核不扩散条约大会"
           },
           "placeholder": true,

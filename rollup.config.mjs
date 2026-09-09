@@ -66,7 +66,10 @@ export default {
           },
         },
         { src: 'src/404.html',     dest: 'dist' },   // Vercel serves this for not-found routes
-        { src: 'src/content',      dest: 'dist' },   // content.json shipped for reference/edits
+        /* content.json is NOT copied. @rollup/plugin-json already inlines it
+           into the bundle, so a second public copy would add nothing but a
+           readable file carrying the internal editing notes - including which
+           facts are still marked as missing. */
         { src: 'public/*',         dest: 'dist' },   // favicon, square.png, etc.
       ],
       copyOnce: false,
