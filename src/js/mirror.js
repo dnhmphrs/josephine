@@ -44,7 +44,7 @@ export function renderMirror(content, lang, inert) {
       ? `<p>${esc(c.contact.email)} ${esc(c.contact.linkedin.label)}</p>`
       : `<p><a href="mailto:${esc(c.contact.email)}">${esc(c.contact.email)}</a>`
         + ` <a href="${esc(c.contact.linkedin.url)}" rel="me noopener">${esc(c.contact.linkedin.label)}</a></p>`,
-    `<h2>${bilingual(t(content.nav.cv))}</h2>`,
+    `<h2>${bilingual(t(content.labels.cv))}</h2>`,
     ...content.cv.flatMap((sec) => [
       `<h3>${bilingual(t(sec.section))}</h3><ul>`,
       ...sec.entries.map((e) => {

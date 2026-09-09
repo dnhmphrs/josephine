@@ -1,8 +1,8 @@
 # Josephine Shen
 
-An index page and a severely compressed CV, rendered entirely in WebGL. There
-is no DOM text in the render path: the ground, the rules and every glyph are
-drawn by the GPU.
+One page — an opening, a severely compressed CV, a footer — rendered entirely
+in WebGL. There is no DOM text in the render path: the ground, the rules and
+every glyph are drawn by the GPU.
 
 ## Stack
 
@@ -30,10 +30,10 @@ canvas, so the usual safety nets do not apply: a unit test cannot see a glyph,
 and a type error is not the failure mode to worry about. It drives the real
 built site in a real browser and asserts on what it does — that the hit layer
 is made of real anchors and buttons, that tab order is reading order, that the
-language switch lands on the very next frame with nothing left running, that
-the name is set flush to the measure, that a rapid triple toggle leaves the
-state, the mirror and the drawing agreeing, and that it still says who she is
-with WebGL removed, with
+language switch lands on the very next frame and is finished there, that the
+opening holds the first screen and the CV follows it, that nothing overflows
+the measure, that a rapid triple toggle leaves the state, the mirror and the
+drawing agreeing, and that it still says who she is with WebGL removed, with
 `localStorage` throwing, without `Intl.Segmenter`, under
 `prefers-reduced-motion`, at 320x480, and through a resize storm.
 
@@ -73,37 +73,37 @@ Only the language on screen is in the atlas. The atlas grows in height before
 it grows in width, because a shelf packer is bounded by the widest run it has
 to hold: 2048x4096 is the same capacity as a 4096 square for half the memory.
 
-**gl.js — the renderer.** Two passes. A full-screen triangle runs the concrete
-shader; then one dynamic vertex buffer holds every glyph, every hairline rule
-and every attention trace, and goes out in a single draw call. The atlas
-reserves an opaque white texel, which is how a rule and a letter can share one
-texture. WebGL 1 and GLSL ES 1.00 throughout.
+**gl.js — the renderer.** Two passes. A full-screen triangle runs the ground
+shader; then one dynamic vertex buffer holds every glyph and every hairline and
+goes out in a single draw call. The atlas reserves an opaque white texel, which
+is how a rule and a letter can share one texture. WebGL 1 and GLSL ES 1.00
+throughout.
 
 **layout.js — the box model.** With no DOM there is no box model, so this file
-is it: `content.json` becomes flat lists of positioned runs and rectangles in
-CSS pixels, plus the regions that respond to a pointer.
+is it: `content.json` becomes a flat list of positioned runs and rectangles in
+CSS pixels, plus the regions that respond to a pointer. One page, in three
+parts — an opening held to the first screen, the CV under it, a footer at the
+end — and one scene, in one language.
 
-The name is the one run whose size is a result rather than a setting: it is
-scaled so the longest line lands exactly on the right margin, which makes the
-type a function of the measure — the oldest idea in letterpress display work,
-and the reason a wood-type poster looks built rather than arranged. Three
-things bound it: a ceiling in viewport heights, because 沈菲菲 is three
-characters and filling 1440px with three of them is a different page; a ceiling
-in atlas pixels, since a run wider than the texture cannot be packed at all;
-and a break to one word a line on portrait viewports, where a single line would
-otherwise set small and leave half the window empty under it.
+Nothing is set above 54px and nothing is heavier than 500. The whole scale
+spans about five to one, where a display page would span fifteen; hierarchy is
+carried by the space around a thing and by which of the two faces it is set in,
+which is a quieter instrument than size and a more exact one.
 
 **Nothing animates except the ground.** Pressing 中 is a cut: the layout runs
 again, the atlas is rebuilt, and the other language is on screen the next
-frame. Changing view is a 170ms cross-fade in place, which is a page turning
-rather than a transition, and `prefers-reduced-motion` removes even that.
+frame — the same work a resize already does, inside the click.
 
-**The ground.** Concrete, and one wash: a single soft mass, low and off-axis,
-with an edge that creeps the way ink creeps into damp paper. It moves at about
-one percent of walking pace and is still a painting when frozen. Most of the
-shader is spent on things you are not meant to see — the uneven tone of a cast
-slab, its tooth, and a dither without which a gradient eight levels deep bands
-into visible contours.
+**The ground.** A light warm off-white and one wash: a single soft mass, low
+and off-axis, with an edge that creeps the way ink creeps into damp paper. It
+moves at about one percent of walking pace and is still a painting when frozen.
+A mid grey would have been the safe answer and the dull one — it makes every
+value on the page a version of itself. The only hue anywhere is a trace of
+violet in the deepest part of the wash, which is why the ground reads as a
+surface with light falling on it rather than a flat fill. Most of the shader is
+spent on things you are not meant to see: the uneven tone of the surface, its
+tooth, and a dither without which a gradient eight levels deep bands into
+visible contours.
 
 ## The two invisible DOM layers
 
@@ -134,14 +134,14 @@ filled, because the toggle cuts from one to the other and a missing value
 leaves a hole on screen. Plain text only: no HTML, no `<br/>`. The layout engine
 decides line breaks.
 
-- `index` — the six facts on the face of the page, and the contact block.
+- `index` — the name, the role, the sentence, the four facts, the contact block.
 - `cv` — sections, each with entries of `{ year, title, org }`. One line each.
 - An entry marked `"placeholder": true` is a real thing with a fact still
   missing; read its `note`, fill the value in, delete both keys.
 
 **After adding a Chinese character that was not already on the site, run
 `npm run fonts`.** The CJK faces are subset to exactly the characters this file
-uses — 240 of them, which is how several megabytes of Noto becomes 56kB and
+uses — 239 of them, which is how several megabytes of Noto becomes 56kB and
 74kB — so a new character is a missing glyph until they are regenerated.
 English edits never need it; the Latin faces carry full `latin` + `latin-ext`.
 
@@ -154,27 +154,26 @@ the condition of redistribution unmet.
 ## Typography
 
 Archivo over Newsreader, divided by job rather than by hierarchy: the grotesque
-is the structure — the name, the nav, the section heads, every tracked capital
-— and the serif is the voice, the few places where a sentence is being spoken
-rather than a page labelled. Nothing is set in both.
+is the structure — the name, the toggle, the section heads, every tracked
+capital — and the serif is the voice, the places where a sentence is being
+spoken rather than a page labelled. Nothing is set in both.
 
 Archivo is cut from the American gothics of nineteenth-century wood type and
-job printing, which is where this page's ancestry actually lies: brutalism in
-print is the jobbing printer's grid, not the Swiss one. Newsreader is a
-newspaper serif in its bones and a contemporary drawing on its surface.
+job printing; Newsreader is a newspaper serif in its bones and a contemporary
+drawing on its surface. Both are set light and small. A face this neutral does
+not need weight to be certain, and a page that whispers in a large enough room
+is heard.
 
 Noto Sans SC and Noto Serif SC are the Chinese companions: 黑体 under the
 grotesque, 宋体 under the serif. Every string on this site exists twice, so the
 Latin is never seen alone.
 
-Both Latin faces carry real axes, and pinning one is how they are spent.
-`ctx.font` is the CSS font shorthand and carries no `font-variation-settings`,
-so an axis is unreachable from Canvas2D through a family name alone. Google is
-asked for the axis frozen at one value instead — `wdth,wght@125,400..800` —
-which returns a partial instance with the width fixed and the weight still
-variable. A family name then *is* an axis value, and the file is a third the
-size of the two-axis original: 33kB against 87kB. Two Archivos cost less than
-one.
+Neither Latin face ships more of an axis than it uses. `ctx.font` is the CSS
+font shorthand and carries no `font-variation-settings`, so an axis is
+unreachable from Canvas2D through a family name alone; Google is asked for it
+frozen at one value instead — `opsz,wght@20,300..700` — which returns a partial
+instance with that axis fixed and the weight still variable, at a third the
+size of the two-axis original. An optical size is chosen by naming a family.
 
 All four faces are self-hosted (`scripts/fetch-fonts.mjs`, SIL OFL, see
 `public/fonts/OFL.txt`). No request leaves the visitor's browser for a third
@@ -194,23 +193,22 @@ technical one, after LG München I 3 O 17493/20.
 reaches its 1440 maximum exactly, and the type scale tops out. Above it the
 page is frozen and only the void grows.
 
-The index view pins two blocks to the frame — who she is at the top, how to
-reach her at the bottom — and leaves the space between them empty on purpose. A
-block centred in the window would be a card, and a card has edges of its own
-that compete with the ones the browser already has.
+The opening is held to the first screen: name and role at the top, one sentence
+under them at half the page width, the four facts at the foot, and the space
+between left empty. That is where the empty page becomes a decision rather than
+what was left over. The CV's first hairline sits just above the fold, which is
+what says there is more without needing to say so.
 
-A CV section is a full-width band: a rule across the measure, its name hanging
-in the first column, and its entries filling the columns to the right. The
-first column stays empty for the whole height of the section, which is the
-point — it is the vertical the eye tracks down. Below three columns there is no
-column to hang in, so the name goes above its entries and they take the full
-measure.
+A CV section is a band: a hairline across the measure, its name hanging in the
+first column, and its entries filling the columns to the right. The first
+column stays empty for the whole height of the section, which is the point — it
+is the vertical the eye tracks down. Below three columns there is no column to
+hang in, so the name goes above its entries and they take the full measure.
 
 ## Notes
 
 - Language choice persists in `localStorage`.
-- `prefers-reduced-motion` freezes the ground and cuts between views instead of
-  cross-fading. The language toggle is already a cut.
+- `prefers-reduced-motion` freezes the ground. Nothing else on the page moves.
 - If the atlas will not fit in the GPU's largest texture, the page re-lays out
   at DPR 1 rather than splitting into several draw calls.
 - A lost WebGL context is caught, cancelled (so the browser will offer it back)

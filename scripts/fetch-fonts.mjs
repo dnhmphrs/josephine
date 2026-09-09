@@ -49,33 +49,28 @@ const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (
    Production Type's reading serif, a newspaper Times in its bones and nothing
    like one in its drawing.
 
-   Both carry real axes, and this is where they are spent. ctx.font is the CSS
-   font shorthand and carries no font-variation-settings, so an axis is
-   unreachable from Canvas2D through a family name alone. The answer is to ask
-   Google for the axis PINNED to one value - `wdth,wght@125,400..800` - which
-   returns a partial instance with the width frozen and the weight still
-   variable. A family name then IS an axis value, and the file is a third the
-   size of the two-axis original: 33kB against 87kB. Two Archivos cost less
-   than one, and nothing depends on a @font-face descriptor being honoured.
+   Both carry real axes, and neither ships more of one than it uses. ctx.font
+   is the CSS font shorthand and carries no font-variation-settings, so an axis
+   is unreachable from Canvas2D through a family name alone; asking Google for
+   the axis PINNED to one value - `wdth,wght@100,400..800` - returns a partial
+   instance with that axis frozen and the weight still variable, and the file
+   is a third the size of the two-axis original: 33kB against 87kB. A width cut
+   of Archivo was carried here for one line of display type and is gone with
+   it; the mechanism is worth keeping documented, because it is also what makes
+   the optical size below free.
 
    Latin subsets are whole, so English copy can be edited without regenerating.
    unicode-range means a visitor only downloads what the page actually sets. */
 const LATIN = [
-  /* Structure: nav, labels, section heads, years, orgs. */
+  /* Everything structural: the name, the toggle, labels, section heads, years,
+     organisations. Width pinned at 100 - the normal cut, and no second file. */
   { as: 'Archivo', family: 'Archivo', axis: 'wdth,wght@100,400..800', file: 'archivo',
     subsets: ['latin', 'latin-ext'], range: '400 800', ofl: 'archivo' },
-  /* The name, and only the name. It is set at the top of the width axis and
-     scaled to fill the measure exactly, so width is what decides how much of
-     the page the type is; at 100 the same line is a heading rather than the
-     wall it is meant to be. */
-  { as: 'Archivo Wide', family: 'Archivo', axis: 'wdth,wght@125,400..800', file: 'archivo-wide',
-    subsets: ['latin', 'latin-ext'], range: '400 800', ofl: 'archivo' },
   /* The voice: the lede, the CV titles, the contact line. Pinned at optical
-     size 24, which is the middle of the 16-32px band it is set in. One
-     instance rather than two - Newsreader is a text face and holds together
-     across that range; a Didone would not, which is why the face this replaces
-     needed two. */
-  { as: 'Newsreader', family: 'Newsreader', axis: 'opsz,wght@24,300..700', file: 'newsreader',
+     size 20, the middle of the 15-27px band it is set in. One instance rather
+     than two - Newsreader is a text face and holds together across that range;
+     a Didone would not, which is why the face this replaces needed two. */
+  { as: 'Newsreader', family: 'Newsreader', axis: 'opsz,wght@20,300..700', file: 'newsreader',
     subsets: ['latin', 'latin-ext'], range: '300 700', ofl: 'newsreader' },
 ];
 

@@ -15,9 +15,9 @@
    actually does: that the hit layer exists and is made of real anchors and
    buttons, that tab order is reading order, that clicking and Enter do what
    they should, that the language switch is a CUT with nothing running after
-   it, that the name is set flush to the measure, that a rapid triple toggle
-   leaves the state, the mirror and the drawing agreeing, and that it says who
-   she is
+   it, that the opening holds the first screen and the CV follows it, that a
+   rapid triple toggle leaves the state, the mirror and the drawing agreeing,
+   and that it says who she is
    with WebGL removed, with localStorage throwing, without Intl.Segmenter,
    under prefers-reduced-motion, at 320x480, through a resize storm, across a
    lost and restored WebGL context, and with scripting disabled entirely.
@@ -58,17 +58,23 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
   await p.goto(URL,{waitUntil:'networkidle'}); await p.waitForTimeout(2200);
 
   const hits = await p.$$eval('#scroll .hit', els => els.map(e=>({tag:e.tagName,id:e.dataset.id,href:e.getAttribute('href'),pressed:e.getAttribute('aria-pressed'),label:e.textContent,w:e.offsetWidth,h:e.offsetHeight})));
-  ok('hit layer built', hits.length>=6, JSON.stringify(hits.map(h=>h.id)));
+  ok('hit layer built', hits.length>=4, JSON.stringify(hits.map(h=>h.id)));
   ok('all targets >= 44px tall', hits.every(h=>h.h>=44));
   ok('mail is a real mailto anchor', hits.some(h=>h.tag==='A'&&/^mailto:/.test(h.href||'')));
   ok('linkedin is a real https anchor', hits.some(h=>h.tag==='A'&&/^https:/.test(h.href||'')));
-  ok('view + language buttons carry pressed state', hits.filter(h=>h.pressed!==null).length===4 && hits.filter(h=>h.pressed==='true').length===2);
+  ok('the language buttons carry pressed state', hits.filter(h=>h.pressed!==null).length===2 && hits.filter(h=>h.pressed==='true').length===1);
 
-  // click CV via the real DOM element
-  await p.click('[data-id="view:cv"]'); await p.waitForTimeout(700);
+  /* One page: the opening holds the first screen on its own and the CV starts
+     under it. Both halves matter - an opening that overflows the fold is not
+     an opening, and a CV that starts above it is not below it. */
   let d=await p.evaluate(()=>window.__stage.diag());
-  ok('clicking CV switches view', d.view==='cv', JSON.stringify(d));
-  ok('CV is taller than the viewport at 1280', d.height>0);
+  const shape = await p.evaluate(() => {
+    const items = window.__stage.items();
+    const at = (k) => items.find((i) => i.key.startsWith(k));
+    return { name: at('index.name').y, cv: at('cv.0.head').y, foot: at('foot.mail').y, vh: innerHeight };
+  });
+  ok('the opening holds the first screen', shape.name < shape.vh * 0.5 && shape.cv > shape.vh * 0.8, JSON.stringify(shape));
+  ok('the CV and the footer are below it', shape.foot > shape.cv && d.height > shape.foot, JSON.stringify(d));
 
   /* A cut, not a transition: read the state on the very next frame, with no
      settling time at all. Anything animating would still be running here. */
@@ -76,24 +82,28 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
   await p.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
   d=await p.evaluate(()=>window.__stage.diag());
   ok('中 switches language on the next frame', d.lang==='zh', JSON.stringify(d));
-  ok('the language switch runs nothing', d.t===null);
-  await p.waitForTimeout(300);
+  /* And nothing is still moving half a second later: what is on screen one
+     frame after the click is what is on screen when it settles, quad for quad.
+     A transition of any kind would fail this. */
+  await p.waitForTimeout(500);
+  const settled=await p.evaluate(()=>window.__stage.diag());
+  ok('the switch is finished on that frame',
+    settled.quads===d.quads && settled.height===d.height, JSON.stringify({d, settled}));
   ok('<html lang> follows', (await p.evaluate(()=>document.documentElement.lang))==='zh-Hans');
   ok('mirror follows language', (await p.textContent('#a11y h1'))==='沈菲菲');
   ok('title follows language', (await p.title())==='沈菲菲');
 
-  /* The name is scaled to land on the right margin. It is the one measurement
-     on the page that is a result rather than a setting, so it is the one most
-     able to drift without anything looking obviously broken. */
+  /* Nothing may exceed the measure except Chinese punctuation, which hangs
+     into the margin on purpose. Everything else running past the right edge is
+     a line the breaker failed to break. */
   {
-    await p.click('[data-id="lang:en"]'); await p.click('[data-id="view:index"]'); await p.waitForTimeout(500);
-    const fit = await p.evaluate(() => {
+    const over = await p.evaluate(() => {
       const g = window.__stage.grid();
-      const parts = window.__stage.items().filter((i) => i.key.startsWith('index.name.'));
-      return { over: Math.max(...parts.map((i) => i.x + i.w)) - g.right, n: parts.length };
+      return window.__stage.items()
+        .filter((i) => i.x < g.left - 1 || i.x + i.w > g.right + 16)
+        .map((i) => `${i.key}:${i.text}`);
     });
-    ok('the name is set flush to the measure', fit.n > 0 && fit.over <= 1 && fit.over > -14, JSON.stringify(fit));
-    await p.click('[data-id="view:cv"]'); await p.waitForTimeout(400);
+    ok('nothing overflows the measure', over.length === 0, over.slice(0, 3).join(' | '));
   }
 
   // rapid triple toggle
@@ -111,15 +121,16 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
   await p.evaluate(()=>document.activeElement && document.activeElement.blur());
   const order=[];
   for (let i=0;i<10;i++){ await p.keyboard.press('Tab'); const id=await p.evaluate(()=>document.activeElement&&document.activeElement.dataset?document.activeElement.dataset.id:null); if(id&&!order.includes(id)) order.push(id); }
-  const want=['view:index','view:cv','lang:en','lang:zh'];
+  const want=['lang:en','lang:zh','mail','linkedin'];
   const rotated=order.length===4 && want.some((_,k)=>JSON.stringify(order)===JSON.stringify(want.slice(k).concat(want.slice(0,k))));
   ok('tab order is reading order', rotated, JSON.stringify(order));
   ok('mirror links are out of the tab sequence', (await p.$$eval('#a11y a', a=>a.every(x=>x.getAttribute('tabindex')==='-1'))));
-  await p.evaluate(()=>{document.querySelector('[data-id="view:cv"]').focus()});
+  await p.evaluate(()=>{document.querySelector('[data-id="lang:zh"]').focus()});
   await p.waitForTimeout(200);
-  await p.keyboard.press('Enter'); await p.waitForTimeout(700);
+  await p.keyboard.press('Enter'); await p.waitForTimeout(500);
   d=await p.evaluate(()=>window.__stage.diag());
-  ok('Enter activates a control', d.view==='cv');
+  ok('Enter activates a control', d.lang==='zh');
+  await p.click('[data-id="lang:en"]'); await p.waitForTimeout(400);
   await p.screenshot({path:`${OUT}/focus-ring.png`, clip:{x:0,y:0,width:400,height:140}});
 
   ok('no console or page errors', errs.length===0, errs.slice(0,3).join(' | '));
@@ -238,7 +249,7 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
 /* --- 9. the link preview is not stale ------------------------------------- */
 {
   /* og.jpg is a photograph of the built site, so it can go quietly out of date
-     the moment anything upstream of the index view changes - and once has: it was
+     the moment anything upstream of the page changes - and once has: it was
      taken between a rendering bug and its fix, and shipped with the last letter
      of the email address sliced off. */
   const newest = (dir) => fs.readdirSync(dir, { withFileTypes: true }).reduce((t, e) => {

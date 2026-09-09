@@ -17,10 +17,10 @@
    about snapping in text.js.
    =========================================================================== */
 
-/* The concrete. The ground shader's vertical mix averages to exactly this, and
-   so does --concrete in styles/main.css, so the CSS ground and the first
-   painted frame are the same grey and there is no flash between them. */
-export const CONCRETE = [0.7686, 0.7804, 0.7843];   // #c4c7c8
+/* The ground. The shader's vertical mix averages to exactly this, and so does
+   --concrete in styles/main.css, so the CSS ground and the first painted frame
+   are the same value and there is no flash between them. */
+export const CONCRETE = [0.9098, 0.9020, 0.8824];   // #e8e6e1
 
 /* Coverage exponent - see the mark fragment shader. 1.0 is raw coverage and
    renders visibly heavy; the theoretical correction for ink this dark on a
@@ -84,25 +84,30 @@ uniform float uScroll;   // page scroll, in viewport heights
 varying vec2  vUv;       // y up
 varying vec2  vPix;      // device px, at vertex precision
 
-/* Mean of these two is exactly #c4c7c8. Cool-neutral - blue above red - and a
-   full nine percent darker than the ground this replaces. The two changes are
-   one correction: warm and pale is plaster or paper, and what this wants to be
-   is concrete, a cast mineral grey that black type sits ON rather than floats
-   over. Darkening it is also what lets the type read heavier without gaining a
-   single unit of weight. */
-const vec3 CONC_TOP = vec3(0.753, 0.765, 0.769);   // #c0c3c4
-const vec3 CONC_BOT = vec3(0.784, 0.796, 0.800);   // #c8cbcc
-/* The wash goes deeper still, and cooler again: a damp patch in a slab rather
-   than a stain on it. Never black. */
-const vec3 INK      = vec3(0.463, 0.486, 0.518);   // #767c84
+/* Mean of these two is exactly #e8e6e1. Light, and warm by six points of red
+   over blue - enough to read as a surface, not enough to read as beige. A mid
+   grey is the safe answer and the dull one: it makes every value on the page a
+   version of itself and the page goes flat. Lifting the ground into the high
+   eighties does two things at once - it gives the type somewhere to sit that
+   is not competing with it, and it buys back the contrast that lets the
+   secondary greys be genuinely quiet. */
+const vec3 CONC_TOP = vec3(0.894, 0.886, 0.863);   // #e4e2dc
+const vec3 CONC_BOT = vec3(0.925, 0.918, 0.902);   // #eceae6
+/* The wash is a warm grey a shade off the ground, never black and never a
+   colour: the shadow a low sun leaves on a limewashed wall. */
+const vec3 INK      = vec3(0.541, 0.525, 0.482);   // #8a867b
 /* One trace of the lilac the previous WebGPU background was built on, kept at
-   under one percent of the final pixel. Not a colour - the reason the deepest
-   ink reads as wet. Set WET to 0.0 to remove it; nothing else depends on it. */
+   well under one percent of the final pixel. Set WET to 0.0 to remove it;
+   nothing else depends on it. */
 const vec3 LILAC    = vec3(0.416, 0.298, 0.769);   // #6a4cc4
 
-const float WASH   = 0.105;        // peak ink density
-const float WET    = 0.050;        // lilac in the ink, proportional to density
-const float TOOTH  = 0.011;        // aggregate grain
+const float WASH   = 0.085;        // peak ink density
+/* Cool light needs no help; cool SHADOW does. A trace of violet in the deepest
+   part of a warm wash is the oldest trick in oil painting, and it is the only
+   thing on this page that is a hue rather than a value - which is why the
+   ground reads as a surface with light falling on it rather than a flat fill. */
+const float WET    = 0.060;        // lilac in the ink, proportional to density
+const float TOOTH  = 0.008;        // aggregate grain
 const float DITHER = 2.0 / 255.0;  // 1/255 is pure TPDF; 2 also reads as surface
 const float DRIFT  = 0.013;        // one full cycle, about twenty minutes
 
@@ -413,7 +418,7 @@ export function drawScene(marks, scene, alpha = 1, hoverKey = null) {
 
 /* Hover resolves to the primary ink whatever the mark's resting value: the one
    thing a pointer has to say is "this one is live". */
-const HOVER_INK = [0.078, 0.078, 0.094];
+const HOVER_INK = [0.133, 0.129, 0.118];
 
 /* ---------------------------------------------------------------------------
    The stage.
