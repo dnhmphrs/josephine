@@ -38,20 +38,45 @@ const OUT = path.join(ROOT, 'public', 'fonts');
    believes the client can read it. */
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 
-/* Latin: whole subsets, so English copy can be edited without regenerating. */
+/* The Latin faces, one file each.
+
+   Archivo over Newsreader. The brief asked for two faces that feel
+   contemporary and classic at the same time, which is a request for revivals
+   rather than for period pieces - a face drawn now, out of a form with a long
+   history. Archivo is Omnibus-Type's grotesque, cut from the American gothics
+   that set nineteenth-century wood type and job printing: the ancestors of
+   Helvetica, from before Switzerland sanded the grit off them. Newsreader is
+   Production Type's reading serif, a newspaper Times in its bones and nothing
+   like one in its drawing.
+
+   Both carry real axes, and this is where they are spent. ctx.font is the CSS
+   font shorthand and carries no font-variation-settings, so an axis is
+   unreachable from Canvas2D through a family name alone. The answer is to ask
+   Google for the axis PINNED to one value - `wdth,wght@125,400..800` - which
+   returns a partial instance with the width frozen and the weight still
+   variable. A family name then IS an axis value, and the file is a third the
+   size of the two-axis original: 33kB against 87kB. Two Archivos cost less
+   than one, and nothing depends on a @font-face descriptor being honoured.
+
+   Latin subsets are whole, so English copy can be edited without regenerating.
+   unicode-range means a visitor only downloads what the page actually sets. */
 const LATIN = [
-  { family: 'Jost', axis: 'wght@400..700', file: 'jost', subsets: ['latin', 'latin-ext'], range: '100 900', ofl: 'jost' },
-  { family: 'Bodoni Moda', axis: 'opsz,wght@6..96,400..500', file: 'bodoni-moda', subsets: ['latin', 'latin-ext'], range: '400 500',
-    /* Bodoni is a MODERN in the type-historical sense - a Didone - and its
-       hairlines only survive small sizes if the optical-size axis is honoured.
-       ctx.font is the CSS font shorthand, which carries no
-       font-variation-settings, so opsz is unreachable from Canvas2D through the
-       family name alone. The axis is pinned here instead, as two separately
-       named @font-face families over the same file: layout.js then selects an
-       optical size simply by naming a family. 36 rather than 96 for the lede -
-       at 96 the hairlines are thinner than one device pixel on a non-retina
-       display and the line dissolves. */
-    opsz: [['Bodoni Moda Lede', 36], ['Bodoni Moda Text', 11]], ofl: 'bodonimoda' },
+  /* Structure: nav, labels, section heads, years, orgs. */
+  { as: 'Archivo', family: 'Archivo', axis: 'wdth,wght@100,400..800', file: 'archivo',
+    subsets: ['latin', 'latin-ext'], range: '400 800', ofl: 'archivo' },
+  /* The name, and only the name. It is set at the top of the width axis and
+     scaled to fill the measure exactly, so width is what decides how much of
+     the page the type is; at 100 the same line is a heading rather than the
+     wall it is meant to be. */
+  { as: 'Archivo Wide', family: 'Archivo', axis: 'wdth,wght@125,400..800', file: 'archivo-wide',
+    subsets: ['latin', 'latin-ext'], range: '400 800', ofl: 'archivo' },
+  /* The voice: the lede, the CV titles, the contact line. Pinned at optical
+     size 24, which is the middle of the 16-32px band it is set in. One
+     instance rather than two - Newsreader is a text face and holds together
+     across that range; a Didone would not, which is why the face this replaces
+     needed two. */
+  { as: 'Newsreader', family: 'Newsreader', axis: 'opsz,wght@24,300..700', file: 'newsreader',
+    subsets: ['latin', 'latin-ext'], range: '300 700', ofl: 'newsreader' },
 ];
 
 /* CJK: subset to the characters this site actually sets. */
@@ -141,17 +166,14 @@ for (const f of LATIN) {
     const bytes = curl(face.url, true);
     fs.writeFileSync(path.join(OUT, name), bytes);
     total += bytes.length;
-    const families = [[f.family, null], ...(f.opsz || [])];
-    for (const [family, opsz] of families) {
-      rules.push(`@font-face {
-  font-family: '${family}';
+    rules.push(`@font-face {
+  font-family: '${f.as}';
   font-style: ${face.style};
   font-weight: ${f.range};
   font-display: block;
-  src: url('/fonts/${name}') format('woff2');${opsz ? `\n  font-variation-settings: 'opsz' ${opsz};` : ''}
+  src: url('/fonts/${name}') format('woff2');
   unicode-range: ${face.range};
 }`);
-    }
     console.log(`${name}  ${(bytes.length / 1024).toFixed(1)}kB`);
   }
 }
@@ -188,8 +210,12 @@ fs.writeFileSync(path.join(OUT, 'fonts.css'),
    the directory no longer holds - and omits one it does - is not a formality
    that has gone stale, it is the condition of redistribution unmet. */
 const notices = [];
+const credited = new Set();
 let licence = '';
 for (const f of [...LATIN, ...CJK]) {
+  /* Two entries can be two instances of one family. Credit it once. */
+  if (credited.has(f.ofl)) continue;
+  credited.add(f.ofl);
   const text = curl(`https://raw.githubusercontent.com/google/fonts/main/ofl/${f.ofl}/OFL.txt`);
   const lines = text.split('\n');
   const cut = lines.findIndex((l) => l.startsWith('This Font Software is licensed'));

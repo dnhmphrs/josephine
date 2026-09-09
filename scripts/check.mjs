@@ -14,8 +14,10 @@
    So this drives the real built site in a real browser and asserts on what it
    actually does: that the hit layer exists and is made of real anchors and
    buttons, that tab order is reading order, that clicking and Enter do what
-   they should, that a rapid triple language toggle leaves the state, the
-   mirror and the drawing agreeing, and that the page still says who she is
+   they should, that the language switch is a CUT with nothing running after
+   it, that the name is set flush to the measure, that a rapid triple toggle
+   leaves the state, the mirror and the drawing agreeing, and that it says who
+   she is
    with WebGL removed, with localStorage throwing, without Intl.Segmenter,
    under prefers-reduced-motion, at 320x480, through a resize storm, across a
    lost and restored WebGL context, and with scripting disabled entirely.
@@ -40,12 +42,16 @@ const URL=`http://localhost:${PORT}/`;
 const OUT = path.join(ROOT, '..', '.check');
 fs.mkdirSync(OUT, { recursive: true });
 const GL=['--enable-unsafe-swiftshader','--use-gl=angle','--use-angle=swiftshader'];
+/* Playwright normally finds its own browser. CHROMIUM_PATH is for the case
+   where the machine has one already and cannot download another - a CI image
+   with a pinned Chromium, or a sandbox with no route to the download CDN. */
+const LAUNCH = process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {};
 const results=[];
 const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+extra:''}`);};
 
 /* --- 1. normal interaction ------------------------------------------------ */
 {
-  const b=await chromium.launch({args:GL});
+  const b=await chromium.launch({...LAUNCH,args:GL});
   const ctx=await b.newContext({viewport:{width:1280,height:800},deviceScaleFactor:2});
   const p=await ctx.newPage();
   const errs=[]; p.on('pageerror',e=>errs.push(e.message)); p.on('console',m=>{if(m.type()==='error')errs.push(m.text())});
@@ -64,12 +70,31 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
   ok('clicking CV switches view', d.view==='cv', JSON.stringify(d));
   ok('CV is taller than the viewport at 1280', d.height>0);
 
-  await p.click('[data-id="lang:zh"]'); await p.waitForTimeout(1000);
+  /* A cut, not a transition: read the state on the very next frame, with no
+     settling time at all. Anything animating would still be running here. */
+  await p.click('[data-id="lang:zh"]');
+  await p.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
   d=await p.evaluate(()=>window.__stage.diag());
-  ok('clicking 中 switches language', d.lang==='zh');
+  ok('中 switches language on the next frame', d.lang==='zh', JSON.stringify(d));
+  ok('the language switch runs nothing', d.t===null);
+  await p.waitForTimeout(300);
   ok('<html lang> follows', (await p.evaluate(()=>document.documentElement.lang))==='zh-Hans');
   ok('mirror follows language', (await p.textContent('#a11y h1'))==='沈菲菲');
   ok('title follows language', (await p.title())==='沈菲菲');
+
+  /* The name is scaled to land on the right margin. It is the one measurement
+     on the page that is a result rather than a setting, so it is the one most
+     able to drift without anything looking obviously broken. */
+  {
+    await p.click('[data-id="lang:en"]'); await p.click('[data-id="view:index"]'); await p.waitForTimeout(500);
+    const fit = await p.evaluate(() => {
+      const g = window.__stage.grid();
+      const parts = window.__stage.items().filter((i) => i.key.startsWith('index.name.'));
+      return { over: Math.max(...parts.map((i) => i.x + i.w)) - g.right, n: parts.length };
+    });
+    ok('the name is set flush to the measure', fit.n > 0 && fit.over <= 1 && fit.over > -14, JSON.stringify(fit));
+    await p.click('[data-id="view:cv"]'); await p.waitForTimeout(400);
+  }
 
   // rapid triple toggle
   await p.click('[data-id="lang:en"]'); await p.waitForTimeout(120);
@@ -86,7 +111,7 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
   await p.evaluate(()=>document.activeElement && document.activeElement.blur());
   const order=[];
   for (let i=0;i<10;i++){ await p.keyboard.press('Tab'); const id=await p.evaluate(()=>document.activeElement&&document.activeElement.dataset?document.activeElement.dataset.id:null); if(id&&!order.includes(id)) order.push(id); }
-  const want=['view:card','view:cv','lang:en','lang:zh'];
+  const want=['view:index','view:cv','lang:en','lang:zh'];
   const rotated=order.length===4 && want.some((_,k)=>JSON.stringify(order)===JSON.stringify(want.slice(k).concat(want.slice(0,k))));
   ok('tab order is reading order', rotated, JSON.stringify(order));
   ok('mirror links are out of the tab sequence', (await p.$$eval('#a11y a', a=>a.every(x=>x.getAttribute('tabindex')==='-1'))));
@@ -103,14 +128,14 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
 
 /* --- 2. reduced motion ---------------------------------------------------- */
 {
-  const b=await chromium.launch({args:GL});
+  const b=await chromium.launch({...LAUNCH,args:GL});
   const ctx=await b.newContext({viewport:{width:1280,height:800},deviceScaleFactor:2,reducedMotion:'reduce'});
   const p=await ctx.newPage();
   const errs=[]; p.on('pageerror',e=>errs.push(e.message));
   await p.goto(URL,{waitUntil:'networkidle'}); await p.waitForTimeout(1800);
   await p.click('[data-id="lang:zh"]'); await p.waitForTimeout(600);
   const d=await p.evaluate(()=>window.__stage.diag());
-  ok('reduced motion: morph completes', d.lang==='zh' && d.quads>0, JSON.stringify(d));
+  ok('reduced motion: the switch lands', d.lang==='zh' && d.quads>0, JSON.stringify(d));
   ok('reduced motion: no errors', errs.length===0, errs[0]||'');
   await p.screenshot({path:`${OUT}/reduced.png`});
   await b.close();
@@ -118,7 +143,7 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
 
 /* --- 3. no WebGL ---------------------------------------------------------- */
 {
-  const b=await chromium.launch({args:GL});
+  const b=await chromium.launch({...LAUNCH,args:GL});
   const ctx=await b.newContext({viewport:{width:1280,height:800}});
   await ctx.addInitScript(()=>{ HTMLCanvasElement.prototype.getContext = function(){ return null; }; });
   const p=await ctx.newPage();
@@ -136,7 +161,7 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
 
 /* --- 4. localStorage blocked --------------------------------------------- */
 {
-  const b=await chromium.launch({args:GL});
+  const b=await chromium.launch({...LAUNCH,args:GL});
   const ctx=await b.newContext({viewport:{width:1280,height:800}});
   await ctx.addInitScript(()=>{ Object.defineProperty(window,'localStorage',{get(){throw new Error('blocked')}}); });
   const p=await ctx.newPage();
@@ -150,7 +175,7 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
 
 /* --- 5. no Intl.Segmenter ------------------------------------------------- */
 {
-  const b=await chromium.launch({args:GL});
+  const b=await chromium.launch({...LAUNCH,args:GL});
   const ctx=await b.newContext({viewport:{width:1280,height:800}});
   await ctx.addInitScript(()=>{ delete Intl.Segmenter; });
   const p=await ctx.newPage();
@@ -164,7 +189,7 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
 
 /* --- 6. tiny + huge viewports and a resize storm -------------------------- */
 {
-  const b=await chromium.launch({args:GL});
+  const b=await chromium.launch({...LAUNCH,args:GL});
   const ctx=await b.newContext({viewport:{width:320,height:480},deviceScaleFactor:2});
   const p=await ctx.newPage();
   const errs=[]; p.on('pageerror',e=>errs.push(e.message));
@@ -182,7 +207,7 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
 
 /* --- 7. WebGL context loss and restore ------------------------------------ */
 {
-  const b=await chromium.launch({args:GL});
+  const b=await chromium.launch({...LAUNCH,args:GL});
   const ctx=await b.newContext({viewport:{width:1280,height:800},deviceScaleFactor:2});
   const p=await ctx.newPage();
   const errs=[]; p.on('pageerror',e=>errs.push(e.message));
@@ -197,7 +222,7 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
 
 /* --- 8. scripting disabled ------------------------------------------------ */
 {
-  const b=await chromium.launch({args:GL});
+  const b=await chromium.launch({...LAUNCH,args:GL});
   const ctx=await b.newContext({viewport:{width:1280,height:800},javaScriptEnabled:false});
   const p=await ctx.newPage();
   await p.goto(URL,{waitUntil:'load'});
@@ -213,7 +238,7 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
 /* --- 9. the link preview is not stale ------------------------------------- */
 {
   /* og.jpg is a photograph of the built site, so it can go quietly out of date
-     the moment anything upstream of the card changes - and once has: it was
+     the moment anything upstream of the index view changes - and once has: it was
      taken between a rendering bug and its fix, and shipped with the last letter
      of the email address sliced off. */
   const newest = (dir) => fs.readdirSync(dir, { withFileTypes: true }).reduce((t, e) => {

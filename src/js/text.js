@@ -8,9 +8,10 @@
    italics for free — and the runs are shelf-packed into a single atlas canvas
    uploaded as one WebGL texture.
 
-   A run is then cut into per-glyph vertical SLICES, so the renderer can move
-   every glyph independently (that is what makes the language morph possible)
-   while a run at rest reassembles into exactly the bitmap the browser drew.
+   A run is then cut into per-glyph vertical SLICES, so the renderer can place
+   every glyph independently - which is what lets a display line be kerned by
+   the browser and tightened afterwards - while an untouched run reassembles
+   into exactly the bitmap the browser drew, as one quad.
 
    Two rules keep it crisp:
      - font sizes are rounded to whole device pixels before rasterising;
@@ -222,6 +223,15 @@ export class TextEngine {
       ascent: asc / dpr,
       descent: desc / dpr,
       capHeight: cap / dpr,
+      /* The INK box, as opposed to the font box `ascent` and `descent` report.
+         Display type is placed by its ink or it is not placed at all: the font
+         box of a Latin face is about 1.0em against a cap height of 0.73, and
+         the Han glyphs that fall back into the same run reach 0.88 above the
+         baseline and 0.12 below it. Setting a name by cap height drops the
+         Chinese into whatever sits under it; setting it by the font box leaves
+         the English floating a quarter of an em low. */
+      inkAscent: Math.max(0, m.actualBoundingBoxAscent || asc) / dpr,
+      inkDescent: Math.max(0, m.actualBoundingBoxDescent || 0) / dpr,
       lineHeight: (asc + desc) / dpr,
     };
   }
@@ -232,19 +242,32 @@ export class TextEngine {
     const runs = this.pending;
     const maxSize = Math.min(gl.getParameter(gl.MAX_TEXTURE_SIZE) || 2048, 4096);
 
-    let size = 512;
-    while (size < maxSize && !this._pack(runs, size)) size *= 2;
-    this._pack(runs, size);   // settle on the size we ended with
+    /* Height doubles before width does. A shelf packer is bounded by the
+       widest run it has to hold - here the name, which can be most of the
+       measure - so growing width past that buys nothing but memory, while
+       growing height buys shelves. It is the difference between a 4096 square
+       and a 2048x4096, which is 32MB of texture rather than 64MB, for exactly
+       the same capacity. Nothing here needs a power of two either (no mipmaps,
+       CLAMP_TO_EDGE, LINEAR), but keeping them makes the allocation friendly
+       to every driver. */
+    const steps = [[512, 512], [1024, 1024], [1024, 2048], [2048, 2048], [2048, 4096], [4096, 4096]]
+      .filter(([w, h]) => w <= maxSize && h <= maxSize);
+    let box = steps[steps.length - 1];
+    for (const step of steps) {
+      if (this._pack(runs, step[0], step[1])) { box = step; break; }
+    }
+    const [aw, ah] = box;
+    this._pack(runs, aw, ah);   // settle on the size we ended with
 
-    this.size = size;
-    this.atlas.width = size;
-    this.atlas.height = size;
+    this.size = Math.max(aw, ah);
+    this.atlas.width = aw;
+    this.atlas.height = ah;
 
     const c = precise(this.actx);
-    c.clearRect(0, 0, size, size);
+    c.clearRect(0, 0, aw, ah);
     c.fillStyle = '#fff';
     c.fillRect(0, 0, WHITE_PX, WHITE_PX);
-    this.whiteUv = [(WHITE_PX * 0.5) / size, (WHITE_PX * 0.5) / size];
+    this.whiteUv = [(WHITE_PX * 0.5) / aw, (WHITE_PX * 0.5) / ah];
 
     this.overflow = 0;
     for (const r of runs) {
@@ -259,17 +282,17 @@ export class TextEngine {
       } else {
         c.fillText(r.text, bx + r.pad, baseY);
       }
-      r.uvAll[0] = bx / size;
-      r.uvAll[1] = by / size;
-      r.uvAll[2] = (bx + r.devW) / size;
-      r.uvAll[3] = (by + r.devH) / size;
+      r.uvAll[0] = bx / aw;
+      r.uvAll[1] = by / ah;
+      r.uvAll[2] = (bx + r.devW) / aw;
+      r.uvAll[3] = (by + r.devH) / ah;
       for (let i = 0; i < r.n; i++) {
         const left = bx + r.pad + r.ax[i];
         const right = left + r.dw[i];
-        r.uv[i * 4 + 0] = left / size;
-        r.uv[i * 4 + 1] = by / size;
-        r.uv[i * 4 + 2] = right / size;
-        r.uv[i * 4 + 3] = (by + r.devH) / size;
+        r.uv[i * 4 + 0] = left / aw;
+        r.uv[i * 4 + 1] = by / ah;
+        r.uv[i * 4 + 2] = right / aw;
+        r.uv[i * 4 + 3] = (by + r.devH) / ah;
       }
     }
 
@@ -282,13 +305,13 @@ export class TextEngine {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-    return { size, runs: runs.length, overflow: this.overflow };
+    return { size: this.size, width: aw, height: ah, runs: runs.length, overflow: this.overflow };
   }
 
   /* Shelf packing, tallest first so short labels fill the gaps behind the
      display type. For a page this size that is the difference between a 1024
      and a 2048 atlas. */
-  _pack(runs, size) {
+  _pack(runs, aw, ah) {
     const order = runs.slice().sort((a, b) => b.devH - a.devH);
     let x = WHITE_PX + GUTTER;
     let y = 0;
@@ -296,9 +319,9 @@ export class TextEngine {
     let ok = true;
     for (const r of order) {
       r.rect = null;
-      if (r.devW > size || r.devH > size) { ok = false; continue; }
-      if (x + r.devW > size) { x = 0; y += shelf + GUTTER; shelf = 0; }
-      if (y + r.devH > size) { ok = false; continue; }
+      if (r.devW > aw || r.devH > ah) { ok = false; continue; }
+      if (x + r.devW > aw) { x = 0; y += shelf + GUTTER; shelf = 0; }
+      if (y + r.devH > ah) { ok = false; continue; }
       r.rect = { x, y };
       x += r.devW + GUTTER;
       if (r.devH > shelf) shelf = r.devH;

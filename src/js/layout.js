@@ -5,58 +5,56 @@
    content.json into SCENES - flat lists of positioned runs and rectangles in
    CSS pixels, plus the regions that respond to a pointer.
 
-   Four scenes are built at once (card/cv x en/zh) because both halves of every
-   transition have to exist simultaneously: the language morph interpolates a
-   scene into its translation glyph by glyph, and it can only do that if it has
-   already been told where every glyph lands on the other side.
+   Two scenes are built at a time - the two views of ONE language. The previous
+   version built all four, because a morph has to know where every glyph lands
+   on the other side before it can start; a cut does not, and rasterising both
+   languages doubled the atlas for a page that only ever shows one of them.
+   Changing language re-runs this file and re-uploads the texture, which is the
+   same work a resize already does, and lands on the next frame.
 
-   Every item carries a stable `key`. That key is the whole trick - it is what
-   lets "the third CV entry's title" in English find "the third CV entry's
-   title" in Chinese without either scene knowing the other exists.
+   Every item carries a stable `key`, which is what lets the hover state name a
+   mark without knowing where it is.
    =========================================================================== */
 
 /* ---- ink ------------------------------------------------------------------
    Three values of grey against the concrete, and nothing else. No accent
    colour: on a page this bare, one would become the loudest thing on it.
 
-   All three clear 4.5:1 against the concrete AND against the darkest point of
-   the wash - the second half is the constraint that actually sets them, since
-   the CV's lower columns scroll straight through the wash. The quiet grey a
-   designer reaches for first, around #85878c, measures 2.4:1 on bare concrete
-   and 2.2:1 over the wash, which is unreadable by any standard. The hierarchy is
-   carried by size, weight and tracking instead: an 11px capital tracked to
-   +0.2em reads as an annotation whatever its value. */
-export const INK = [0.086, 0.086, 0.102];    // #16161a  primary       12.1:1
-export const INK_2 = [0.290, 0.298, 0.322];  // #4a4c52  prose          5.7:1
-export const INK_3 = [0.333, 0.337, 0.361];  // #55565c  labels, meta   4.9:1
-export const RULE = [0.086, 0.086, 0.102];   // primary, drawn at low alpha
+   Cool, like the ground. All three clear 4.5:1 against bare concrete AND
+   against the darkest point of the wash - the second half is the constraint
+   that actually sets them, since the CV scrolls straight through it. The quiet
+   grey a designer reaches for first, around #85878c, measures 2.4:1 and is
+   unreadable by any standard; hierarchy is carried by size, weight and
+   tracking instead. */
+export const INK = [0.078, 0.078, 0.094];    // #141418  primary       10.1:1
+export const INK_2 = [0.247, 0.255, 0.278];  // #3f4147  prose          5.6:1
+export const INK_3 = [0.286, 0.294, 0.318];  // #494b51  labels, meta   4.8:1
+export const RULE = [0.078, 0.078, 0.094];   // primary, drawn at low alpha
 
-/* Two voices, and the pairing is the brief resolved rather than split.
-   "A modern, bold swiss serif, like a bauhaus font, paired with a slightly
-   thinner modern serif" names one object and then a second: "Swiss" is the
-   discipline (flush left, tight, capitals reserved for machinery), "Bauhaus"
-   the formal instruction (geometric, monolinear, circular), and "modern serif"
-   its type-historical sense - a Didone. So: a geometric sans of Futura lineage
-   set with Swiss discipline, over a Bodoni. Futura-over-Bodoni is the canonical
-   New Typography pairing; Tschichold threw out nearly every serif and kept the
-   Didone.
+/* ---- the two voices -------------------------------------------------------
+   Archivo over Newsreader, and the division of labour between them is the
+   whole typographic scheme: the grotesque is the STRUCTURE - the name, the
+   nav, the section heads, every tracked capital - and the serif is the VOICE,
+   the handful of places where a sentence is being spoken rather than a page
+   being labelled. Nothing is set in both.
 
-   It also survives the constraint that actually decides this page: every string
-   exists twice, so the Latin is never seen alone. Noto Sans SC is 黑体 -
-   near-monolinear, open counters, square frame - and Jost is monolinear and
-   circular. The two scripts agree in stroke and differ in form, which is what
-   lets the morph read as a mapping rather than a dissolve.
+   Archivo is cut from the American gothics of nineteenth-century wood type and
+   job printing, which is where this page's ancestry actually lies: brutalism
+   in print is the jobbing printer's grid, not the Swiss one. Newsreader is a
+   newspaper serif in its bones and a contemporary drawing on its surface.
 
-   Bodoni's hairlines only survive small sizes if its optical-size axis is
-   honoured, and ctx.font cannot express one, so the axis is pinned in
-   @font-face under two family names: naming the family is how a size is
-   chosen. See scripts/fetch-fonts.mjs.
+   The name gets its own family name, which is really its own width: Archivo
+   pinned at the top of its wdth axis. ctx.font is the CSS font shorthand and
+   carries no font-variation-settings, so naming a family is the only way to
+   choose an axis value from Canvas2D. See scripts/fetch-fonts.mjs.
 
    The CJK companions are appended as fallbacks, so a mixed string like
-   "English, 中文" resolves per character without needing a second run. */
-const DISPLAY = '"Jost", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif';
-const SERIF_D = '"Bodoni Moda Lede", "Bodoni Moda", "Noto Serif SC", ui-serif, Georgia, serif';
-const SERIF_T = '"Bodoni Moda Text", "Bodoni Moda", "Noto Serif SC", ui-serif, Georgia, serif';
+   "English, 中文" resolves per character without needing a second run. Noto
+   Sans SC is 黑体 - square frame, near-monolinear - which is the argument
+   Archivo makes in Latin; Noto Serif SC is 宋体, which is Newsreader's. */
+const SANS = '"Archivo", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif';
+const WIDE = '"Archivo Wide", "Archivo", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif';
+const SERIF = '"Newsreader", "Noto Serif SC", ui-serif, Georgia, serif';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -67,13 +65,10 @@ const lerp = (a, b, t) => a + (b - a) * t;
 
    Breakpoints sit between real logical widths rather than on round numbers.
    720 clears every phone portrait (max 430) and falls below every tablet
-   portrait (min 744), while catching phone landscape, where the viewport is
-   ~380px tall and a second column buys back the height it costs. 1120 clears
-   iPad Pro landscape at 1024 - three columns there would give a 284px measure,
-   below the floor. 1600 is chosen so three things coincide at one number: the
-   fourth column appears, the content reaches its 1440 maximum exactly
-   (1600 - 2x80), and the type scale tops out. Above it the page is frozen and
-   only the void grows, which is the 留白 argument made structural.
+   portrait (min 744). 1120 clears iPad Pro landscape at 1024. 1600 is chosen
+   so three things coincide at one number: the fourth column appears, the
+   content reaches its 1440 maximum exactly (1600 - 2x80), and the type scale
+   tops out. Above it the page is frozen and only the void grows.
 
    The gutter is a fraction of the CONTENT, not of the viewport: past the
    maximum width the block must be frozen, and a viewport-relative gutter would
@@ -101,59 +96,65 @@ export function grid(vw, safeTop = 0, safeSide = 0) {
    Every size interpolates across the same viewport range, so proportion
    changes smoothly instead of stepping at each breakpoint, and freezes where
    the content freezes. `upper` is a layout instruction, not a font one: there
-   are no synthetic small caps here, just capitals with the tracking they need
-   to stay readable.
+   are no synthetic small caps here, just capitals with the tracking they need.
 
    Tracking interpolates too, and in the right direction: display type tightens
-   as it grows, tracked capitals loosen as they shrink. Holding it constant
-   leaves the name loose at 104px and the labels tight at 10px.
+   as it grows, tracked capitals loosen as they shrink.
 
    `lh` is a multiple of the FONT SIZE, never of the font's bounding box. That
-   distinction is the difference between a page that holds still through a
-   language change and one that breathes: Jost's box is about 1.30em, Instrument
-   Serif's 1.28em, Noto Sans SC's 1.45em, so leading derived from the box gives
-   Chinese ~12% more air at the same nominal size and the whole page shifts
-   under the morph. Leading is therefore computed once, from the English size,
-   and both languages share it. */
+   distinction is the difference between a page that holds still and one that
+   breathes unevenly: Archivo's box is about 1.30em and Noto Sans SC's 1.45em,
+   so leading derived from the box gives Chinese ~12% more air at the same
+   nominal size. Leading is computed once, from the English size, and both
+   languages share it.
+
+   The name carries a nominal 100 rather than a size. It is the one run whose
+   size is a RESULT - see nameSetting() - and any number here would only be
+   something to overwrite. */
 function scale(vw) {
   const t = clamp((vw - 390) / (1600 - 390), 0, 1);
   const f = (a, b) => lerp(a, b, t);
   /* `zh` is the per-role correction for Chinese: a size factor, a floor in CSS
      px, and a weight step. See adapt(). */
   return {
-    name: { family: DISPLAY, size: f(44, 104), lh: 0.98, weight: 600, tracking: f(-0.018, -0.032), zh: { k: 0.86, dw: -100 } },
-    role: { family: DISPLAY, size: f(11, 13), lh: 1.2, weight: 500, tracking: f(0.24, 0.20), upper: true, zh: { k: 0.98, floor: 12, dw: -100 } },
-    line: { family: SERIF_D, size: f(20, 30), lh: 1.42, weight: 400, tracking: 0, zh: { k: 0.90, dw: -50 } },
-    label: { family: DISPLAY, size: f(10.5, 11.5), lh: 1.2, weight: 500, tracking: f(0.20, 0.16), upper: true, zh: { k: 0.98, floor: 12, dw: -100 } },
-    value: { family: SERIF_T, size: f(15.5, 18.5), lh: 1.45, weight: 400, tracking: 0, zh: { k: 0.93, floor: 15 } },
-    nav: { family: DISPLAY, size: f(11, 12.5), lh: 1.2, weight: 500, tracking: f(0.18, 0.14), upper: true, zh: { k: 0.98, floor: 12, dw: -100 } },
-    section: { family: DISPLAY, size: f(10.5, 11.5), lh: 1.2, weight: 500, tracking: f(0.22, 0.18), upper: true, zh: { k: 0.98, floor: 12, dw: -100 } },
-    title: { family: SERIF_T, size: f(16, 19), lh: 1.34, weight: 400, tracking: 0, zh: { k: 0.93, floor: 15 } },
-    meta: { family: DISPLAY, size: f(10.5, 12), lh: 1.3, weight: 400, tracking: 0.05, zh: { k: 0.98, floor: 12 } },
-    mail: { family: SERIF_T, size: f(15, 18), lh: 1.4, weight: 400, tracking: 0, zh: { k: 0.93, floor: 15 } },
+    /* Han fills its em box and Latin does not, so a negative track that merely
+       tightens Archivo would weld 菲 to 菲 at 200px. The Chinese name is the
+       one run on the site that is LET OUT rather than pulled in. */
+    name: { family: WIDE, size: 100, lh: 0.90, weight: 700, tracking: f(-0.005, -0.018), upper: true, zh: { k: 1, dw: -100, track: 0.06 } },
+    role: { family: SANS, size: 12, lh: 1.2, weight: 700, tracking: f(0.16, 0.12), upper: true, zh: { k: 0.98, floor: 12, dw: -100 } },
+    lede: { family: SERIF, size: f(22, 34), lh: 1.30, weight: 450, tracking: 0, zh: { k: 0.90, dw: -50 } },
+    label: { family: SANS, size: f(10.5, 12), lh: 1.2, weight: 700, tracking: f(0.18, 0.15), upper: true, zh: { k: 0.98, floor: 12, dw: -100 } },
+    value: { family: SERIF, size: f(17, 21), lh: 1.36, weight: 400, tracking: 0, zh: { k: 0.92, floor: 16 } },
+    nav: { family: SANS, size: f(12, 14), lh: 1.2, weight: 700, tracking: f(0.14, 0.11), upper: true, zh: { k: 0.98, floor: 13, dw: -100 } },
+    /* A section head has a whole column to itself and should take it. At 24px
+       it is the second-largest thing on the site, which is the correct reading
+       of a CV: the five words that say what kind of work this is. */
+    section: { family: SANS, size: f(15, 24), lh: 1.1, weight: 700, tracking: f(0.12, 0.055), upper: true, zh: { k: 0.94, floor: 15, dw: -100 } },
+    title: { family: SERIF, size: f(17, 21), lh: 1.32, weight: 400, tracking: 0, zh: { k: 0.92, floor: 16 } },
+    meta: { family: SANS, size: f(11, 12.5), lh: 1.3, weight: 400, tracking: 0.02, zh: { k: 0.98, floor: 12 } },
+    year: { family: SANS, size: f(11, 12.5), lh: 1.3, weight: 600, tracking: 0.04, zh: { k: 1, floor: 12 } },
+    mail: { family: SERIF, size: f(17, 21), lh: 1.3, weight: 400, tracking: 0, zh: { k: 1 } },
   };
 }
 
 const lead = (role) => Math.round(role.size * role.lh);
 
-/* Han glyphs fill their em box; Latin does not. Jost's cap height is about
-   0.72em and Bodoni's about 0.70, while 沈 fills roughly 0.90, so at equal
+/* Han glyphs fill their em box; Latin does not. Archivo's cap height is about
+   0.73em and Newsreader's 0.70, while 沈 fills roughly 0.90, so at equal
    nominal size the Chinese carries perhaps a quarter more apparent mass.
 
-   The correction has to taper, though, because the error it fixes scales with
-   size while the legibility risk scales against it: 0.86 is right under the
-   name and would turn a 10px label into a grey block. Hence a band per role
-   rather than one factor, with a floor in CSS px underneath it - a tracked
-   Latin small-cap and a Han label are simply not the same size, and pretending
-   otherwise is what looks wrong.
+   The correction tapers, because the error it fixes scales with size while the
+   legibility risk scales against it - a factor right under a 34px lede would
+   turn a 10px label into a grey block. Hence a band per role, with a floor in
+   CSS px underneath it.
 
    Tracking becomes an absolute cap rather than a multiplier, so two labels that
    should look identical do not drift apart by a hundredth of an em; and it is
    never negative, since Han already touches its box.
 
    Weight steps down for the Han sans: 菲 packs fourteen strokes into the space
-   a Jost 'o' fills with one, so equal stem weight is far more ink per unit
-   area. */
+   an Archivo 'o' fills with one, so equal stem weight is far more ink per unit
+   area - and this page sets its structure at 700, where that gap is widest. */
 function adapt(role, lang) {
   if (lang !== 'zh') return role;
   const z = role.zh || {};
@@ -162,7 +163,10 @@ function adapt(role, lang) {
     ...role,
     size: Math.max(z.floor || 0, role.size * k),
     weight: Math.max(200, (role.weight || 400) + (z.dw || 0)),
-    tracking: role.tracking > 0 ? Math.min(0.08, role.tracking) : 0,
+    /* Tracking becomes an absolute value rather than a scaled one, and never
+       a negative: `track` where a role names one, otherwise the Latin value
+       capped, otherwise nothing. */
+    tracking: z.track !== undefined ? z.track : (role.tracking > 0 ? Math.min(0.08, role.tracking) : 0),
   };
 }
 
@@ -207,7 +211,15 @@ function hardBreak(engine, role, token, maxW, out) {
        it here matters because this runs AFTER the line breaker's own 禁则
        guard: without it, the guard declines a break, hands the overlong line
        down, and this re-cuts it blindly at exactly the place the guard was
-       protecting. */
+       protecting.
+
+       The consequence, in both places, is that a line ending in Chinese
+       punctuation overhangs its measure by the width of that punctuation.
+       That is ぶら下げ組 - hanging punctuation - and it is what a careful
+       compositor would do rather than the fault it looks like from a
+       bounding box. It is bounded by a comma, which at the largest size on
+       this site is about 15px, against a page margin that is never less
+       than 24. */
     if (cur && !NO_LINE_START.includes(ch) && engine.measure({ ...role, text: cur + ch }) > maxW) {
       out.push(cur);
       cur = ch;
@@ -254,15 +266,12 @@ class Scene {
   }
 
   /* Rasterise + place a run. Returns the run handle so callers can advance by
-     its measured width. `mode` decides how the run behaves under a language
-     change: 'attn' for the per-glyph attention morph, anything else for the
-     decode wipe. See morph.js. */
+     its measured width. */
   text(key, str, role, x, baseline, color, opts = {}) {
     /* The Chinese corrections apply to Chinese. A string with no Han in it -
        an email address, "LinkedIn", "2020—22", "AIxist" - is the same object in
-       both languages and must be set identically, or the two scenes hold two
-       nearly-identical runs, the morph treats them as a translation pair, and
-       an email address dissolves into a 10%-smaller copy of itself. */
+       both languages and is set identically in both, rather than shrinking by
+       a tenth because the page around it changed language. */
     const spec = {
       ...adapt(role, HAN.test(str) ? this.lang : 'en'),
       text: role.upper ? str.toUpperCase() : str,
@@ -274,7 +283,6 @@ class Scene {
     this.items.push({
       kind: 'text', key, run, x: px, y: baseline,
       color: color || INK, alpha: opts.alpha === undefined ? 1 : opts.alpha,
-      mode: opts.mode || 'wipe', tier: opts.tier || 2, trace: !!opts.trace,
     });
     return run;
   }
@@ -286,7 +294,7 @@ class Scene {
   /* Hit regions are generous: the visual mark may be a 12px word, but the
      target that answers a finger is at least 44px in BOTH directions - which
      is the point of the rule, and which flooring only the height quietly
-     misses. "中" sets about 11px wide; the mark is the label, not the button.
+     misses. "中" sets about 13px wide; the mark is the label, not the button.
      main.js turns each of these into a real focusable DOM element. */
   hit(id, run, x, baseline, meta) {
     const h = Math.max(44, run.lineHeight + 16);
@@ -308,7 +316,7 @@ class Scene {
   }
 
   /* Items append (the chrome paints last, over the content); hits PREPEND, so
-     tab order is reading order - Card, CV, EN, 中, then whatever the page
+     tab order is reading order - Index, CV, EN, 中, then whatever the page
      itself offers. Painting order and focus order are different questions and
      want opposite answers here. */
   absorb(other) {
@@ -319,284 +327,371 @@ class Scene {
 }
 
 /* ---- the top band ---------------------------------------------------------
-   Two views on the left, two languages on the right, and no rule under either.
-   It is the only chrome on the site, and a rule would give the card a third
-   horizontal line to argue with. Returns the y below which content may start. */
+   Two views on the left, two languages on the right, and a rule under both,
+   full content width. That rule is the top edge of the frame: everything below
+   hangs off the same four verticals, and saying so at the top of the page is
+   most of what makes a grid legible rather than merely present.
+   Returns the y below which content may start. */
 function band(scene, content, view, lang, g) {
   const S = scale(g.vw);
   const y = Math.round(clamp(g.vw * 0.05, 30, 62)) + g.safeTop;
   const dim = INK_3;
 
-  const card = scene.text('nav.card', content.nav.card[lang], S.nav, g.left, y,
-    view === 'card' ? INK : dim, { mode: 'attn' });
+  /* Active and inactive differ in weight as well as tone. Tone alone is not
+     enough here: the inactive value has to clear 4.5:1 like everything else,
+     which leaves it close enough to the active one to be ambiguous. */
+  const on = S.nav;
+  const off = { ...S.nav, weight: 500 };
+  const idx = scene.text('nav.index', content.nav.index[lang], view === 'index' ? on : off, g.left, y,
+    view === 'index' ? INK : dim);
   /* The accessible name follows the drawn word, so a screen reader and the
      canvas never disagree about what the button says. */
-  scene.hit('view:card', card, g.left, y, { key: 'nav.card', label: content.nav.card[lang], lang: lang === 'zh' ? 'zh-Hans' : 'en', pressed: view === 'card' });
+  scene.hit('view:index', idx, g.left, y, { key: 'nav.index', label: content.nav.index[lang], lang: lang === 'zh' ? 'zh-Hans' : 'en', pressed: view === 'index' });
 
-  const cvX = g.left + card.width + Math.max(28, g.vw * 0.022);
-  const cv = scene.text('nav.cv', content.nav.cv[lang], S.nav, cvX, y,
-    view === 'cv' ? INK : dim, { mode: 'attn' });
+  const cvX = g.left + idx.width + Math.max(28, g.vw * 0.022);
+  const cv = scene.text('nav.cv', content.nav.cv[lang], view === 'cv' ? on : off, cvX, y,
+    view === 'cv' ? INK : dim);
   scene.hit('view:cv', cv, cvX, y, { key: 'nav.cv', label: content.nav.cv[lang], lang: lang === 'zh' ? 'zh-Hans' : 'en', pressed: view === 'cv' });
 
   /* The toggle shows both languages at once: the one you are not reading is
-     the button. Nothing here morphs - it is a switch, and a switch that
-     dissolves while you look at it is not a switch. */
-  const zh = scene.text('nav.zh', '中', { ...S.nav, tracking: 0 }, g.right, y,
+     the button. */
+  const zh = scene.text('nav.zh', '中', { ...(lang === 'zh' ? on : off), tracking: 0 }, g.right, y,
     lang === 'zh' ? INK : dim, { align: 'right' });
   const zhX = g.right - zh.width;
 
   /* Wide enough that two 44px targets centred on their marks do not overlap:
-     EN sets about 18px and 中 about 11px, so the gap has to carry the rest. */
+     EN sets about 20px and 中 about 13px, so the gap has to carry the rest. */
   const gap = Math.max(32, g.vw * 0.022);
-  const en = scene.text('nav.en', 'EN', S.nav, zhX - gap, y, lang === 'en' ? INK : dim, { align: 'right' });
+  const en = scene.text('nav.en', 'EN', lang === 'en' ? on : off, zhX - gap, y, lang === 'en' ? INK : dim, { align: 'right' });
   /* 中 is drawn first because EN is positioned relative to it, but the hits go
      in the order they are read - and the hit order is the tab order. */
   scene.hit('lang:en', en, zhX - gap - en.width, y, { key: 'nav.en', label: 'English', lang: 'en', pressed: lang === 'en' });
   scene.hit('lang:zh', zh, zhX, y, { key: 'nav.zh', label: '中文', lang: 'zh-Hans', pressed: lang === 'zh' });
 
-  return y + Math.max(20, g.vw * 0.018);
+  const ruleY = Math.round(y + en.descent + g.u * 1.8);
+  scene.rect('band.rule', g.left, ruleY, g.contentW, 1, RULE, 0.34);
+  return ruleY + 1;
 }
 
-/* ---- view: the card -------------------------------------------------------
-   An identity card, drawn as one bounded composition floating in the concrete:
-   a hairline above, a hairline below, and between them the six facts that
-   answer "who is this and how do I reach her". The email signs it, underneath.
+/* ---- the name -------------------------------------------------------------
+   The one run on the site whose size is a result rather than a setting: it is
+   scaled so the longest line lands exactly on the right margin. The type is
+   therefore a function of the measure, which is the oldest idea in letterpress
+   display work and the reason a wood-type poster looks built rather than
+   arranged.
 
-   Laid out from y = 0 and translated into place afterwards, because the block
-   is optically centred and its height depends on how many lines the prose and
-   the field values take - which is not knowable until they are set.
-   --------------------------------------------------------------------------- */
-/* How many lines each slot of the card needs, in one language. The card is
-   laid out to the LARGER of the two, so the two languages share one grid: the
-   bottom rule, the email and every field sit at the same y whichever language
-   you are reading. Without this the Chinese card - which is consistently more
-   compact - pulls everything below the lede upward, and a morph turns into a
-   reflow with two languages visible in two different places at once. */
-function cardShape(engine, content, lang, g) {
+   Three constraints bound it.
+
+     - A ceiling in viewport heights, because 沈菲菲 is three characters and
+       filling 1440px with three characters is 480px of glyph, which is a
+       different page from this one. Capped, the Chinese name sets at the
+       ceiling and leaves the right of the measure open; that asymmetry is the
+       composition, not a failure of it.
+     - A ceiling in ATLAS pixels. Every glyph here is rasterised into one
+       texture, and a run wider than that texture cannot be packed at all - it
+       would silently vanish. Setting the name word by word keeps each run
+       under half the atlas, and 1800 device px leaves the margin for it.
+     - On a PORTRAIT viewport the name breaks to one word a line. A tall
+       narrow window fills its measure at a small size and then has half its
+       height left over, which is how a name ends up as a caption with a hole
+       under it; stacked, the same name is twice as tall and the page has a
+       block at the top of it again.
+
+   Words are separate runs positioned by measuring the prefix that precedes
+   them, so the letterfit is exactly what the browser would have produced for
+   the whole string. */
+function nameSetting(engine, str, lang, g, vh) {
   const S = scale(g.vw);
-  const c = content.card;
-  const perRow = g.cols <= 2 ? 2 : 4;
+  const role = adapt(S.name, HAN.test(str) ? lang : 'en');
+  const text = str.toUpperCase();
+  const words = text.includes(' ') ? text.split(/\s+/) : [text];
+  const lines = (g.cols === 1 || vh > g.vw * 1.15) && words.length > 1 ? words : [text];
+
+  /* Measured at a nominal 100px and scaled: Canvas2D advances are linear in
+     font size to well within the half-pixel this is later rounded to. */
+  const at = (t, size) => engine.measure({ ...role, size, text: t });
+  const widest = Math.max(...lines.map((l) => at(l, 100)));
+  /* Two ceilings, and both are needed. The first is per line, and it is what
+     stops three Han characters from setting at 480px simply because three
+     characters fit across a wide measure. The second is on the BLOCK, so that
+     a stacked name cannot take a third of a short window twice over. */
+  const ceiling = Math.min(clamp(vh * 0.22, 46, 210), (vh * 0.36) / (lines.length * role.lh));
+  let size = Math.min(ceiling, (100 * g.contentW) / widest);
+
+  /* The atlas bound, applied per word - the unit that is actually packed. */
+  const widestWord = Math.max(...lines.map((l) => l.split(' ')).flat().map((w) => at(w, 100)));
+  size = Math.min(size, (100 * 1800) / (engine.dpr * widestWord));
+
+  /* One correction pass against the real runs. run() rounds the size to whole
+     device pixels and the metrics move with it, so the linear prediction can
+     be a pixel or two out - which on a line set flush to the margin is the
+     difference between filling the measure and overrunning it. */
+  const w = Math.max(...lines.map((l) => engine.measure({ ...role, size, text: l })));
+  if (w > g.contentW) size *= g.contentW / w;
+
+  return { role: { ...S.name, size }, lines, size };
+}
+
+/* Place one line of the name, word by word. */
+function drawName(scene, key, line, role, x, baseline, color) {
+  const words = line.split(' ');
+  const spec = adapt(role, scene.lang);
+  for (let i = 0; i < words.length; i++) {
+    const dx = i ? scene.engine.measure({ ...spec, text: `${words.slice(0, i).join(' ')} ` }) : 0;
+    scene.text(`${key}.${i}`, words[i], role, x + dx, baseline, color);
+  }
+}
+
+/* ---- view: the index ------------------------------------------------------
+   Who she is at the top, how to reach her at the bottom, and the space between
+   them left empty on purpose. The two blocks are pinned to the frame rather
+   than centred in it, which is what stops the page reading as a card floating
+   in a window - a card has edges of its own, and they compete with the ones
+   the browser already has.
+
+   Both blocks are laid out from y = 0 and translated into place afterwards,
+   because where the lower one goes depends on how tall both of them are.
+   --------------------------------------------------------------------------- */
+function indexHead(engine, content, lang, g, vh) {
+  const scene = new Scene(engine, lang, g);
+  const S = scale(g.vw);
+  const c = content.index;
+  const u = g.u;
+
+  const name = nameSetting(engine, c.name[lang], lang, g, vh);
+  const nameLead = Math.round(name.size * S.name.lh);
+
+  /* Metrics come from the WORD runs, which are the runs that get drawn.
+     Measuring the whole line instead would reserve a second copy of the name
+     in the atlas at full width - and at this size that one run is wider than
+     the texture, which forces the packer up to the next size and quadruples
+     the memory for a bitmap nothing ever samples. */
+  const nameSpec = adapt(name.role, HAN.test(c.name[lang]) ? lang : 'en');
+  const words = name.lines.map((l) => l.split(' ')).flat();
+  const runs = words.map((w) => engine.run({ ...nameSpec, text: w }));
+  const inkAscent = Math.max(...runs.map((r) => r.inkAscent || r.capHeight));
+  const inkDescent = Math.max(...runs.map((r) => r.inkDescent));
+
+  /* Placed by ink, not by box: the first line's ink top lands exactly on the
+     block's top edge whichever script is setting it. */
+  let y = inkAscent;
+  name.lines.forEach((line, i) => {
+    drawName(scene, `index.name.${i}`, line, name.role, g.left, y + i * nameLead, INK);
+  });
+  y += (name.lines.length - 1) * nameLead + inkDescent;
+
+  /* The role is the name's caption, and it is sized against the NAME rather
+     than against the viewport - a fixed 15px label under a three-character
+     Chinese name set at 200px is not the same object as the same label under a
+     fourteen-character English one at 130. A ninth of the display size holds
+     the two in the same relation whatever the measure does to them. */
+  const roleRole = { ...S.role, size: clamp(name.size * 0.115, 12, 20) };
+  const roleRun = engine.run({ ...adapt(roleRole, lang), text: c.role[lang].toUpperCase() });
+  y += u * 2.2 + roleRun.ascent;
+  scene.text('index.role', c.role[lang], roleRole, g.left, y, INK_3);
+  y += roleRun.descent;
+
+  /* The lede is tied to the grid rather than to an em measure: three tracks of
+     four, two of three, everything otherwise. That is what keeps its ragged
+     right edge landing on a line the rest of the page also uses - and it caps
+     at 30em regardless, past which a serif this size stops being readable in
+     one pass of the eye. */
+  const span = g.cols >= 4 ? 3 : g.cols >= 3 ? 2 : g.cols;
+  const ledeRole = adapt(S.lede, lang);
+  const ledeW = Math.min(g.colX(span - 1) + g.colW - g.left, 30 * ledeRole.size);
+  const ledeRun = engine.run({ ...ledeRole, text: 'H' });
+  const ledeLead = lead(S.lede);
+  const lines = wrap(engine, c.line[lang], ledeRole, ledeW);
+
+  y += u * 5 + ledeRun.ascent;
+  lines.forEach((t, i) => {
+    scene.text(`index.lede.${i}`, t, S.lede, g.left, y + i * ledeLead, INK_2);
+  });
+  y += (lines.length - 1) * ledeLead + ledeRun.descent;
+
+  scene.blockH = y;
+  return scene;
+}
+
+function indexFoot(engine, content, lang, g) {
+  const scene = new Scene(engine, lang, g);
+  const S = scale(g.vw);
+  const c = content.index;
+  const u = g.u;
+
+  /* Four across where a quarter of the content still holds a value on one or
+     two lines; two across below that. Never one: four stacked fields is a
+     list, and this is a specification. */
+  const perRow = g.contentW >= 1000 ? 4 : 2;
   const fieldW = (g.contentW - g.gutter * (perRow - 1)) / perRow;
-  const proseW = Math.min(g.contentW, 30 * S.line.size);
-  const lines = wrap(engine, c.line[lang], adapt(S.line, lang), proseW).length;
-  const counts = c.fields.map((f) => wrap(engine, f.value[lang], adapt(S.value, lang), fieldW - 10).length);
-  const rows = Math.ceil(c.fields.length / perRow);
+
+  const labelRun = engine.run({ ...adapt(S.label, lang), text: 'H' });
+  const valueRun = engine.run({ ...adapt(S.value, lang), text: 'H' });
+  const mailRun = engine.run({ ...adapt(S.mail, lang), text: c.contact.email });
+  const valueLead = lead(S.value);
+
+  const fields = c.fields.map((f) => ({
+    f, texts: wrap(engine, f.value[lang], adapt(S.value, lang), fieldW),
+  }));
+  const rows = Math.ceil(fields.length / perRow);
   const rowLines = [];
   for (let r = 0; r < rows; r++) {
     let mx = 1;
-    for (let i = r * perRow; i < Math.min(counts.length, (r + 1) * perRow); i++) mx = Math.max(mx, counts[i]);
+    for (let i = r * perRow; i < Math.min(fields.length, (r + 1) * perRow); i++) {
+      mx = Math.max(mx, fields[i].texts.length);
+    }
     rowLines.push(mx);
   }
-  return { lines, rowLines };
-}
 
-function cardBlock(engine, content, lang, g, shape) {
-  const scene = new Scene(engine, lang, g);
-  const S = scale(g.vw);
-  const c = content.card;
-  const u = g.u;
+  scene.rect('index.rule', g.left, 0, g.contentW, 1, RULE, 0.34);
 
-  /* Two fields across on a phone rather than four stacked: stacking costs
-     ~100px, which is the difference between the card fitting on an iPhone SE
-     and the card needing to scroll. */
-  const perRow = g.cols <= 2 ? 2 : 4;
-  const fieldW = (g.contentW - g.gutter * (perRow - 1)) / perRow;
-  /* No prose run gets the full content width. 30em is about 60 characters,
-     mid-band of the 45-75 that reads comfortably. */
-  const proseW = Math.min(g.contentW, 30 * S.line.size);
-
-  /* The name is the one run that may never wrap or overflow, so it is measured
-     against the content width and taken down if it would not fit. */
-  const nameRole = adapt(S.name, lang);
-  const nameW = engine.measure({ ...nameRole, text: c.name[lang] });
-  /* No floor. A floor would mean the "never wraps, never overflows" guarantee
-     only holds up to some multiple of the content width, and nothing downstream
-     clips - the name would simply run off the right of the page. */
-  const fit = nameW > g.contentW ? g.contentW / nameW : 1;
-  const name = { ...S.name, size: S.name.size * fit };
-
-  const nameRun = engine.run({ ...adapt(name, lang), text: c.name[lang] });
-  const roleRun = engine.run({ ...adapt(S.role, lang), text: c.role[lang].toUpperCase() });
-  const labelRun = engine.run({ ...adapt(S.label, lang), text: 'H' });
-  const valueRun = engine.run({ ...adapt(S.value, lang), text: 'H' });
-  const lineRun = engine.run({ ...adapt(S.line, lang), text: 'H' });
-  const mailRun = engine.run({ ...adapt(S.mail, lang), text: c.contact.email });
-
-  const lines = wrap(engine, c.line[lang], adapt(S.line, lang), proseW);
-  const fields = c.fields.map((f) => ({
-    f, texts: wrap(engine, f.value[lang], adapt(S.value, lang), fieldW - 10),
-  }));
-  const rows = Math.ceil(fields.length / perRow);
-  const rowLines = shape.rowLines;
-
-  const LEAD = { line: lead(S.line), value: lead(S.value) };
-
-  let y = 0;
-  scene.rect('card.rule.top', g.left, 0, g.contentW, 1, RULE, 0.26);
-
-  y += u * 2 + roleRun.ascent;
-  scene.text('card.role', c.role[lang], S.role, g.left, y, INK_3, { mode: 'attn', tier: 1 });
-
-  y += u * 2.6 + (nameRun.capHeight || nameRun.ascent * 0.72);
-  scene.text('card.name', c.name[lang], name, g.left, y, INK, { mode: 'attn', tier: 1, trace: true });
-
-  /* The lede's slot is as tall as the language that needs the most lines, so
-     that everything below it holds still through a morph. The language that
-     needs fewer sits centred in the slot rather than at the top of it, which
-     halves the hole and keeps the card looking composed rather than short. */
-  y += u * 2.4 + lineRun.ascent;
-  const slack = Math.max(0, shape.lines - lines.length) * LEAD.line * 0.5;
-  lines.forEach((t, i) => {
-    scene.text(`card.line.${i}`, t, S.line, g.left, y + slack + i * LEAD.line, INK_2, { mode: 'attn' });
-  });
-  y += (shape.lines - 1) * LEAD.line;
-
-  y += u * 3.6 + labelRun.ascent;
-  const fieldTop = y;
-  fields.forEach((entry, i) => {
-    const row = Math.floor(i / perRow);
-    let rowY = fieldTop;
-    for (let r = 0; r < row; r++) {
-      rowY += u * 1.7 + valueRun.ascent + (rowLines[r] - 1) * LEAD.value + u * 2.6 + labelRun.ascent;
-    }
-    const x = g.left + (i % perRow) * (fieldW + g.gutter);
-    scene.text(`card.field.${i}.label`, entry.f.label[lang], S.label, x, rowY, INK_3, { mode: 'attn' });
-    const v0 = rowY + u * 1.7 + valueRun.ascent;
-    entry.texts.forEach((t, k) => {
-      scene.text(`card.field.${i}.value.${k}`, t, S.value, x, v0 + k * LEAD.value, INK, { mode: 'attn' });
-    });
-  });
+  const rowTop = [];
+  let y = u * 2.6;
   for (let r = 0; r < rows; r++) {
-    y += u * 1.7 + valueRun.ascent + (rowLines[r] - 1) * LEAD.value;
-    if (r < rows - 1) y += u * 2.6 + labelRun.ascent;
+    rowTop.push(y);
+    y += labelRun.ascent + u * 1.7 + valueRun.ascent + (rowLines[r] - 1) * valueLead + valueRun.descent;
+    if (r < rows - 1) y += u * 3;
   }
 
-  y += u * 3 + valueRun.descent;
-  scene.rect('card.rule.bottom', g.left, Math.round(y), g.contentW, 1, RULE, 0.26);
+  fields.forEach((entry, i) => {
+    const r = Math.floor(i / perRow);
+    const x = g.left + (i % perRow) * (fieldW + g.gutter);
+    const top = rowTop[r] + labelRun.ascent;
+    scene.text(`index.field.${i}.label`, entry.f.label[lang], S.label, x, top, INK_3);
+    const v0 = top + u * 1.7 + valueRun.ascent;
+    entry.texts.forEach((t, k) => {
+      scene.text(`index.field.${i}.value.${k}`, t, S.value, x, v0 + k * valueLead, INK);
+    });
+  });
 
-  y += u * 2.4 + mailRun.ascent;
-  const mail = scene.text('card.mail', c.contact.email, S.mail, g.left, y, INK);   /* same run in both languages: it persists */
-  scene.hit('mail', mail, g.left, y, { key: 'card.mail', href: `mailto:${c.contact.email}`, label: c.contact.email });
-  scene.rect('card.mail.rule', g.left, Math.round(y + mailRun.descent * 0.5), mail.width, 1, INK, 0.3);
+  /* The contact line closes the page: the address flush left in the serif, the
+     one outbound link flush right in the sans. Two marks on one baseline at
+     the two edges of the measure - the same gesture as the nav, at the other
+     end of the frame. */
+  y += u * 4.5 + mailRun.ascent;
+  const mail = scene.text('index.mail', c.contact.email, S.mail, g.left, y, INK);
+  scene.hit('mail', mail, g.left, y, { key: 'index.mail', href: `mailto:${c.contact.email}`, label: c.contact.email });
 
-  const li = scene.text('card.linkedin', c.contact.linkedin.label, S.nav, g.right, y, INK_3, { align: 'right' });
-  scene.hit('linkedin', li, g.right - li.width, y, { key: 'card.linkedin', href: c.contact.linkedin.url, label: c.contact.linkedin.label });
+  const li = scene.text('index.linkedin', c.contact.linkedin.label, S.mail, g.right, y, INK, { align: 'right' });
+  scene.hit('linkedin', li, g.right - li.width, y, { key: 'index.linkedin', href: c.contact.linkedin.url, label: c.contact.linkedin.label });
 
   scene.blockH = y + mailRun.descent;
   return scene;
 }
 
 /* ---- view: the CV ---------------------------------------------------------
-   Sections are packed into columns whole and in order: the columns are
-   contiguous slices of the list, chosen to minimise the tallest column. That
-   keeps reading order intact - a CV read top-to-bottom, left-to-right, exactly
-   like a printed one - which greedy shortest-column packing does not, and it
-   can never split a section, so no entry is ever orphaned from its heading.
+   A section is a full-width band: a rule across the measure, its name hanging
+   in the first column, and its entries filling the columns to the right. The
+   first column stays empty for the whole height of the section, which is the
+   point - it is the vertical the eye tracks down, and it is worth a quarter of
+   the page to state it clearly.
 
-   The split is computed once from the taller of the two languages, so
-   switching language reflows the type without ever moving a section sideways.
+   Below three columns there is no column to hang in, so the name goes above
+   its entries and they take the full measure. That is the same structure seen
+   through a narrower window, not a second design.
 
-   There is no date rail. Seven of thirteen entries carry no year, so a rail
-   renders as a half-empty column and reads as missing data; the year goes on
-   the meta line instead, where its absence is simply silence.
+   Entries read left to right within a section, top to bottom between them. No
+   date rail: seven of thirteen entries carry no year, and a rail half full of
+   blanks reads as missing data. The year goes to the right edge of its own
+   entry, on the line with the organisation, where its absence is silence.
    --------------------------------------------------------------------------- */
+function cvMetrics(g) {
+  /* The hanging arrangement and the track it produces, in one place, so that
+     measuring and drawing cannot disagree about it. */
+  const hang = g.cols >= 3;
+  const x0 = hang ? g.colX(1) : g.left;
+  const across = hang ? g.cols - 1 : g.cols;
+  const width = g.right - x0;
+  const trackW = (width - g.gutter * (across - 1)) / across;
+  return { hang, x0, across, trackW };
+}
+
 function measureSections(engine, content, lang, g, S) {
   const u = g.u;
-  const LEAD = { title: lead(S.title), meta: lead(S.meta) };
-  const head = (sec) => engine.run({ ...adapt(S.section, lang), text: sec[lang].toUpperCase() });
-  const probe = engine.run({ ...adapt(S.title, lang), text: 'H' });
-  const metaProbe = engine.run({ ...adapt(S.meta, lang), text: 'H' });
+  const m = cvMetrics(g);
+  const titleRole = adapt(S.title, lang);
+  const metaRole = adapt(S.meta, lang);
+  const yearRole = adapt(S.year, lang);
+  const titleLead = lead(S.title);
+  const metaLead = lead(S.meta);
+  const probe = engine.run({ ...titleRole, text: 'H' });
+  const metaProbe = engine.run({ ...metaRole, text: 'H' });
 
   return content.cv.map((sec) => {
-    const h = head(sec.section);
+    const head = engine.run({ ...adapt(S.section, lang), text: sec.section[lang].toUpperCase() });
     const entries = sec.entries.map((e) => {
-      const titles = wrap(engine, e.title[lang], adapt(S.title, lang), g.colW);
-      const bits = [e.year, e.org && e.org[lang] ? e.org[lang] : ''].filter(Boolean);
-      /* The meta line wraps like the title does. It is usually one line, but
-         "2023—  ·  Civil society, industry, institutions" in a 328px column is
-         not, and nothing downstream clips: an unwrapped meta line would draw
-         straight over its neighbour and off the page. */
-      const meta = bits.length ? wrap(engine, bits.join('  ·  '), adapt(S.meta, lang), g.colW) : [];
+      const year = e.year || '';
+      const yearW = year ? engine.measure({ ...yearRole, text: year }) : 0;
+      /* The organisation gives up the width the year needs, on every line and
+         not only the first: nothing downstream clips, and a second line
+         running under the year would collide with it. */
+      const orgW = m.trackW - (yearW ? yearW + u * 2 : 0);
+      const org = e.org && e.org[lang] ? wrap(engine, e.org[lang], metaRole, orgW) : [];
+      const titles = wrap(engine, e.title[lang], titleRole, m.trackW);
+      const metaH = (org.length || year)
+        ? u * 1.5 + metaProbe.ascent + (Math.max(org.length, 1) - 1) * metaLead + metaProbe.descent
+        : 0;
       return {
-        e, titles, meta,
-        height: probe.ascent + (titles.length - 1) * LEAD.title
-          + (meta.length ? u * 1.5 + metaProbe.ascent + (meta.length - 1) * LEAD.meta : 0) + u * 2.1,
+        e, titles, org, year,
+        height: probe.ascent + (titles.length - 1) * titleLead + probe.descent + metaH + u * 3.4,
       };
     });
-    const height = u * 1.6 + h.lineHeight + u * 2 + entries.reduce((a, x) => a + x.height, 0) + u * 2.2;
-    return { sec, head: h, entries, height, probe, metaProbe, LEAD };
+
+    /* Rows of `across` entries; a row is as tall as its tallest entry. */
+    const rowH = [];
+    for (let i = 0; i < entries.length; i += m.across) {
+      rowH.push(Math.max(...entries.slice(i, i + m.across).map((x) => x.height)));
+    }
+    const body = rowH.reduce((a, b) => a + b, 0);
+    const height = u * 2.2
+      + (m.hang ? 0 : head.lineHeight + u * 2.6)
+      + Math.max(body, m.hang ? head.lineHeight + u * 2 : 0);
+    return { sec, head, entries, rowH, height, probe, metaProbe, titleLead, metaLead };
   });
 }
 
-/* Minimise the tallest column over contiguous slices. Classic linear
-   partition; with a handful of sections the O(k n^2) DP is instant. */
-function partition(heights, k) {
-  const n = heights.length;
-  const assign = new Array(n).fill(0);
-  if (k <= 1 || n <= 1) return assign;
-  const pre = [0];
-  heights.forEach((h, i) => pre.push(pre[i] + h));
-  const sum = (a, b) => pre[b] - pre[a];
-  const dp = Array.from({ length: k + 1 }, () => new Array(n + 1).fill(Infinity));
-  const cut = Array.from({ length: k + 1 }, () => new Array(n + 1).fill(0));
-  for (let i = 0; i <= n; i++) dp[1][i] = sum(0, i);
-  for (let c = 2; c <= k; c++) {
-    for (let i = 0; i <= n; i++) {
-      for (let j = 0; j <= i; j++) {
-        const v = Math.max(dp[c - 1][j], sum(j, i));
-        /* <= not <, so that among equally optimal cuts the LAST one wins.
-           With a strict comparison the smallest j survives, which means that
-           whenever the objective is indifferent - fewer sections than columns,
-           say - the reconstruction starves the leftmost columns and the CV
-           opens with a blank column. */
-        if (v <= dp[c][i]) { dp[c][i] = v; cut[c][i] = j; }
-      }
-    }
-  }
-  const bounds = new Array(k + 1);
-  bounds[k] = n;
-  for (let c = k; c >= 1; c--) bounds[c - 1] = cut[c][bounds[c]];
-  for (let c = 1; c <= k; c++) for (let i = bounds[c - 1]; i < bounds[c]; i++) assign[i] = c - 1;
-  return assign;
-}
-
-function cvView(engine, content, lang, g, vh, topY, assignment, measured) {
+function cvView(engine, content, lang, g, vh, topY, measured) {
   const scene = new Scene(engine, lang, g);
   const S = scale(g.vw);
   const u = g.u;
-  const colTop = topY + u * 3;
-  const colY = new Array(g.cols).fill(colTop);
+  const m = cvMetrics(g);
+  let y = topY + u * 9;
 
-  measured.forEach((m, si) => {
-    const col = assignment[si];
-    const x = g.colX(col);
-    let y = colY[col];
+  measured.forEach((sec, si) => {
+    scene.rect(`cv.${si}.rule`, g.left, Math.round(y), g.contentW, 1, RULE, 0.34);
+    let top = y + u * 2.2;
 
-    scene.rect(`cv.${si}.rule`, x, Math.round(y), Math.round(g.colW), 1, RULE, 0.22);
-    y += u * 1.6 + m.head.ascent;
-    scene.text(`cv.${si}.head`, m.sec.section[lang], S.section, x, y, INK_3, { mode: 'attn' });
-    y += m.head.descent + u * 2;
+    scene.text(`cv.${si}.head`, sec.sec.section[lang], S.section, g.left, top + sec.head.ascent, INK);
+    if (!m.hang) top += sec.head.lineHeight + u * 2.6;
 
-    m.entries.forEach((en, ei) => {
-      y += m.probe.ascent;
+    sec.entries.forEach((en, ei) => {
+      const col = ei % m.across;
+      const row = Math.floor(ei / m.across);
+      const x = m.x0 + col * (m.trackW + g.gutter);
+      let ey = top;
+      for (let r = 0; r < row; r++) ey += sec.rowH[r];
+
+      ey += sec.probe.ascent;
       en.titles.forEach((t, k) => {
-        scene.text(`cv.${si}.${ei}.title.${k}`, t, S.title, x, y + k * m.LEAD.title, INK);
+        scene.text(`cv.${si}.${ei}.title.${k}`, t, S.title, x, ey + k * sec.titleLead, INK);
       });
-      y += (en.titles.length - 1) * m.LEAD.title;
-      if (en.meta.length) {
-        y += u * 1.5 + m.metaProbe.ascent;
-        en.meta.forEach((t, k) => {
-          scene.text(`cv.${si}.${ei}.meta.${k}`, t, S.meta, x, y + k * m.LEAD.meta, INK_3);
+      ey += (en.titles.length - 1) * sec.titleLead;
+
+      if (en.org.length || en.year) {
+        ey += u * 1.5 + sec.metaProbe.ascent;
+        en.org.forEach((t, k) => {
+          scene.text(`cv.${si}.${ei}.org.${k}`, t, S.meta, x, ey + k * sec.metaLead, INK_3);
         });
-        y += (en.meta.length - 1) * m.LEAD.meta;
+        if (en.year) {
+          scene.text(`cv.${si}.${ei}.year`, en.year, S.year, x + m.trackW, ey, INK_3, { align: 'right' });
+        }
       }
-      y += u * 2.1;
     });
 
-    colY[col] = y + u * 2.2;
+    y += sec.height + u * 4;
   });
 
-  scene.height = Math.max(vh, Math.max(...colY) + Math.max(48, g.margin));
+  scene.height = Math.max(vh, y + Math.max(48, g.margin));
   return scene;
 }
 
@@ -604,46 +699,42 @@ function cvView(engine, content, lang, g, vh, topY, assignment, measured) {
    Builds all four scenes against one atlas generation. Call engine.reset()
    before and engine.build() after: everything measured in between is what
    gets rasterised. */
-export function buildScenes(engine, content, vw, vh, safeTop = 0, safeSide = 0) {
+export function buildScenes(engine, content, vw, vh, lang = 'en', safeTop = 0, safeSide = 0) {
   const g = grid(vw, safeTop, safeSide);
   const S = scale(vw);
   const scenes = {};
 
   /* The band is drawn into each scene separately, since it carries the
      active-state colours, but its geometry is identical everywhere. */
-  const topY = band(new Scene(engine, 'en', g), content, 'card', 'en', g);
+  const topY = band(new Scene(engine, lang, g), content, 'index', lang, g);
+  const measured = measureSections(engine, content, lang, g, S);
 
-  const measured = {
-    en: measureSections(engine, content, 'en', g, S),
-    zh: measureSections(engine, content, 'zh', g, S),
-  };
-  const assignment = partition(measured.en.map((m, i) => Math.max(m.height, measured.zh[i].height)), g.cols);
-
-  /* The card is centred using the taller of its two languages, so its top edge
-     does not jump when the morph starts. When it is taller than the space it
-     has, it anchors to the top instead: centring content that overflows hides
-     the top of it, which on this page is the name. */
-  const shapes = { en: cardShape(engine, content, 'en', g), zh: cardShape(engine, content, 'zh', g) };
-  const shape = {
-    lines: Math.max(shapes.en.lines, shapes.zh.lines),
-    rowLines: shapes.en.rowLines.map((n, i) => Math.max(n, shapes.zh.rowLines[i])),
-  };
-  const cards = {
-    en: cardBlock(engine, content, 'en', g, shape),
-    zh: cardBlock(engine, content, 'zh', g, shape),
-  };
-  const blockH = Math.max(cards.en.blockH, cards.zh.blockH);
-  const free = vh - topY;
-  const cardTop = Math.round(topY + Math.max(g.u * 3, (free - blockH) * 0.42));
-
-  for (const lang of ['en', 'zh']) {
-    for (const view of ['card', 'cv']) {
+  {
+    for (const view of ['index', 'cv']) {
       let scene;
-      if (view === 'card') {
-        scene = cards[lang].translate(cardTop);
-        scene.height = Math.max(vh, cardTop + scene.blockH + Math.max(g.u * 3, g.margin));
+      if (view === 'index') {
+        const head = indexHead(engine, content, lang, g, vh);
+        const foot = indexFoot(engine, content, lang, g);
+        /* Head under the band, foot on the floor, and whatever is left over in
+           between. When the two cannot both fit, the page stops pinning the
+           foot and simply scrolls: a contact line pushed off the bottom of a
+           phone is worse than a scrollbar. */
+        const floor = Math.max(g.margin, g.u * 4);
+        const settled = vh - floor - foot.blockH;
+        let headTop = topY + g.u * 7;
+        /* The void between the two blocks is the composition and is allowed
+           to be the largest thing on the page. It is not allowed to be the
+           only thing on it: past the cap - reached on a very tall window, or
+           one where the name has set small - the surplus goes back to the top
+           margin instead of accumulating in the middle. */
+        const void_ = clamp(vh * 0.42, 200, 560);
+        const slack = settled - (headTop + head.blockH) - void_;
+        if (slack > 0) headTop += slack;
+        const footTop = Math.round(Math.max(settled, headTop + head.blockH + g.u * 8));
+        scene = head.translate(headTop).absorb(foot.translate(footTop));
+        scene.height = Math.max(vh, footTop + foot.blockH + floor);
       } else {
-        scene = cvView(engine, content, lang, g, vh, topY, assignment, measured[lang]);
+        scene = cvView(engine, content, lang, g, vh, topY, measured);
       }
       /* The band goes on last so its hit regions sit above the content's. */
       const chrome = new Scene(engine, lang, g);
@@ -660,7 +751,7 @@ export function buildScenes(engine, content, vw, vh, safeTop = 0, safeSide = 0) 
    before the first rasterisation instead of after it.
 
    Split by language: making the first paint wait on the Chinese serif - which
-   nothing on an English card sets - would be 70kB of nothing. main.js awaits
+   nothing on an English page sets - would be 74kB of nothing. main.js awaits
    the current language and lets the other arrive in its own time. The Chinese
    sans is critical in either language, because the toggle always shows 中. */
 export function fontSpecs(content, vw, lang) {
@@ -676,15 +767,15 @@ export function fontSpecs(content, vw, lang) {
 
   /* Every string this language sets, so the request can be made per ROLE
      rather than per script. It is not enough to ask the display face for Han:
-     the English card sets "English, 中文" in the serif, and asking only the
-     display family for it leaves the first paint of an English page rendering
-     Chinese in whatever the system happens to have. */
+     the English page sets "English, 中文" in the serif, and asking only the
+     display family for it leaves the first paint rendering Chinese in whatever
+     the system happens to have. */
   const strings = [
-    content.card.name[lang], content.card.role[lang], content.card.line[lang],
-    ...content.card.fields.map((f) => f.label[lang] + f.value[lang]),
+    content.index.name[lang], content.index.role[lang], content.index.line[lang],
+    ...content.index.fields.map((f) => f.label[lang] + f.value[lang]),
     ...content.cv.map((s) => s.section[lang]
       + s.entries.map((e) => (e.year || '') + e.title[lang] + (e.org ? e.org[lang] : '')).join('')),
-    content.nav.card[lang], content.nav.cv[lang], '中',
+    content.nav.index[lang], content.nav.cv[lang], '中',
   ].join('');
   const exotic = [...new Set([...strings])].filter((c) => c.codePointAt(0) > 0x7f).join('');
 
