@@ -500,7 +500,12 @@ function planToggle(scene, content, lang, g) {
       const on = lang === 'en' ? 0 : 1;
 
       /* Fill first, border over it, type last. */
-      scene.rect('nav.fill', on ? x0 + enW : x0, boxTop, on ? zhW : enW, boxH, INK, 1, { fixed: true });
+      /* INK_2, not INK. A SOLID AREA of a value reads far heavier than strokes
+         of it - the same black that is quiet as a 15px serif is a slab at
+         30x11px - so the block is set one step back to weigh what the type
+         around it weighs. At INK it was the darkest thing on the page by some
+         way, which is too much authority for a language switch. */
+      scene.rect('nav.fill', on ? x0 + enW : x0, boxTop, on ? zhW : enW, boxH, INK_2, 1, { fixed: true });
       /* The outline is what makes the unselected half read as the other half of
          one control rather than as a word standing next to a block. */
       scene.rect('nav.box', x0, boxTop, boxW, boxH, RULE, HAIRLINE * 1.6,
@@ -517,7 +522,7 @@ function planToggle(scene, content, lang, g) {
       const span = { width: boxW, lineHeight: boxH, ascent: ink + padY };
       scene.hit('lang:toggle', span, x0, y, {
         fixed: true,
-        key: 'nav.en',
+        key: 'nav.box',
         other: lang === 'en' ? 'zh' : 'en',
         lang: lang === 'zh' ? 'zh-Hans' : 'en',
       });
@@ -798,7 +803,10 @@ function head(scene, content, lang, g) {
   const ledeLead = lead(S.lede);
   const lines = balance(scene.engine, c.line[lang], ledeRole, ledeW);
 
-  y += u * 5 + ledeRun.ascent;
+  /* Closer, now that the dateline has been pulled up and tightened. The gap
+     was struck against a looser, larger line sitting further down; against
+     this one it read as a hole. */
+  y += u * 3.1 + ledeRun.ascent;
   const ledeSeal = scene.seal('head.lede', y, 90);
   lines.forEach((t, i) => {
     scene.text(`index.lede.${i}`, t, S.lede, g.left, y + i * ledeLead, INK_2, { seal: ledeSeal });
@@ -1020,14 +1028,21 @@ function footer(scene, content, lang, g, y0) {
   scene.place('foot.linkedin', liRun, liX, liY, INK, { seal });
   scene.hit('linkedin', liRun, liX, liY, { key: 'foot.linkedin', href: c.contact.linkedin.url, label: c.contact.linkedin.label });
 
-  /* The end mark. Square, solid, on the right margin and sitting on the same
-     baseline the two links do - the same square an open-ended year ends with,
-     and the same one the tab shows. Here it is doing what a printer's mark
-     actually does: closing a document, at the end of it, with nothing after.
-     That is the whole difference between this one and the one that was tried
-     in the void and taken out - there, nothing was ending. */
-  const side = Math.round(liRun.inkAscent || liRun.capHeight);
-  scene.rect('foot.end', g.right - side, Math.round(liY - side), side, side, INK, 1);
+  /* The end mark, and it is the GLYPH rather than a rectangle shaped like it.
+
+     Drawn as a rect it had to be given a size, a colour and a corner by hand,
+     and all three were wrong: too dark, too square, and a value nobody else on
+     the page uses. The years already end in this character - it is what an
+     open-ended one is closed with - so the mark is simply set, in the year's
+     own role, at the year's own ink. Nothing to keep in step, because there is
+     nothing to keep: it is the same run the CV sets forty lines above.
+
+     Here it does what a printer's mark actually does - closes a document, at
+     the end of it, with nothing after. That is the whole difference between
+     this one and the one tried in the void and taken out; there, nothing was
+     ending. */
+  const end = scene.prepare(content.labels.end, S.year);
+  scene.place('foot.end', end, g.right - end.width, liY, INK_3, { seal });
 
   return Math.max(y, liY) + mailRun.descent;
 }
@@ -1109,7 +1124,7 @@ export function fontSpecs(content, vw, lang) {
     ...content.blocks.map((b) => b.label[lang]
       + b.sections.map((s) => s.section[lang]
         + s.entries.map((e) => (e.year || '') + e.title[lang] + (e.org ? e.org[lang] : '')).join('')).join('')),
-    content.labels.zh,
+    content.labels.zh, content.labels.end,
   ].join('');
   const exotic = [...new Set([...strings])].filter((c) => c.codePointAt(0) > 0x7f).join('');
 

@@ -507,8 +507,12 @@ export function drawScene(marks, scene, alpha = 1, hoverKey = null, reveal = nul
       }
     }
     if (it.kind === 'rect') {
-      if (it.stroke) marks.strokeRect(it.x, y, it.w, it.h, it.stroke, it.color, a);
-      else marks.rect(it.x, y, it.w, it.h, it.color, a);
+      /* A hovered rect gains PRESENCE, not a colour. The only one that is ever
+         hovered is the language switch's outline, and a hairline that steps up
+         says "live" without touching anything inside the control. */
+      const ra = it.key === hoverKey ? Math.min(1, a * 2.6) : a;
+      if (it.stroke) marks.strokeRect(it.x, y, it.w, it.h, it.stroke, it.color, ra);
+      else marks.rect(it.x, y, it.w, it.h, it.color, ra);
       continue;
     }
     const col = it.key === hoverKey ? HOVER_INK : it.color;
@@ -519,7 +523,15 @@ export function drawScene(marks, scene, alpha = 1, hoverKey = null, reveal = nul
 }
 
 /* Hover resolves to the primary ink whatever the mark's resting value: the one
-   thing a pointer has to say is "this one is live". */
+   thing a pointer has to say is "this one is live".
+
+   Which is why nothing KNOCKED OUT of ink may ever take it. The selected half
+   of the language switch is ground-coloured type cut from a black block, and
+   pushing that to the primary ink painted it black on black - the word simply
+   vanished under the pointer. The bug only showed on the English half, because
+   that is the one selected at rest, which is exactly the kind of asymmetry a
+   colour rule applied by key rather than by context produces. Hover is on the
+   switch's outline now; the type inside it never changes. */
 const HOVER_INK = [0.133, 0.129, 0.118];
 
 /* The redaction bar. One ink and one value for every bar on the page, whatever
