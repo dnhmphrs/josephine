@@ -139,13 +139,6 @@ function scale(vw) {
        an address is not a heading, and at the serif's body size it was reading
        as one. Small enough to be a footnote, large enough to be a target. */
     link: { family: SERIF, size: f(14, 15.5), lh: 1.35, weight: 400, tracking: 0, zh: { k: 1 } },
-    /* The availability value, in the serif, on the dateline's baseline. Set
-       a notch above the tracked label beside it: a roman and a set of tracked
-       capitals at the same nominal size do not read as the same size, because
-       the capitals have no descenders and twice the letter-spacing. The label
-       is S.role - the dateline's own size, which is what it answers across the
-       measure - and this is what sits level with it. */
-    avail: { family: SERIF, size: f(14, 15.5), lh: 1.2, weight: 400, tracking: 0, zh: { k: 0.94, floor: 13.5 } },
   };
 }
 
@@ -626,9 +619,21 @@ function head(scene, content, lang, g) {
      banner however quietly it is set; the same three words in a roman are a
      note in the margin. That is the whole difference between "looking for
      work" and "settled, and available". */
+  /* ONE REGISTER. The label and the value are both set in the dateline's own
+     tracked capitals, at its size, in its quiet grey - so the top of the page
+     is one band with a matching weight at each end, rather than a line of
+     capitals facing a line of roman.
+
+     Three earlier versions failed on the same fault in different ways. Beside
+     the sentence in micro capitals it was orphaned - the only thing on the
+     page aligned to nothing. On this baseline with the value in the serif, the
+     two halves of one statement were set in two voices at two sizes, so the
+     label read as a small prefix hanging off the front of a serif phrase
+     rather than as its label. What was wrong was never the position. It was
+     that the line kept being made of two different things. */
   const av = c.available;
   const avLabel = scene.prepare(av.label[lang], S.role);
-  const avValue = scene.prepare(av.value[lang], S.avail);
+  const avValue = scene.prepare(av.value[lang], S.role);
   const avGap = Math.round(Math.max(8, u * 0.7));
   const avW = avLabel.width + avGap + avValue.width;
   const avSeal = scene.seal('head.avail', y, 90);
@@ -637,7 +642,7 @@ function head(scene, content, lang, g) {
   const avInline = avW + g.gutter <= g.contentW - used;
   let avY = y;
   if (!avInline) avY = y + lead(S.role) + Math.round(u * 0.5);
-  scene.place('index.available.value', avValue, g.right - avValue.width, avY, INK_2, { seal: avSeal });
+  scene.place('index.available.value', avValue, g.right - avValue.width, avY, INK_3, { seal: avSeal });
   scene.place('index.available', avLabel, g.right - avW, avY, INK_3, { seal: avSeal, edge: true });
 
   /* The toggle's column, in viewport coordinates, handed to the renderer.
