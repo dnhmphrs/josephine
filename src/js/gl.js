@@ -507,7 +507,8 @@ export function drawScene(marks, scene, alpha = 1, hoverKey = null, reveal = nul
       }
     }
     if (it.kind === 'rect') {
-      marks.rect(it.x, y, it.w, it.h, it.color, a);
+      if (it.stroke) marks.strokeRect(it.x, y, it.w, it.h, it.stroke, it.color, a);
+      else marks.rect(it.x, y, it.w, it.h, it.color, a);
       continue;
     }
     const col = it.key === hoverKey ? HOVER_INK : it.color;
