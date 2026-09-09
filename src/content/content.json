@@ -21,48 +21,26 @@
       "en": "Geopolitics and technology governance, across China, the European Union and the multilateral system",
       "zh": "地缘政治与技术治理研究，横跨中国、欧盟与多边体系"
     },
-    "fields": [
+    "context": [
       {
-        "label": {
-          "en": "Based",
-          "zh": "驻地"
-        },
-        "value": {
-          "en": "Berlin",
-          "zh": "柏林"
-        }
+        "en": "Berlin",
+        "zh": "柏林"
       },
       {
-        "label": {
-          "en": "Languages",
-          "zh": "工作语言"
-        },
-        "value": {
-          "en": "English, 中文",
-          "zh": "中文、英文"
-        }
-      },
-      {
-        "label": {
-          "en": "Currently",
-          "zh": "现职"
-        },
-        "value": {
-          "en": "Fellow, AIxist",
-          "zh": "AIxist 研究员"
-        }
-      },
-      {
-        "label": {
-          "en": "Available for",
-          "zh": "可洽"
-        },
-        "value": {
-          "en": "Research, advisory, speaking",
-          "zh": "研究合作、政策咨询、公开演讲"
-        }
+        "en": "English, 中文",
+        "zh": "中文、英文"
       }
     ],
+    "available": {
+      "label": {
+        "en": "Available for",
+        "zh": "可洽"
+      },
+      "value": {
+        "en": "Research, advisory, speaking",
+        "zh": "研究合作、政策咨询、公开演讲"
+      }
+    },
     "contact": {
       "label": {
         "en": "Contact",
@@ -229,17 +207,6 @@
           },
           "placeholder": true,
           "note": "Add the year of the NPT Conference attended."
-        },
-        {
-          "year": "2022—",
-          "title": {
-            "en": "Independent research",
-            "zh": "独立研究"
-          },
-          "org": {
-            "en": "Technology and the state",
-            "zh": "技术与国家"
-          }
         },
         {
           "year": "2020—22",

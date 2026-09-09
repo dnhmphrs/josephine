@@ -5,7 +5,10 @@ import js from '@eslint/js';
 import globals from 'globals';
 
 export default [
-  { ignores: ['dist/**', 'node_modules/**', '_archive/**', 'public/**'] },
+  /* `.claude/` holds agent worktrees - whole copies of this repo, build output
+     and archive included - and it is gitignored. Linting it lints the project
+     several times over, in its built form. */
+  { ignores: ['dist/**', 'node_modules/**', '_archive/**', 'public/**', '.claude/**'] },
   js.configs.recommended,
   {
     files: ['src/js/**/*.js'],

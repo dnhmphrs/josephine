@@ -3,8 +3,8 @@
 One page — an opening, a severely compressed CV, a footer — rendered entirely
 in WebGL. The ground, the rules and every glyph are drawn by the GPU.
 
-**Nothing readable ships.** Not a title, not a meta description, not an
-accessible mirror, not a string literal in the bundle. That is deliberate: the
+**Nothing readable ships.** Not a word in the title, not a meta description,
+not an accessible mirror, not a string literal in the bundle. That is deliberate: the
 owner wants the page to exist and not to be searchable. What it costs is set
 out in [Zero text](#zero-text), and the cost is not small.
 
@@ -38,7 +38,10 @@ order is reading order, that the language control is a single element, that the
 switch lands on the very next frame and is finished there, that the opening is
 shallow and the CV is already on the first screen, that nothing overflows the
 measure, that no content word survives into the served HTML or the bundle, that
-`noindex` is present and `robots.txt` is not — and that it still fails quietly
+`noindex` is present and `robots.txt` is not, that the tab mark is block
+glyphs end to end, that the language control is sticky and its target moves
+with it, that the page ships with nothing redacted and that `?reveal=on` still
+works — and that it still fails quietly
 with WebGL removed, with
 `localStorage` throwing, without `Intl.Segmenter`, under
 `prefers-reduced-motion`, at 320x480, and through a resize storm.
@@ -49,7 +52,8 @@ Deploys on Vercel as a static build (`outputDirectory: dist`).
 
 ```
 src/
-  index.html            the shell: a canvas, a scroll proxy, two hidden layers
+  index.html            the shell: a canvas, a scroll proxy, a fixed layer,
+                        two hidden viewport probes
   content/content.json  ALL text, EN + ZH - edit here
   js/
     text.js             glyph atlas
@@ -91,9 +95,49 @@ spans about five to one, where a display page would span fifteen; hierarchy is
 carried by the space around a thing and by which of the two faces it is set in,
 which is a quieter instrument than size and a more exact one.
 
-**Nothing animates except the ground.** Pressing 中 is a cut: the layout runs
-again, the atlas is rebuilt, and the other language is on screen the next
-frame — the same work a resize already does, inside the click.
+**Pressing 中 is a cut.** The layout runs again, the atlas is rebuilt, and the
+other language is on screen the next frame — the same work a resize already
+does, inside the click. Nothing eases, nothing crossfades, and `npm run check`
+asserts that what is on screen one frame after the click is what is there when
+it settles, quad for quad.
+
+**The redaction ships OFF.** The machinery is complete and audited, and it is
+one query parameter away, but the resting page is a document rather than a
+document being declassified. With it on, a run that is partway open is drawn as
+one partial-UV quad for the revealed part plus a rectangle for the rest, so a
+seal is a single pass and never two copies of the same line. Seals are declared
+in `layout.js` — three across the head, one per CV section head, one per entry,
+one for the footer — and open on a cubic ease over 620ms, staggered by column.
+
+`REVEAL` at the top of `main.js` is the whole control surface, and every field
+is reachable from the URL:
+
+| | | |
+|---|---|---|
+| — | default | nothing is ever barred |
+| `?reveal=on` | | seals arrive barred and open; a seal re-closes well outside the window, so every arrival is a reveal |
+| `?reveal=once` | | as above, but each seal opens once and stays open |
+| `?reveal=off` | | back to the default |
+| `?load=0` / `?load=1` | | whether the *first screen* arrives sealed and opens, or begins finished |
+
+A seal only ever closes far outside the window, so there is no scroll position
+at which something visible stays hidden — and `prefers-reduced-motion` opens
+everything on the first layout and never moves again.
+
+**The toggle's column.** The language toggle is fixed to the viewport, which
+means the document slides underneath it. Only what actually passes *beneath the
+control* is faded — a mark is in scope when its right edge reaches into
+`scene.edge.x0`, the toggle's own left edge less half a gutter — so the name,
+the dateline, the sentence and every left-hand column scroll untouched.
+
+Two details make it a fade rather than a disappearance. The ramp is measured on
+the mark's **ink bottom**, not its baseline: measured on the baseline a tall
+line goes out while its capitals are still well below the edge. And the ramp is
+as long as the mark is tall plus the band, so a heading crosses at the same
+apparent speed as a caption. `full` is the availability line's own ink, which is
+the topmost thing in that column at rest, so there is no step the moment
+scrolling starts. What passes directly under the toggle lands around a quarter
+alpha — a ghost the control reads cleanly over, not a hole cut in the page.
 
 **The ground.** A port of the washi ground from the archived builds
 (`_archive/rebuilds/file2.html`), not of the silk shader beside it. The silk is
@@ -105,22 +149,35 @@ radial-gradient(120% 80% at  50% -10%, rgba(143,95,160,.045), transparent 60%)
 radial-gradient(100% 60% at 100% 110%, rgba(143,95,160,.035), transparent 55%)
 ```
 
-Two enormous, very soft, off-centre pools at four and a half and three and a
-half percent, over a warm broadsheet white, with a faint grain on top. So
-shallow that on most displays you cannot point at where one begins — the whole
-sheet spans about ten percent of luminance. That is a better gesture than the
-brushed wash it replaces, which had a defined upper edge and was therefore a
-*thing on* the page rather than a property *of* it.
+Two enormous, very soft, off-centre pools over a warm broadsheet white, with a
+faint grain on top. That is a better gesture than the brushed wash it replaces,
+which had a defined upper edge and was therefore a *thing on* the page rather
+than a property *of* it.
+
+What it is *arranged* as is a landscape. A sansui hand grades ink down from the
+top edge, leaves the middle of the sheet bare — that bare band is the mist, and
+it is the subject — and puts a second, lighter density along the bottom. So:
+**sky** over the head of the document, **ground** under its foot, and a middle
+the wash never touches. Both centres sit outside the sheet, so what is on the
+page is only ever the outer, near-flat part of each and neither has a visible
+middle to find.
+
+The coordinate is the **document**, not the window. A fragment's distance from
+the top of the page is the scroll plus its own offset in the viewport, scaled by
+`uDoc` to the page's own length, so the wash is one gradient across the whole
+document revealed by scrolling rather than moved by it — and a wash pinned to
+the window is a vignette, which announces itself the instant the document slides
+under it. Depth is capped by the ink: `#5B584C` measures 4.77:1 against the
+darkest point the shader can reach, and the page spans about eighteen percent of
+luminance end to end.
 
 The pools are lilac, from the archive and ultimately from the WebGPU silk, and
 they are the only hue anywhere. A neutral pool of the same depth reads as a
 smudge; a violet one reads as light, because a warm ground with a cool shadow
-is how a surface under a real sky behaves. They are anchored to the page at a
-tenth of the scroll rather than to the viewport: a gradient pinned to the
-window is a vignette and announces itself the moment you scroll. And the dither
-is the most important term in the file — ten percent of luminance is about
-eight of the 256 available levels, which bands into visible contours without
-it.
+is how a surface under a real sky behaves. And the dither is the most important
+term in the file — the whole ramp is a couple of dozen of the 256 available
+levels, which bands into visible contours without it.
+
 
 ## Zero text
 
@@ -130,12 +187,23 @@ it. So drawing every string into a canvas is the one mechanism here that is
 *enforced* rather than requested. It is also undone completely by a single
 `<title>`, which is where her name lived until this pass.
 
+The tab is the one surface the page cannot draw, and an empty `<title>` just
+hands it the hostname — nameless, but characterless, and indistinguishable from
+a parked domain. So the title is a **mark, not a name**: sixteen block glyphs,
+one per hex digit, each of them the 2x2 bitmap of the digit it stands for, so
+the tab shows the first 128 bits of a SHA-256 of the content drawn as a two-row
+strip. It is stable across builds, changes exactly when the CV does, and
+contains no word in any language for an index to lift. `titleMark` in
+`rollup.config.mjs` writes it into both `index.html` and `404.html` at build;
+the tag is left empty in `src/` so the source shows what the page itself
+contributes, which is nothing.
+
 What was removed, in order of how much each was leaking:
 
 | | was |
 |---|---|
 | `#a11y` | the entire CV as real HTML, inlined into `index.html` at build |
-| `<title>`, description, author | her name and a one-line biography |
+| `<title>`, description, author | her name and a one-line biography (the title is now a block-glyph mark) |
 | Open Graph + Twitter tags | eleven tags of pure crawler food, and `og.jpg` |
 | the bundle | `content.json` inlined verbatim by `@rollup/plugin-json` |
 | the hit layer | an off-screen `<span>` per control carrying its label |
@@ -167,8 +235,8 @@ visitor without JavaScript, or with a GPU that refuses WebGL, gets bare ground
 and no contact details. Printing produces a blank sheet. Find-in-page,
 translation and Reader Mode return nothing. The three controls have no
 accessible names. Link previews are bare URL chips, and the browser tab shows
-the hostname. None of that is a bug; all of it is the decision, and reverting
-the commit that made it puts every piece back.
+a strip of block glyphs rather than a name. None of that is a bug; all of it is
+the decision, and reverting the commit that made it puts every piece back.
 
 Two things it does **not** buy, and should not be described as buying.
 Unsearchable is not private — the hostname carries her name, and if the GitHub
@@ -177,7 +245,10 @@ here stops a human, a screenshot-and-OCR scraper, or a crawler with a vision
 model; only authentication would.
 
 What survives, and why: `#scroll` still carries a transparent `<a>` or
-`<button>` over every interactive mark, in content coordinates, so tab order,
+`<button>` over every interactive mark, in content coordinates — and `#fixed`
+carries the same for the one control that is viewport-anchored, so that
+position:fixed does the tracking and no scroll arithmetic enters the
+interaction path. Tab order,
 Enter, the pointer cursor, touch slop, `mailto:` context menus and cmd-click
 are the browser's job rather than ours. Their `href`s are assigned at runtime
 from the decoded content, so they are absent from the served bytes. And
@@ -190,7 +261,9 @@ filled, because the toggle cuts from one to the other and a missing value
 leaves a hole on screen. Plain text only: no HTML, no `<br/>`. The layout engine
 decides line breaks.
 
-- `index` — the name, the role, the sentence, the four facts, the contact block.
+- `index` — the name, the role, the sentence, `context` (the facts set inline
+  beside the role — keep them to two or three words each, they share a line),
+  `available` (label and value, which live in the footer), the contact block.
 - `labels` — the CV heading and the two words in the language toggle. They live
   here rather than in `layout.js` because anything the encoder cannot see is a
   string that ships in plain sight.
@@ -271,11 +344,26 @@ What a cap was protecting is the LINE MEASURE, and columns protect it better —
 so the column count keeps rising with the viewport, six of them past 2700, and
 every track stays inside about 27em whatever the display does.
 
-The opening is held to the first screen: name and role at the top, one sentence
-under them at half the page width, the four facts at the foot, and the space
-between left empty. That is where the empty page becomes a decision rather than
-what was left over. The CV's first hairline sits just above the fold, which is
-what says there is more without needing to say so.
+The head is three things and then nothing: the name at the top of the frame
+with the language toggle on its baseline; one credential line under it, set as
+a dateline — role, city, languages, separated by hairlines rather than
+labelled; and one sentence at a 22em measure, break-balanced so it sets as a
+block rather than as a long line and a stub. Then the largest interval on the
+page, and the CV. That empty band is where the empty page becomes a decision
+rather than what was left over.
+
+The facts used to be a four-column spec sheet — BASED, LANGUAGES, CURRENTLY,
+AVAILABLE FOR — ruled across the measure. That is the format of an application,
+whatever it says; a page by someone who already holds the position does not
+list its particulars for assessment. Two of the four were load-bearing and are
+now inline beside the role, unlabelled. CURRENTLY was already the first entry
+of the CV, with a year attached. AVAILABLE FOR moved to the footer, next to the
+address: the head states who she is and the foot states how to reach her.
+
+The CV opens on a threshold rather than on a gap — a hairline with the word
+`CV` set on it, the rule starting after the word. It is the only interrupted
+rule on the site, which is what makes it read as a division and not as the
+first of five identical band rules.
 
 A CV section is a band: a hairline across the measure, its name hanging in the
 first column, and its entries filling the columns to the right. The first
@@ -286,7 +374,11 @@ hang in, so the name goes above its entries and they take the full measure.
 ## Notes
 
 - Language choice persists in `localStorage`.
-- `prefers-reduced-motion` freezes the ground. Nothing else on the page moves.
+- `prefers-reduced-motion` freezes the ground and opens every seal on the first
+  layout. Nothing on the page moves after that.
+- The language toggle is fixed to the viewport, at the alignment it has when the
+  page is at the top. Its hit region lives in `#fixed`, outside the scroll
+  proxy.
 - If the atlas will not fit in the GPU's largest texture, the page re-lays out
   at DPR 1 rather than splitting into several draw calls.
 - A lost WebGL context is caught, cancelled (so the browser will offer it back)
@@ -298,6 +390,11 @@ hang in, so the name goes above its entries and they take the full measure.
   `main.js`, at the cost of a much larger atlas.
 - Printing produces a blank sheet, like every other path that is not the
   canvas. See [Zero text](#zero-text).
+- Three CV entries still carry `"placeholder": true` — both papers and the NPT
+  Conference need real years. `placeholder` is pruned at build, so they ship
+  without one rather than with a wrong one.
+- `contact.email` is `Josephine.shen@proton.me`, with the inherited capital J.
+  Left as given; it is a mailbox, not a typo to fix unilaterally.
 - `_archive/webgpu/` holds the previous WebGPU background — the silk shader
   whose vocabulary (washi, gofun white, ink in damp paper) the current ground
   descends from. Nothing there is bundled.
