@@ -17,20 +17,27 @@
 /* ---- ink ------------------------------------------------------------------
    Three greys against the ground, warm like it, and nothing else.
 
-   The ground is light, which buys back the contrast that lets the secondary
-   values be genuinely quiet - #5B584C is a soft warm grey rather than a
-   near-black doing an impression of one, and it still measures 4.77:1 over the
-   deepest point of the wash, which is the constraint that actually sets it.
-   Restraint here is a consequence of the ground, not a compromise with it.
+   What sets the two secondary values is the SPACING of the ladder, not the
+   floor. They sat at 5.7 and 4.8 - a fifth of a stop apart from each other and
+   most of the way across the page from the primary at 10.6 - so the lede, the
+   largest block of reading text here and the second thing anyone looks at,
+   landed in the same register as the small print under a CV entry. It read as
+   a caption for the name rather than as the sentence the page is about. The
+   two are now genuinely a tier apart, and each is a tier from the primary.
+
+   The ground is light, which is what buys the room to do that and still keep
+   the meta line quiet: #524F45 is a soft warm grey rather than a near-black
+   doing an impression of one, and it now clears the floor with something in
+   hand instead of sitting on it.
 
    The ratios below are measured, not nominal: the shader is evaluated on a
    grid across time, both axes of the window and the whole length of the
    document, and each ink is checked against the darkest result. That is the
    number that has to clear 4.5:1, and it is what caps the wash - a deeper one
    would take the meta line under. */
-export const INK = [0.133, 0.129, 0.118];    // #22211e  primary       10.8:1
-export const INK_2 = [0.310, 0.298, 0.263];  // #4f4c43  prose          5.7:1
-export const INK_3 = [0.357, 0.345, 0.298];  // #5b584c  labels, meta   4.77:1
+export const INK = [0.133, 0.129, 0.118];    // #22211e  primary       10.6:1
+export const INK_2 = [0.230, 0.222, 0.198];  // #3b3932  prose          7.7:1
+export const INK_3 = [0.321, 0.310, 0.269];  // #524f45  labels, meta   5.4:1
 export const RULE = [0.133, 0.129, 0.118];   // primary, drawn at low alpha
 /* The ground itself, for the one place type is knocked OUT of ink rather than
    laid on it: the selected half of the language switch. Kept in step with
