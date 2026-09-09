@@ -88,7 +88,7 @@ const prune = (v) => (Array.isArray(v) ? v.map(prune)
    To get the derived mark back, set TITLE_MARK to '' - the empty string falls
    through to it. Its one real property is that it changes exactly when the CV
    does, which is either an identity or a nuisance depending on the day. */
-const TITLE_MARK = '\u25A0\u25A0';   // two black squares; '' derives one instead
+const TITLE_MARK = '\u25A0\u25A0\u25A0';   // two black squares; '' derives one instead
 
 /* The alphabet must be exactly sixteen glyphs, one per hex value. Anything
    else silently emits "undefined" thirty times, so it is checked here. */
