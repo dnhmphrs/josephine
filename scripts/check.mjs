@@ -167,13 +167,16 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
   ok('the switch is finished on that frame',
     settled.quads===d.quads && settled.height===d.height, JSON.stringify({d, settled}));
   ok('<html lang> follows', (await p.evaluate(()=>document.documentElement.lang))==='zh-Hans');
-  /* The tab carries a mark, not a name: 32 block glyphs and nothing a reader
-     of any language could pronounce. It must also not change with the toggle -
-     it is the document's identity, not the page's current language. */
+  /* The tab carries a mark, not a name: block glyphs and nothing a reader of
+     any language could pronounce. Length is the author's business - it is a
+     literal string in rollup.config.mjs - so what is asserted is that it is
+     non-empty and that every character is a Block Element or a Geometric
+     Shape. It must also not change with the toggle: it is the document's
+     mark, not the page's current language. */
   {
     const t = await p.title();
     ok('the tab is a block mark in either language',
-      t.length === 32 && /^[\u2580-\u259F]+$/.test(t), JSON.stringify(t));
+      t.length > 0 && t.length <= 64 && /^[\u2580-\u25FF]+$/.test(t), JSON.stringify(t));
   }
 
   /* Nothing may exceed the measure except Chinese punctuation, which hangs
@@ -363,7 +366,7 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
   {
     const t = (html.match(/<title>([^<]*)<\/title>/) || ['', ''])[1];
     ok('the served title is glyphs only, no language',
-      t.length === 32 && /^[\u2580-\u259F]+$/.test(t), JSON.stringify(t));
+      t.length > 0 && t.length <= 64 && /^[\u2580-\u25FF]+$/.test(t), JSON.stringify(t));
   }
   ok('robots noindex is in the served head', /name="robots"[^>]*noindex/.test(html));
   /* Advisory, but it is the half that actually keeps a bare URL out of a

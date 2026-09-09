@@ -67,25 +67,41 @@ const prune = (v) => (Array.isArray(v) ? v.map(prune)
    how the page read for several versions: nameless, but also characterless,
    and identical to a parked domain.
 
-   So the title is a MARK rather than a name. Sixteen glyphs, one per hex
-   digit, and each glyph is the two-by-two bitmap of the digit it stands for:
-   0 is empty, 15 is a full block, and everything between is the quadrant
-   pattern of its own value. The title is therefore the first 128 bits of a
-   SHA-256 of the content, drawn as a two-row bitmap - stable across builds,
-   changing exactly when the CV does, and carrying no word in any language for
-   an index to lift. Zero is light shade rather than a space, so the strip
-   never breaks and a truncated tab still ends on a glyph.
+   So the title is a MARK rather than a name: block glyphs, no word in any
+   language for an index to lift. Block Elements are in every system UI font on
+   every platform this page will meet, which is what makes them safe here and
+   unsafe on the canvas - the page faces are subset to the content, so the same
+   characters drawn INSIDE the viewport would be tofu or would cost a font.
 
-   Block Elements are in every system UI font on every platform this page will
-   meet, which is what makes them safe here and unsafe on the canvas: the page
-   faces are subset to the content, so the same characters drawn INSIDE the
-   viewport would be tofu or would cost another font file. */
-const NIBBLES = "■■                "
-// const NIBBLES = '░▗▖▄▝▐▞▟▘▚▌▙▀▜▛█';
-const titleMark = () => crypto.createHash('sha256')
-  .update(JSON.stringify(prune(JSON.parse(fs.readFileSync('src/content/content.json', 'utf8')))))
-  .digest('hex').slice(0, 32)
-  .replace(/./g, (c) => NIBBLES[parseInt(c, 16)]);
+   TITLE_MARK is the tab, literally. Write what you want to see.
+
+   It used to be derived: a sixteen-glyph ALPHABET, indexed by hex digit, run
+   over the first 32 digits of a SHA-256 of the content, so the tab was the
+   hash drawn as a two-row bitmap. That is the `titleFromHash` below, and it is
+   worth knowing why it surprises. NIBBLES was never the tab text - it was a
+   lookup table, one glyph per hex value 0-f. Putting the same glyph at slots 0
+   and 1 does not give you two of it; it gives you one for every 0 or 1 digit
+   the hash happens to contain, wherever they fall. And a table shorter than
+   sixteen entries returns undefined for the rest, which is why it seemed to
+   need padding with spaces: the spaces were index padding, not spacing.
+
+   To get the derived mark back, set TITLE_MARK to '' - the empty string falls
+   through to it. Its one real property is that it changes exactly when the CV
+   does, which is either an identity or a nuisance depending on the day. */
+const TITLE_MARK = '\u25A0\u25A0';   // two black squares; '' derives one instead
+
+/* The alphabet must be exactly sixteen glyphs, one per hex value. Anything
+   else silently emits "undefined" thirty times, so it is checked here. */
+const NIBBLES = [...'\u2591\u2597\u2596\u2584\u259D\u2590\u259E\u259F\u2598\u259A\u258C\u2599\u2580\u259C\u259B\u2588'];
+const titleFromHash = () => {
+  if (NIBBLES.length !== 16) throw new Error(`NIBBLES needs 16 glyphs, has ${NIBBLES.length}`);
+  return crypto.createHash('sha256')
+    .update(JSON.stringify(prune(JSON.parse(fs.readFileSync('src/content/content.json', 'utf8')))))
+    .digest('hex').slice(0, 32)
+    .replace(/./g, (c) => NIBBLES[parseInt(c, 16)]);
+};
+
+const titleMark = () => TITLE_MARK || titleFromHash();
 
 const encodedContent = () => ({
   name: 'encoded-content',

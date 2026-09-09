@@ -130,7 +130,6 @@ function scale(vw) {
     name: { family: SANS, size: f(32, 54), lh: 1.05, weight: 500, tracking: f(-0.018, -0.028), zh: { k: 0.94, dw: -100, track: 0.02 } },
     role: { family: SANS, size: f(10.5, 12), lh: 1.2, weight: 600, tracking: f(0.17, 0.15), upper: true, zh: { k: 0.98, floor: 12, dw: -100 } },
     lede: { family: SERIF, size: f(19, 27), lh: 1.44, weight: 400, tracking: 0, zh: { k: 0.90, dw: -50 } },
-    label: { family: SANS, size: f(10, 11), lh: 1.2, weight: 600, tracking: f(0.17, 0.15), upper: true, zh: { k: 0.98, floor: 11.5, dw: -100 } },
     nav: { family: SANS, size: f(10.5, 11.5), lh: 1.2, weight: 600, tracking: f(0.17, 0.15), upper: true, zh: { k: 0.98, floor: 12, dw: -100 } },
     section: { family: SANS, size: f(10.5, 12), lh: 1.2, weight: 600, tracking: f(0.17, 0.15), upper: true, zh: { k: 1, floor: 13, dw: -100 } },
     title: { family: SERIF, size: f(16, 18.5), lh: 1.38, weight: 400, tracking: 0, zh: { k: 0.92, floor: 15 } },
@@ -141,10 +140,12 @@ function scale(vw) {
        as one. Small enough to be a footnote, large enough to be a target. */
     link: { family: SERIF, size: f(14, 15.5), lh: 1.35, weight: 400, tracking: 0, zh: { k: 1 } },
     /* The availability value, in the serif, on the dateline's baseline. Set
-       BELOW the tracked label beside it rather than level with it: a roman at
-       the label's own size out-weighs it and takes the emphasis, and the
-       label is the part that has to be read first. */
-    avail: { family: SERIF, size: f(12.5, 14), lh: 1.2, weight: 400, tracking: 0, zh: { k: 0.94, floor: 12.5 } },
+       a notch above the tracked label beside it: a roman and a set of tracked
+       capitals at the same nominal size do not read as the same size, because
+       the capitals have no descenders and twice the letter-spacing. The label
+       is S.role - the dateline's own size, which is what it answers across the
+       measure - and this is what sits level with it. */
+    avail: { family: SERIF, size: f(14, 15.5), lh: 1.2, weight: 400, tracking: 0, zh: { k: 0.94, floor: 13.5 } },
   };
 }
 
@@ -626,7 +627,7 @@ function head(scene, content, lang, g) {
      note in the margin. That is the whole difference between "looking for
      work" and "settled, and available". */
   const av = c.available;
-  const avLabel = scene.prepare(av.label[lang], S.label);
+  const avLabel = scene.prepare(av.label[lang], S.role);
   const avValue = scene.prepare(av.value[lang], S.avail);
   const avGap = Math.round(Math.max(8, u * 0.7));
   const avW = avLabel.width + avGap + avValue.width;
@@ -689,6 +690,85 @@ function head(scene, content, lang, g) {
 
   y += (lines.length - 1) * ledeLead + ledeRun.descent;
   return y;
+}
+
+/* ---- the areas ------------------------------------------------------------
+   The three things she works on, between the statement and the record, and
+   NOT labelled.
+
+   They were the CV's second section, under the head RESEARCH, which put them
+   in the wrong document. Everything else in the CV is a POST: a role, a paper,
+   a convening, a degree - a thing with a date that happened and is finished.
+   These have no dates because they are not events; they are the subject
+   matter, and reading them as the second row of a chronology asks the reader
+   to date them, which is the wrong question.
+
+   So they come up out of the record and sit above the threshold, one to a
+   column, spanning the measure. Unlabelled, because the position is the label:
+   directly under the sentence about what she does, three columns wide, they
+   can only be a statement of what she does. A word over them would say what
+   the arrangement already says, and would put them back in the register of
+   filed material.
+
+   No new type. Title in the serif and subject in the quiet sans, exactly as a
+   CV entry is set, so the page's vocabulary does not grow by one - what
+   changes is where they are, and that is the whole of the change. */
+function areaTracks(g) {
+  /* Thirds of the measure, never the CV's hanging track: these begin at the
+     left margin, which is what separates them from the record below, where
+     column one is always empty. Two up at two columns, stacked at one. */
+  const across = Math.min(3, g.cols);
+  return { across, trackW: (g.contentW - g.gutter * (across - 1)) / across };
+}
+
+function areas(scene, content, lang, g, y0) {
+  const items = content.areas || [];
+  if (!items.length) return y0;
+  const S = scale(g.vw);
+  const u = g.u;
+  const { across, trackW } = areaTracks(g);
+  const titleLead = lead(S.title);
+  const metaLead = lead(S.meta);
+  const probe = scene.engine.run({ ...adapt(S.title, lang), text: 'H' });
+  const metaProbe = scene.engine.run({ ...adapt(S.meta, lang), text: 'H' });
+
+  /* Measured in full before anything is drawn, because a row is only as tall
+     as its tallest cell and the wrap is not known until it is done. */
+  const cells = items.map((it) => ({
+    titles: wrap(scene.engine, it.title[lang], adapt(S.title, lang), trackW),
+    org: it.org ? wrap(scene.engine, it.org[lang], adapt(S.meta, lang), trackW) : [],
+  }));
+  const cellH = (c) => probe.ascent + (c.titles.length - 1) * titleLead + probe.descent
+    + (c.org.length ? u * 1.4 + metaProbe.ascent + (c.org.length - 1) * metaLead + metaProbe.descent : 0);
+
+  const rows = Math.ceil(cells.length / across);
+  const rowH = [];
+  for (let r = 0; r < rows; r++) {
+    rowH.push(Math.max(...cells.slice(r * across, (r + 1) * across).map(cellH)) + (r < rows - 1 ? u * 3.2 : 0));
+  }
+
+  cells.forEach((c, i) => {
+    const col = i % across;
+    const row = Math.floor(i / across);
+    const x = Math.round(g.left + col * (trackW + g.gutter));
+    let y = y0;
+    for (let r = 0; r < row; r++) y += rowH[r];
+    const seal = scene.seal(`area.${i}`, y, col * 55);
+
+    y += probe.ascent;
+    c.titles.forEach((t, k) => {
+      scene.text(`area.${i}.title.${k}`, t, S.title, x, y + k * titleLead, INK, { seal });
+    });
+    y += (c.titles.length - 1) * titleLead;
+    if (c.org.length) {
+      y += u * 1.4 + metaProbe.ascent;
+      c.org.forEach((t, k) => {
+        scene.text(`area.${i}.org.${k}`, t, S.meta, x, y + k * metaLead, INK_3, { seal });
+      });
+    }
+  });
+
+  return y0 + rowH.reduce((a, b) => a + b, 0);
 }
 
 /* ---- the CV ---------------------------------------------------------------
@@ -836,18 +916,15 @@ function cvBlock(scene, content, lang, g, y0, measured) {
 }
 
 /* ---- the footer -----------------------------------------------------------
-   A hairline, and under it what a foot is for: the terms and the address.
+   A hairline, and under it one line: how to reach her, at the two edges of the
+   measure - the same span the name and the toggle open on.
 
-   AVAILABLE FOR lives here now. In the head it was one of four ruled fields
-   and it made the whole block read as an application; down here, under the
-   last rule on the page and beside the way to answer it, it reads as what it
-   is - a note about what she takes on, placed where a reader who has just
-   finished the CV would look for it. Same words, opposite meaning, purely from
-   where they sit.
-
-   The label is the only one left on the site, which is why it can be set
-   inline with its value on one baseline rather than stacked above it: a single
-   labelled thing is a caption, four of them are a form.
+   AVAILABLE FOR passed through here on its way to the head, and the reason it
+   did not stay is worth keeping: under the last rule, beside the way to answer
+   it, it read as a note about what she takes on. That was true, and it was
+   still forty lines below the only place a reader forms an impression. It is
+   in the dateline now, on the same baseline as the role, which says the same
+   thing at the top of the page instead of the bottom.
 
    The address and the link are taken down from the serif's body size to a
    footnote's. They were level with the CV's entry titles, which made the two
@@ -889,14 +966,17 @@ export function buildScene(engine, content, vw, vh, lang = 'en', safeTop = 0, sa
 
   const headEnd = head(scene, content, lang, g);
 
-  /* The void. The head is three lines deep now and the CV would sit under it
-     almost immediately, so the gap before the threshold is widened to three
-     times the space between two CV sections. It is the largest interval on the
-     page and the only one that is not doing any work, which is what makes it
-     legible AS a division rather than as leftover paper - the reader has to
-     cross it. That, and the rule with the word on it, is note (c): a little
-     blank space AND a line, because either alone was what was there before. */
-  const cvTop = Math.round(headEnd + g.u * 13);
+  /* Head, then the three areas, then the void, then the record. The areas
+     belong to the head - they finish the sentence above them - so the gap
+     over them is a paragraph break and the gap under them is the division.
+
+     That void is the largest interval on the page and the only one not doing
+     any work, which is what makes it legible AS a division rather than as
+     leftover paper: the reader has to cross it. That, and the rule with the
+     word on it, is a little blank space AND a line, because either alone was
+     what was there before. */
+  const areasEnd = areas(scene, content, lang, g, Math.round(headEnd + g.u * 6));
+  const cvTop = Math.round(areasEnd + g.u * 11);
   const measured = measureSections(engine, content, lang, g, S);
   const cvEnd = cvBlock(scene, content, lang, g, cvTop, measured);
 
@@ -933,6 +1013,7 @@ export function fontSpecs(content, vw, lang) {
     ...content.index.context.map((v) => v[lang]),
     content.index.available.label[lang], content.index.available.value[lang],
     content.labels.cv[lang],
+    ...(content.areas || []).map((a) => a.title[lang] + (a.org ? a.org[lang] : '')),
     ...content.cv.map((s) => s.section[lang]
       + s.entries.map((e) => (e.year || '') + e.title[lang] + (e.org ? e.org[lang] : '')).join('')),
     content.labels.zh,

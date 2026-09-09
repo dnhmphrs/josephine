@@ -189,14 +189,22 @@ it. So drawing every string into a canvas is the one mechanism here that is
 
 The tab is the one surface the page cannot draw, and an empty `<title>` just
 hands it the hostname — nameless, but characterless, and indistinguishable from
-a parked domain. So the title is a **mark, not a name**: sixteen block glyphs,
-one per hex digit, each of them the 2x2 bitmap of the digit it stands for, so
-the tab shows the first 128 bits of a SHA-256 of the content drawn as a two-row
-strip. It is stable across builds, changes exactly when the CV does, and
-contains no word in any language for an index to lift. `titleMark` in
-`rollup.config.mjs` writes it into both `index.html` and `404.html` at build;
-the tag is left empty in `src/` so the source shows what the page itself
-contributes, which is nothing.
+a parked domain. So the title is a **mark, not a name** — block glyphs, no word
+in any language for an index to lift. It is `TITLE_MARK` in
+`rollup.config.mjs`, written literally (`■■`) and injected into both
+`index.html` and `404.html` at build; the tag is left empty in `src/` so the
+source shows what the page itself contributes, which is nothing.
+
+Setting `TITLE_MARK` to `''` falls through to a **derived** mark instead: a
+sixteen-glyph alphabet indexed by hex digit, each glyph the 2×2 bitmap of the
+digit it stands for, run over the first 32 digits of a SHA-256 of the content —
+so the tab is the hash drawn as a two-row strip, changing exactly when the CV
+does. Worth knowing why that alphabet surprises people: `NIBBLES` is a **lookup
+table, not the tab text**. Putting the same glyph at slots 0 and 1 does not
+produce two of it; it produces one for every `0` or `1` digit the hash happens
+to contain, wherever they fall. A table shorter than sixteen entries returns
+`undefined` for the rest — which is why it seems to need padding with spaces.
+The spaces are index padding, not spacing. It now throws instead.
 
 What was removed, in order of how much each was leaking:
 
@@ -267,6 +275,10 @@ decides line breaks.
 - `labels` — the CV heading and the two words in the language toggle. They live
   here rather than in `layout.js` because anything the encoder cannot see is a
   string that ships in plain sight.
+- `areas` — the three things she works on, `{ title, org }`, drawn above the CV
+  one to a column. They are deliberately NOT a CV section: everything in the CV
+  is a post, a thing with a date that happened and is finished, and these have
+  no dates because they are not events.
 - `cv` — sections, each with entries of `{ year, title, org }`. One line each.
 - An entry marked `"placeholder": true` is a real thing with a fact still
   missing; read its `note`, fill the value in, delete both keys.
@@ -393,8 +405,6 @@ hang in, so the name goes above its entries and they take the full measure.
 - Three CV entries still carry `"placeholder": true` — both papers and the NPT
   Conference need real years. `placeholder` is pruned at build, so they ship
   without one rather than with a wrong one.
-- `contact.email` is `Josephine.shen@proton.me`, with the inherited capital J.
-  Left as given; it is a mailbox, not a typo to fix unilaterally.
 - `_archive/webgpu/` holds the previous WebGPU background — the silk shader
   whose vocabulary (washi, gofun white, ink in damp paper) the current ground
   descends from. Nothing there is bundled.
