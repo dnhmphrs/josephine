@@ -32,6 +32,11 @@ export const INK = [0.133, 0.129, 0.118];    // #22211e  primary       10.8:1
 export const INK_2 = [0.310, 0.298, 0.263];  // #4f4c43  prose          5.7:1
 export const INK_3 = [0.357, 0.345, 0.298];  // #5b584c  labels, meta   4.77:1
 export const RULE = [0.133, 0.129, 0.118];   // primary, drawn at low alpha
+/* The ground itself, for the one place type is knocked OUT of ink rather than
+   laid on it: the selected half of the language switch. Kept in step with
+   CONCRETE in gl.js by hand - the shader paints a gradient around this mean,
+   and a few thousandths either way is invisible under 11px capitals. */
+export const PAPER = [0.894, 0.882, 0.859];  // #e4e1db
 
 /* ---- the two voices -------------------------------------------------------
    Hanken Grotesk over Newsreader, divided by job rather than by hierarchy: the
@@ -128,7 +133,13 @@ function scale(vw) {
      px, and a weight step. See adapt(). */
   return {
     name: { family: SANS, size: f(32, 54), lh: 1.05, weight: 500, tracking: f(-0.018, -0.028), zh: { k: 0.94, dw: -100, track: 0.02 } },
-    role: { family: SANS, size: f(10.5, 12), lh: 1.2, weight: 600, tracking: f(0.17, 0.15), upper: true, zh: { k: 0.98, floor: 12, dw: -100 } },
+    /* The dateline, and the availability line opposite it. Smaller and tighter
+       than the rest of the tracked capitals: at 12px on +0.15em these read as
+       a caption stretched to fill a width, and a caption that has been let out
+       reads as hesitant. Pulled in, they read as a masthead - which is what
+       they are. The tracking still has to be positive, because capitals set
+       solid are a wall, but only just. */
+    role: { family: SANS, size: f(9.5, 10.8), lh: 1.2, weight: 600, tracking: f(0.13, 0.11), upper: true, zh: { k: 1, floor: 11, dw: -100 } },
     lede: { family: SERIF, size: f(19, 27), lh: 1.44, weight: 400, tracking: 0, zh: { k: 0.90, dw: -50 } },
     nav: { family: SANS, size: f(10.5, 11.5), lh: 1.2, weight: 600, tracking: f(0.17, 0.15), upper: true, zh: { k: 0.98, floor: 12, dw: -100 } },
     section: { family: SANS, size: f(10.5, 12), lh: 1.2, weight: 600, tracking: f(0.17, 0.15), upper: true, zh: { k: 1, floor: 13, dw: -100 } },
@@ -452,7 +463,6 @@ function planToggle(scene, content, lang, g) {
      the dim value still has to clear 4.5:1 like everything else, which leaves
      it close enough to the lit one to be ambiguous. */
   const off = { ...S.nav, weight: 400 };
-  const gap = Math.round(Math.max(9, g.u * 0.8));
 
   /* Both marks come from content.json rather than sitting here as literals:
      everything the encoder cannot see is a string that ships in plain sight. */
@@ -462,10 +472,21 @@ function planToggle(scene, content, lang, g) {
   /* The box. Padding is asymmetric because the ink inside it is: the marks are
      capitals and 中, which have a cap height and no descender to speak of, so
      an equal inset would leave the box looking bottom-heavy. */
+  /* Two halves, and the selected one is FILLED - ink block, ground-coloured
+     type knocked out of it. It is the one place on the site where type is not
+     laid on the paper but cut from it, and it is the right place: a switch has
+     to say which way it is thrown, and nothing else here has state.
+
+     No divider is drawn between the halves. The block's own edge is the
+     division, and a rule beside it would be a second line saying the same
+     thing. Each half carries the same padding, so the split sits where the
+     geometry puts it rather than where the two words happen to end. */
   const ink = Math.round(Math.max(en.inkAscent || en.capHeight || 0, zh.inkAscent || zh.capHeight || 0));
-  const padX = Math.round(Math.max(13, g.u * 1.15));
+  const padX = Math.round(Math.max(9, g.u * 0.78));
   const padY = Math.round(Math.max(7, g.u * 0.62));
-  const boxW = en.width + gap + 1 + gap + zh.width + padX * 2;
+  const enW = Math.round(en.width + padX * 2);
+  const zhW = Math.round(zh.width + padX * 2);
+  const boxW = enW + zhW;
   const boxH = ink + padY * 2;
 
   return {
@@ -474,30 +495,27 @@ function planToggle(scene, content, lang, g) {
     ascent: padY + ink,
     descent: padY,
     draw(y) {
-      const right = g.right - padX;
+      const x0 = Math.round(g.right - boxW);
       const boxTop = Math.round(y - ink - padY);
-      /* A hairline rectangle, at the same weight as every rule on the page and
-         a touch more presence, because this one is the only thing on the site
-         a reader is meant to press. It is the border that makes it a control:
-         two words in the corner are a label, two words in a box are a switch,
-         and nothing else had to change to say so. */
-      scene.rect('nav.box', Math.round(g.right - boxW), boxTop, boxW, boxH,
-        RULE, HAIRLINE * 1.6, { fixed: true, stroke: 1 });
+      const on = lang === 'en' ? 0 : 1;
 
-      scene.place('nav.zh', zh, right, y, lang === 'zh' ? INK : INK_3, { align: 'right', fixed: true });
-      const barX = right - zh.width - gap;
-      /* A hairline, not a slash: a slash is a glyph and would take the colour
-         and weight of one side or the other. The rule belongs to neither. It
-         is drawn to the INK of the mark beside it, not to the font box, so it
-         is exactly as tall as 中 and no taller. */
-      scene.rect('nav.bar', barX, Math.round(y - ink), 1, ink, RULE, 0.3, { fixed: true });
-      scene.place('nav.en', en, barX - gap, y, lang === 'en' ? INK : INK_3, { align: 'right', fixed: true });
+      /* Fill first, border over it, type last. */
+      scene.rect('nav.fill', on ? x0 + enW : x0, boxTop, on ? zhW : enW, boxH, INK, 1, { fixed: true });
+      /* The outline is what makes the unselected half read as the other half of
+         one control rather than as a word standing next to a block. */
+      scene.rect('nav.box', x0, boxTop, boxW, boxH, RULE, HAIRLINE * 1.6,
+        { fixed: true, stroke: 1 });
 
-      /* ONE hit, and it is the box: everything inside does the same thing, and
-         a border that is not itself pressable is a lie about where the edge
-         of the control is. */
+      scene.place('nav.en', en, Math.round(x0 + (enW - en.width) / 2), y,
+        on ? INK_2 : PAPER, { fixed: true });
+      scene.place('nav.zh', zh, Math.round(x0 + enW + (zhW - zh.width) / 2), y,
+        on ? PAPER : INK_2, { fixed: true });
+
+      /* ONE hit, and it is the box: both halves do the same thing, and a
+         border that is not itself pressable is a lie about where the edge of
+         the control is. */
       const span = { width: boxW, lineHeight: boxH, ascent: ink + padY };
-      scene.hit('lang:toggle', span, g.right - boxW, y, {
+      scene.hit('lang:toggle', span, x0, y, {
         fixed: true,
         key: 'nav.en',
         other: lang === 'en' ? 'zh' : 'en',
@@ -596,21 +614,72 @@ function head(scene, content, lang, g) {
      device, used twice, is a page with a vocabulary; two devices are a page
      with a habit. */
   const creds = [{ key: 'index.role', text: c.role[lang], color: INK }]
-    .concat(c.context.map((v, i) => ({ key: `index.context.${i}`, text: v[lang], color: INK_3 })));
-  const runs = creds.map((s) => scene.prepare(s.text, S.role));
-  const barH = Math.round(Math.max(...runs.map((r) => r.inkAscent || r.capHeight)));
+    .concat(c.context.map((v, i) => ({ key: `index.context.${i}`, text: v[lang], color: INK_2 })));
   const sep = Math.round(Math.max(10, u * 1.1));
+
+  /* The dateline is set to the NAME'S WIDTH. Not near it - to it.
+
+     Two things stacked at the top left of a page either share an edge or they
+     do not, and a dateline that stops a little short of the name above it
+     reads as a measurement nobody took. Made exactly as wide, it reads as one
+     object: the name, and the line that underwrites it.
+
+     Solvable in closed form because width is linear in size - tracking is an
+     em fraction, so every segment scales - and the only fixed term is the
+     separators, which are struck from the layout unit rather than the type.
+     So: measure once, subtract what does not scale, and divide.
+
+     It applies only when the answer is close to the size the scale already
+     wanted. Below 0.85 or above 1.45 the fit is refused and the base size
+     stands, which is what happens on a phone and in Chinese - 沈菲菲 is three
+     characters and its dateline is sixteen, so matching them would set the
+     dateline at half its legible size. The rule is "share the edge where the
+     edge can be shared", not "share it at any cost". */
+  const roleFit = (() => {
+    const fixed = (sep * 2 + 1) * (creds.length - 1);
+    const total = (role) => creds.reduce((a, x) => a + scene.engine.measure(scene.spec(x.text, role)), 0);
+    /* Solved by correction rather than in one step. Width is linear in size in
+       principle, but a run is rasterised at whole DEVICE pixels, so the real
+       function is a staircase and one division lands up to a dozen pixels out.
+       Four passes take it inside one. measure() reserves no atlas space, so
+       the extra passes cost nothing but arithmetic. */
+    let size = S.role.size;
+    for (let i = 0; i < 4; i++) {
+      const w = total({ ...S.role, size });
+      if (Math.abs(w + fixed - nameRun.width) < 0.5) break;
+      size *= (nameRun.width - fixed) / Math.max(1, w);
+    }
+    const k = size / S.role.size;
+    return k >= 0.85 && k <= 1.45 ? { ...S.role, size } : S.role;
+  })();
+
+  const runs = creds.map((x) => scene.prepare(x.text, roleFit));
+  const barH = Math.round(Math.max(...runs.map((r) => r.inkAscent || r.capHeight)));
+
+  /* The last few pixels go into the SEPARATORS, not the type. Rasterising at
+     whole device pixels leaves the fitted row a handful of pixels out, and
+     the honest place to spend that is the gap between segments - a hairline
+     moved a pixel is invisible, where a type size chased to the pixel is a
+     size nobody chose. Only when the fit was taken, and never tighter than a
+     gap that still reads as one. */
+  const gaps = creds.length - 1;
+  const sepFit = roleFit !== S.role && gaps > 0
+    ? Math.max(sep * 0.7, (nameRun.width - runs.reduce((a, r) => a + r.width, 0) - gaps) / (2 * gaps))
+    : sep;
 
   const rows = [[]];
   let used = 0;
   runs.forEach((r, i) => {
     const first = rows[rows.length - 1].length === 0;
-    const add = r.width + (first ? 0 : sep * 2 + 1);
+    const add = r.width + (first ? 0 : sepFit * 2 + 1);
     if (!first && used + add > g.contentW) { rows.push([]); used = r.width; } else { used += add; }
     rows[rows.length - 1].push(i);
   });
 
-  let y = y0 + nameRun.inkDescent + u * 2 + runs[0].ascent;
+  /* Closer to the name than it was. The dateline belongs to the name - it is
+     the line under a masthead, not the first line of the body - and a gap wide
+     enough to be read as a paragraph break was saying otherwise. */
+  let y = y0 + nameRun.inkDescent + u * 1.1 + runs[0].ascent;
 
   /* The fingerprint, on the credential line's baseline at the other end of the
      measure. It is the first 32 hex digits of a hash of the content (see
@@ -631,13 +700,13 @@ function head(scene, content, lang, g) {
     let x = g.left;
     row.forEach((i, k) => {
       if (k) {
-        scene.rect(`index.cred.${ri}.${k}`, Math.round(x + sep), Math.round(y - barH), 1, barH, RULE, 0.3);
-        x += sep * 2 + 1;
+        scene.rect(`index.cred.${ri}.${k}`, Math.round(x + sepFit), Math.round(y - barH), 1, barH, RULE, 0.3);
+        x += sepFit * 2 + 1;
       }
       scene.place(creds[i].key, runs[i], x, y, creds[i].color, { seal: credSeal });
       x += runs[i].width;
     });
-    if (ri < rows.length - 1) y += lead(S.role);
+    if (ri < rows.length - 1) y += lead(roleFit);
   });
 
   /* Availability, at the other end of the dateline's last baseline.
@@ -674,8 +743,8 @@ function head(scene, content, lang, g) {
      rather than as its label. What was wrong was never the position. It was
      that the line kept being made of two different things. */
   const av = c.available;
-  const avLabel = scene.prepare(av.label[lang], S.role);
-  const avValue = scene.prepare(av.value[lang], S.role);
+  const avLabel = scene.prepare(av.label[lang], roleFit);
+  const avValue = scene.prepare(av.value[lang], roleFit);
   const avGap = Math.round(Math.max(8, u * 0.7));
   const avW = avLabel.width + avGap + avValue.width;
   const avSeal = scene.seal('head.avail', y, 90);
@@ -683,8 +752,8 @@ function head(scene, content, lang, g) {
      Otherwise it drops to its own baseline underneath, still on the right. */
   const avInline = avW + g.gutter <= g.contentW - used;
   let avY = y;
-  if (!avInline) avY = y + lead(S.role) + Math.round(u * 0.5);
-  scene.place('index.available.value', avValue, g.right - avValue.width, avY, INK_3, { seal: avSeal });
+  if (!avInline) avY = y + lead(roleFit) + Math.round(u * 0.5);
+  scene.place('index.available.value', avValue, g.right - avValue.width, avY, INK_2, { seal: avSeal });
   scene.place('index.available', avLabel, g.right - avW, avY, INK_3, { seal: avSeal, edge: true });
 
   /* The toggle's column, in viewport coordinates, handed to the renderer.
@@ -929,20 +998,38 @@ function footer(scene, content, lang, g, y0) {
      whatever is or is not legible inside it. */
   scene.rect('foot.rule', g.left, Math.round(y0), g.contentW, 1, RULE, HAIRLINE);
 
-  /* Availability has gone up to the head, beside the sentence. What is left
-     here is one line: how to reach her, at the two edges of the measure - the
-     same span the name and the toggle open on. */
+  /* The foot sits on the CV's own grid rather than on the two edges of the
+     measure. The address holds the left margin, the link starts where every
+     entry above it starts, and the corner takes the mark - so the last line
+     of the page is ruled by the same three positions as the forty above it,
+     and nothing here is placed by eye.
+
+     Below three columns there is no middle to sit in, so it stacks: the
+     address, then the link with the mark opposite it. */
+  const m = cvMetrics(g);
   const mailRun = scene.prepare(c.contact.email, S.link);
+  const liRun = scene.prepare(c.contact.linkedin.label, S.link);
   const y = y0 + u * 3.2 + mailRun.ascent;
+  const liY = m.hang ? y : Math.round(y + lead(S.link) * 1.15);
+  const liX = m.hang ? m.x0 : g.left;
   const seal = scene.seal('foot.links', y - mailRun.ascent, 0);
 
   const mail = scene.place('foot.mail', mailRun, g.left, y, INK, { seal });
   scene.hit('mail', mail, g.left, y, { key: 'foot.mail', href: `mailto:${c.contact.email}`, label: c.contact.email });
 
-  const li = scene.text('foot.linkedin', c.contact.linkedin.label, S.link, g.right, y, INK, { align: 'right', seal });
-  scene.hit('linkedin', li, g.right - li.width, y, { key: 'foot.linkedin', href: c.contact.linkedin.url, label: c.contact.linkedin.label });
+  scene.place('foot.linkedin', liRun, liX, liY, INK, { seal });
+  scene.hit('linkedin', liRun, liX, liY, { key: 'foot.linkedin', href: c.contact.linkedin.url, label: c.contact.linkedin.label });
 
-  return y + mailRun.descent;
+  /* The end mark. Square, solid, on the right margin and sitting on the same
+     baseline the two links do - the same square an open-ended year ends with,
+     and the same one the tab shows. Here it is doing what a printer's mark
+     actually does: closing a document, at the end of it, with nothing after.
+     That is the whole difference between this one and the one that was tried
+     in the void and taken out - there, nothing was ending. */
+  const side = Math.round(liRun.inkAscent || liRun.capHeight);
+  scene.rect('foot.end', g.right - side, Math.round(liY - side), side, side, INK, 1);
+
+  return Math.max(y, liY) + mailRun.descent;
 }
 
 /* ---- entry point ----------------------------------------------------------
