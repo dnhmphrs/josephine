@@ -545,18 +545,21 @@ function head(scene, content, lang, g) {
   const top = Math.max(26, Math.round(g.margin)) + g.safeTop;
   const y0 = Math.round(top + (nameRun.inkAscent || nameRun.capHeight));
   scene.place('index.name', nameRun, g.left, y0, INK);
-  /* The toggle rides ABOVE the name's baseline, not on it.
+  /* The toggle hangs from the TOP of the name, not from its baseline.
 
      Sharing a baseline is the obvious alignment and the wrong one: an 11px
      tracked capital and a 54px name have nothing like the same ink, so setting
-     their feet level leaves the toggle sitting at the very bottom of the
-     name's visual block, reading as something that has slipped. What the eye
-     actually pairs is their CENTRES, so that is what is matched - the toggle's
-     ink centre is put on the name's, which lifts it by about a fifth of the
-     name's cap height and costs nothing else on the page. */
-  const navY = Math.round(y0
-    - ((nameRun.inkAscent || nameRun.capHeight) - (nameRun.inkDescent || 0)) / 2
-    + (nav.ascent - nav.descent) / 2);
+     their feet level leaves the toggle at the bottom of the name's visual
+     block, reading as something that has slipped. Matching their centres is
+     better and still not right - it leaves the toggle floating in the middle
+     of a space with no edge to hold it to.
+
+     What holds it is the frame. The name's ink top IS the top margin - that is
+     how the head is placed - so putting the toggle's ink top on the same line
+     hangs both from the page's own edge, and the two ends of the band start
+     together. It is the only alignment here that refers to something other
+     than itself. */
+  const navY = Math.round(top + nav.ascent);
   nav.draw(navY);
 
 
@@ -680,7 +683,8 @@ function head(scene, content, lang, g) {
      the page. */
   scene.edge = {
     x0: Math.round(g.right - nav.width - g.gutter * 0.5),
-    clear: Math.round(Math.min(top, navY - nav.ascent)),
+    /* Which is the same line the name's ink starts on - see navY above. */
+    clear: Math.round(top),
     full: Math.round(avY + avValue.inkDescent + 2),
   };
 
