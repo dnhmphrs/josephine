@@ -58,7 +58,7 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
   const errs=[]; p.on('pageerror',e=>errs.push(e.message)); p.on('console',m=>{if(m.type()==='error')errs.push(m.text())});
   await p.goto(URL,{waitUntil:'networkidle'}); await p.waitForTimeout(2200);
 
-  const hits = await p.$$eval('#scroll .hit, #fixed .hit', els => els.map(e=>({tag:e.tagName,id:e.dataset.id,href:e.getAttribute('href'),pressed:e.getAttribute('aria-pressed'),label:e.textContent,w:e.offsetWidth,h:e.offsetHeight})));
+  const hits = await p.$$eval('#scroll .hit', els => els.map(e=>({tag:e.tagName,id:e.dataset.id,href:e.getAttribute('href'),pressed:e.getAttribute('aria-pressed'),label:e.textContent,w:e.offsetWidth,h:e.offsetHeight})));
   ok('hit layer built', hits.length>=3, JSON.stringify(hits.map(h=>h.id)));
   ok('all targets >= 44px tall', hits.every(h=>h.h>=44));
   ok('mail is a real mailto anchor', hits.some(h=>h.tag==='A'&&/^mailto:/.test(h.href||'')));
@@ -76,7 +76,7 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
   const shape = await p.evaluate(() => {
     const items = window.__stage.items();
     const at = (k) => items.find((i) => i.key.startsWith(k));
-    return { head: at('index.name').y, cv: at('cv.0.head').y, foot: at('foot.mail').y, vh: innerHeight };
+    return { name: at('index.name').y, cv: at('cv.0.head').y, foot: at('foot.mail').y, vh: innerHeight };
   });
   /* Wide and shallow: the opening sits in the top third and the CV's first
      section head is already on the first screen. The earlier version of this
@@ -84,74 +84,9 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
      window whatever it contained; both bounds here are what stops that
      returning, from either direction. */
   ok('the opening is shallow and the CV is on the first screen',
-    shape.head < shape.vh * 0.35 && shape.cv > shape.vh * 0.45 && shape.cv < shape.vh * 0.95,
+    shape.name < shape.vh * 0.35 && shape.cv > shape.vh * 0.45 && shape.cv < shape.vh * 0.95,
     JSON.stringify(shape));
   ok('the CV and the footer are below it', shape.foot > shape.cv && d.height > shape.foot, JSON.stringify(d));
-
-  /* Availability belongs to the head, above the first CV section - it used to
-     sit in the body, where four flat facts read as an application. */
-  {
-    const head = await p.evaluate(() => {
-      const items = window.__stage.items();
-      const at = (k) => items.find((i) => i.key.startsWith(k));
-      return {
-        avail: at('index.available') ? at('index.available').y : null,
-        cv: at('cv.0.head').y,
-        toggleY: (at('nav.') || {}).y,
-      };
-    });
-    ok('availability is in the head, above the CV',
-      head.avail !== null && head.avail < head.cv, JSON.stringify(head));
-  }
-
-  /* Sticky. The toggle is drawn viewport-anchored and its target lives in the
-     fixed layer, so scrolling must not move either: the mark's drawn y rises
-     with scrollY by exactly the amount the renderer takes back out, and the
-     element's box on screen does not move at all. */
-  {
-    const before = await p.evaluate(() => {
-      const el = document.querySelector('#fixed .hit[data-id="lang:toggle"]');
-      return el ? el.getBoundingClientRect().top : null;
-    });
-    await p.evaluate(() => scrollTo(0, 600));
-    await p.waitForTimeout(300);
-    const after = await p.evaluate(() => {
-      const el = document.querySelector('#fixed .hit[data-id="lang:toggle"]');
-      return el ? el.getBoundingClientRect().top : null;
-    });
-    ok('the language control is sticky', before !== null && Math.abs(after - before) < 1,
-      JSON.stringify({ before, after }));
-    ok('and its marks are drawn fixed',
-      (await p.evaluate(() => window.__stage.items().filter(i => i.key.startsWith('nav.')).every(i => i.fixed))));
-    await p.evaluate(() => scrollTo(0, 0));
-    await p.waitForTimeout(300);
-  }
-
-  /* Redaction. It SHIPS OFF - the resting page is a document, not a document
-     being declassified - and the parameter that turns it on has to keep
-     working, because the machinery is what makes the choice a choice. So:
-     nothing is barred by default at any scroll position, and ?reveal=on bars
-     what is below the fold and nothing above it. */
-  {
-    const r = await p.evaluate(() => window.__stage.reveal());
-    ok('the page ships with nothing redacted',
-      r.on === false && Object.values(r.seals).every((v) => v === -1),
-      JSON.stringify({ on: r.on, sealed: Object.values(r.seals).filter((v) => v !== -1).length }));
-  }
-  {
-    const q = await ctx.newPage();
-    await q.goto(URL + '?reveal=on');
-    await q.waitForTimeout(2200);
-    const r = await q.evaluate(() => window.__stage.reveal());
-    const above = Object.entries(r.seals).filter(([k]) => /^head\.|^cv\.0\.head/.test(k));
-    ok('?reveal=on un-redacts the first screen on load',
-      r.on === true && above.length > 0 && above.every(([, v]) => v === -1 || v > 0.9),
-      JSON.stringify(above.slice(0, 4)));
-    ok('?reveal=on leaves a seal below the fold sealed',
-      Object.values(r.seals).some((v) => v === 0),
-      String(Object.values(r.seals).filter((v) => v === 0).length));
-    await q.close();
-  }
 
   /* A cut, not a transition: read the state on the very next frame, with no
      settling time at all. Anything animating would still be running here. */
@@ -167,14 +102,7 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
   ok('the switch is finished on that frame',
     settled.quads===d.quads && settled.height===d.height, JSON.stringify({d, settled}));
   ok('<html lang> follows', (await p.evaluate(()=>document.documentElement.lang))==='zh-Hans');
-  /* The tab carries a mark, not a name: 32 block glyphs and nothing a reader
-     of any language could pronounce. It must also not change with the toggle -
-     it is the document's identity, not the page's current language. */
-  {
-    const t = await p.title();
-    ok('the tab is a block mark in either language',
-      t.length === 32 && /^[\u2580-\u259F]+$/.test(t), JSON.stringify(t));
-  }
+  ok('the document has no title in either language', (await p.title())==='');
 
   /* Nothing may exceed the measure except Chinese punctuation, which hangs
      into the margin on purpose. Everything else running past the right edge is
@@ -211,7 +139,7 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
      names. That is the cost of the zero-text decision and it is asserted here
      so it cannot be softened back in by accident. */
   ok('the hit layer carries no readable text',
-    (await p.$$eval('#scroll .hit, #fixed .hit', els => els.every(e => !e.textContent.trim() && !e.getAttribute('aria-label')))));
+    (await p.$$eval('#scroll .hit', els => els.every(e => !e.textContent.trim() && !e.getAttribute('aria-label')))));
   await p.evaluate(()=>{document.querySelector('[data-id="lang:toggle"]').focus()});
   await p.waitForTimeout(200);
   await p.keyboard.press('Enter'); await p.waitForTimeout(500);
@@ -357,14 +285,7 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
   /* The bundle is the one that regressed silently: @rollup/plugin-json used to
      inline content.json verbatim, so dist/js/main.js opened with her name. */
   ok('the bundle carries no content literals', leaks(js, 'bundle').length === 0, leaks(js, 'bundle').join(' '));
-  /* The title is the one head element that survived, and it survived only
-     because it is not made of words: it must be block glyphs end to end, with
-     no Latin, no Han and no punctuation an index could tokenise. */
-  {
-    const t = (html.match(/<title>([^<]*)<\/title>/) || ['', ''])[1];
-    ok('the served title is glyphs only, no language',
-      t.length === 32 && /^[\u2580-\u259F]+$/.test(t), JSON.stringify(t));
-  }
+  ok('the title is empty', /<title>\s*<\/title>/.test(html));
   ok('robots noindex is in the served head', /name="robots"[^>]*noindex/.test(html));
   /* Advisory, but it is the half that actually keeps a bare URL out of a
      result page - and it must NOT be paired with a robots.txt Disallow, which

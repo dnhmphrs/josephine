@@ -3,21 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <!-- No description, author, Open Graph or Twitter tags, and a title that is
-       not made of words.
+  <!-- No title, and no description, author, Open Graph or Twitter tags.
 
        Every string this site shows is drawn into a canvas by the GPU, and the
        point of that is defeated by one <title>: a search index reads the head
        before it reads anything else, and the head was the only place her name
-       still appeared as text. So the title carries no language at all - it is
-       a block-glyph rendering of a hash of the content, written in by the
-       build (see titleMark in rollup.config.mjs), and the tag is left empty
-       here so the source shows what the page itself contributes: nothing.
-
-       The empty title it replaced was correct and characterless: Chrome falls
-       back to the hostname, and the tab read like a parked domain. A mark with
-       no lexical content costs an index nothing and gives the tab an identity,
-       which is the whole of the trade.
+       still appeared as text. An empty title costs the browser tab its label -
+       Chrome falls back to the hostname - which is the price of the decision.
 
        robots is the load-bearing half of it. Not transmitting a string is the
        only mechanism that is ENFORCED rather than requested; noindex is a
@@ -64,14 +56,6 @@
        context menus and cmd-click are the browser's job and not ours. Filled
        by main.js. -->
   <div id="scroll"></div>
-
-  <!-- The second half of the hit layer. Most targets live in the scroll proxy
-       above, in content coordinates; the language toggle does not, because it
-       is drawn viewport-anchored and has to stay under the pointer while the
-       page moves beneath it. Its target is positioned here instead, in a
-       fixed box, so the browser keeps it in place for free and no scroll
-       arithmetic enters the interaction path. Filled by main.js. -->
-  <div id="fixed"></div>
 
   <!-- Viewport probes. #svh reports the SMALL viewport height (what is left
        with the browser chrome at its largest), which drives layout so the page

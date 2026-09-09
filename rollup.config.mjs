@@ -1,5 +1,4 @@
 import fs from 'node:fs';
-import crypto from 'node:crypto';
 import { nodeResolve } from '@rollup/plugin-node-resolve';
 import postcss from 'rollup-plugin-postcss';
 import copy from 'rollup-plugin-copy';
@@ -58,40 +57,11 @@ const prune = (v) => (Array.isArray(v) ? v.map(prune)
       .map(([k, x]) => [k, prune(x)]))
     : v);
 
-/* ---------------------------------------------------------------------------
-   The tab.
-
-   The browser chrome is the one surface this site cannot draw. Everything
-   inside the viewport is a WebGL quad, but the tab is the browser's, it is
-   made of text, and an empty <title> just hands it the hostname - which is
-   how the page read for several versions: nameless, but also characterless,
-   and identical to a parked domain.
-
-   So the title is a MARK rather than a name. Sixteen glyphs, one per hex
-   digit, and each glyph is the two-by-two bitmap of the digit it stands for:
-   0 is empty, 15 is a full block, and everything between is the quadrant
-   pattern of its own value. The title is therefore the first 128 bits of a
-   SHA-256 of the content, drawn as a two-row bitmap - stable across builds,
-   changing exactly when the CV does, and carrying no word in any language for
-   an index to lift. Zero is light shade rather than a space, so the strip
-   never breaks and a truncated tab still ends on a glyph.
-
-   Block Elements are in every system UI font on every platform this page will
-   meet, which is what makes them safe here and unsafe on the canvas: the page
-   faces are subset to the content, so the same characters drawn INSIDE the
-   viewport would be tofu or would cost another font file. */
-const NIBBLES = '░▗▖▄▝▐▞▟▘▚▌▙▀▜▛█';
-const titleMark = () => crypto.createHash('sha256')
-  .update(JSON.stringify(prune(JSON.parse(fs.readFileSync('src/content/content.json', 'utf8')))))
-  .digest('hex').slice(0, 32)
-  .replace(/./g, (c) => NIBBLES[parseInt(c, 16)]);
-
 const encodedContent = () => ({
   name: 'encoded-content',
   load(id) {
     if (!id.replace(/\\/g, '/').endsWith('src/content/content.json')) return null;
-    const doc = prune(JSON.parse(fs.readFileSync(id, 'utf8')));
-    const bytes = Buffer.from(JSON.stringify(doc), 'utf8');
+    const bytes = Buffer.from(JSON.stringify(prune(JSON.parse(fs.readFileSync(id, 'utf8')))), 'utf8');
     for (let i = 0; i < bytes.length; i++) bytes[i] ^= (XOR_KEY + (i & 31)) & 255;
     return `export default ${JSON.stringify(bytes.toString('base64'))};`;
   },
@@ -132,17 +102,9 @@ export default {
              src/, where they explain the decisions; they are not worth
              shipping to a page whose entire premise is that it carries no
              text. */
-          transform: (contents) => contents.toString()
-            .replace('<title></title>', `<title>${titleMark()}</title>`)
-            .replace(/<!--[\s\S]*?-->/g, '').replace(/\n{3,}/g, '\n\n'),
+          transform: (contents) => contents.toString().replace(/<!--[\s\S]*?-->/g, '').replace(/\n{3,}/g, '\n\n'),
         },
-        {
-          src: 'src/404.html',
-          dest: 'dist',
-          // Same mark, so a wrong URL is visibly the same document.
-          transform: (contents) => contents.toString()
-            .replace('<title></title>', `<title>${titleMark()}</title>`),
-        },
+        { src: 'src/404.html',     dest: 'dist' },   // Vercel serves this for not-found routes
         /* content.json is NOT copied. It ships encoded inside the bundle; a
            second public copy would be the readable original, complete with the
            editing notes the encoder is careful to prune. */
