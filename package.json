@@ -2,7 +2,7 @@
   "name": "josephine-shen",
   "version": "1.0.0",
   "private": true,
-  "description": "Josephine Shen - index page and compressed CV, rendered entirely in WebGL. Static, bilingual (EN/\u4e2d).",
+  "description": "One page, rendered entirely in WebGL. Static, bilingual. No readable text ships.",
   "type": "module",
   "scripts": {
     "fonts": "node scripts/fetch-fonts.mjs",
@@ -15,7 +15,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
-    "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-node-resolve": "^15.2.3",
     "@rollup/plugin-terser": "^1.0.0",
     "eslint": "^9.0.0",

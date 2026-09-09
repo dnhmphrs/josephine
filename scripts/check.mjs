@@ -16,7 +16,8 @@
    buttons, that tab order is reading order, that clicking and Enter do what
    they should, that the language switch is a CUT with nothing running after
    it, that the opening holds the first screen and the CV follows it, that a
-   rapid triple toggle leaves the state, the mirror and the drawing agreeing,
+   rapid triple toggle leaves the state and the drawing agreeing, that NO
+   readable text ships anywhere,
    and that it says who she is
    with WebGL removed, with localStorage throwing, without Intl.Segmenter,
    under prefers-reduced-motion, at 320x480, through a resize storm, across a
@@ -58,11 +59,15 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
   await p.goto(URL,{waitUntil:'networkidle'}); await p.waitForTimeout(2200);
 
   const hits = await p.$$eval('#scroll .hit', els => els.map(e=>({tag:e.tagName,id:e.dataset.id,href:e.getAttribute('href'),pressed:e.getAttribute('aria-pressed'),label:e.textContent,w:e.offsetWidth,h:e.offsetHeight})));
-  ok('hit layer built', hits.length>=4, JSON.stringify(hits.map(h=>h.id)));
+  ok('hit layer built', hits.length>=3, JSON.stringify(hits.map(h=>h.id)));
   ok('all targets >= 44px tall', hits.every(h=>h.h>=44));
   ok('mail is a real mailto anchor', hits.some(h=>h.tag==='A'&&/^mailto:/.test(h.href||'')));
   ok('linkedin is a real https anchor', hits.some(h=>h.tag==='A'&&/^https:/.test(h.href||'')));
-  ok('the language buttons carry pressed state', hits.filter(h=>h.pressed!==null).length===2 && hits.filter(h=>h.pressed==='true').length===1);
+  /* ONE language control, not two. Two targets for a two-state switch asks the
+     reader to aim; this asserts the aiming is gone. */
+  ok('the language control is a single element',
+    hits.filter(h=>/^lang:/.test(h.id)).length===1 && hits.some(h=>h.id==='lang:toggle'),
+    JSON.stringify(hits.filter(h=>/^lang:/.test(h.id)).map(h=>h.id)));
 
   /* One page: the opening holds the first screen on its own and the CV starts
      under it. Both halves matter - an opening that overflows the fold is not
@@ -73,12 +78,19 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
     const at = (k) => items.find((i) => i.key.startsWith(k));
     return { name: at('index.name').y, cv: at('cv.0.head').y, foot: at('foot.mail').y, vh: innerHeight };
   });
-  ok('the opening holds the first screen', shape.name < shape.vh * 0.5 && shape.cv > shape.vh * 0.8, JSON.stringify(shape));
+  /* Wide and shallow: the opening sits in the top third and the CV's first
+     section head is already on the first screen. The earlier version of this
+     page held the CV down to the fold, which made the head as tall as the
+     window whatever it contained; both bounds here are what stops that
+     returning, from either direction. */
+  ok('the opening is shallow and the CV is on the first screen',
+    shape.name < shape.vh * 0.35 && shape.cv > shape.vh * 0.45 && shape.cv < shape.vh * 0.95,
+    JSON.stringify(shape));
   ok('the CV and the footer are below it', shape.foot > shape.cv && d.height > shape.foot, JSON.stringify(d));
 
   /* A cut, not a transition: read the state on the very next frame, with no
      settling time at all. Anything animating would still be running here. */
-  await p.click('[data-id="lang:zh"]');
+  await p.click('[data-id="lang:toggle"]');
   await p.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
   d=await p.evaluate(()=>window.__stage.diag());
   ok('中 switches language on the next frame', d.lang==='zh', JSON.stringify(d));
@@ -90,8 +102,7 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
   ok('the switch is finished on that frame',
     settled.quads===d.quads && settled.height===d.height, JSON.stringify({d, settled}));
   ok('<html lang> follows', (await p.evaluate(()=>document.documentElement.lang))==='zh-Hans');
-  ok('mirror follows language', (await p.textContent('#a11y h1'))==='沈菲菲');
-  ok('title follows language', (await p.title())==='沈菲菲');
+  ok('the document has no title in either language', (await p.title())==='');
 
   /* Nothing may exceed the measure except Chinese punctuation, which hangs
      into the margin on purpose. Everything else running past the right edge is
@@ -106,13 +117,13 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
     ok('nothing overflows the measure', over.length === 0, over.slice(0, 3).join(' | '));
   }
 
-  // rapid triple toggle
-  await p.click('[data-id="lang:en"]'); await p.waitForTimeout(120);
-  await p.click('[data-id="lang:zh"]'); await p.waitForTimeout(120);
-  await p.click('[data-id="lang:en"]'); await p.waitForTimeout(1400);
+  // rapid triple press of the one control
+  await p.click('[data-id="lang:toggle"]'); await p.waitForTimeout(120);
+  await p.click('[data-id="lang:toggle"]'); await p.waitForTimeout(120);
+  await p.click('[data-id="lang:toggle"]'); await p.waitForTimeout(1200);
   d=await p.evaluate(()=>window.__stage.diag());
   ok('survives a rapid triple toggle', d.lang==='en', JSON.stringify(d));
-  ok('mirror agrees after the storm', (await p.textContent('#a11y h1'))==='Josephine Shen');
+  ok('the drawing agrees after the storm', d.quads>10 && d.overflow===0);
 
   // keyboard
   /* Tab past the browser's own stops (which report as null) and read the order
@@ -120,17 +131,21 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
      depends on what was focused last, but the sequence must not change. */
   await p.evaluate(()=>document.activeElement && document.activeElement.blur());
   const order=[];
-  for (let i=0;i<10;i++){ await p.keyboard.press('Tab'); const id=await p.evaluate(()=>document.activeElement&&document.activeElement.dataset?document.activeElement.dataset.id:null); if(id&&!order.includes(id)) order.push(id); }
-  const want=['lang:en','lang:zh','mail','linkedin'];
-  const rotated=order.length===4 && want.some((_,k)=>JSON.stringify(order)===JSON.stringify(want.slice(k).concat(want.slice(0,k))));
+  for (let i=0;i<8;i++){ await p.keyboard.press('Tab'); const id=await p.evaluate(()=>document.activeElement&&document.activeElement.dataset?document.activeElement.dataset.id:null); if(id&&!order.includes(id)) order.push(id); }
+  const want=['lang:toggle','mail','linkedin'];
+  const rotated=order.length===3 && want.some((_,k)=>JSON.stringify(order)===JSON.stringify(want.slice(k).concat(want.slice(0,k))));
   ok('tab order is reading order', rotated, JSON.stringify(order));
-  ok('mirror links are out of the tab sequence', (await p.$$eval('#a11y a', a=>a.every(x=>x.getAttribute('tabindex')==='-1'))));
-  await p.evaluate(()=>{document.querySelector('[data-id="lang:zh"]').focus()});
+  /* The hit layer carries no text of its own - no labels, no accessible
+     names. That is the cost of the zero-text decision and it is asserted here
+     so it cannot be softened back in by accident. */
+  ok('the hit layer carries no readable text',
+    (await p.$$eval('#scroll .hit', els => els.every(e => !e.textContent.trim() && !e.getAttribute('aria-label')))));
+  await p.evaluate(()=>{document.querySelector('[data-id="lang:toggle"]').focus()});
   await p.waitForTimeout(200);
   await p.keyboard.press('Enter'); await p.waitForTimeout(500);
   d=await p.evaluate(()=>window.__stage.diag());
   ok('Enter activates a control', d.lang==='zh');
-  await p.click('[data-id="lang:en"]'); await p.waitForTimeout(400);
+  await p.click('[data-id="lang:toggle"]'); await p.waitForTimeout(400);
   await p.screenshot({path:`${OUT}/focus-ring.png`, clip:{x:0,y:0,width:400,height:140}});
 
   ok('no console or page errors', errs.length===0, errs.slice(0,3).join(' | '));
@@ -144,7 +159,7 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
   const p=await ctx.newPage();
   const errs=[]; p.on('pageerror',e=>errs.push(e.message));
   await p.goto(URL,{waitUntil:'networkidle'}); await p.waitForTimeout(1800);
-  await p.click('[data-id="lang:zh"]'); await p.waitForTimeout(600);
+  await p.click('[data-id="lang:toggle"]'); await p.waitForTimeout(600);
   const d=await p.evaluate(()=>window.__stage.diag());
   ok('reduced motion: the switch lands', d.lang==='zh' && d.quads>0, JSON.stringify(d));
   ok('reduced motion: no errors', errs.length===0, errs[0]||'');
@@ -160,12 +175,11 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
   const p=await ctx.newPage();
   const errs=[]; p.on('pageerror',e=>errs.push(e.message));
   await p.goto(URL,{waitUntil:'networkidle'}); await p.waitForTimeout(1200);
-  const visible=await p.isVisible('#a11y h1');
-  const text=await p.textContent('#a11y');
-  ok('no-WebGL: mirror becomes the page', visible);
-  ok('no-WebGL: carries the email', /proton\.me/.test(text||''));
-  ok('no-WebGL: carries the CV', /Machine learning/.test(text||''));
-  ok('no-WebGL: no errors', errs.length===0, errs[0]||'');
+  /* There is nothing to fall back to any more. The contract is only that it
+     fails quietly: no crash, no half-drawn canvas, and still no text. */
+  ok('no-WebGL: fails without an error', errs.length===0, errs[0]||'');
+  ok('no-WebGL: the canvas is removed', (await p.$('#stage'))===null);
+  ok('no-WebGL: still no readable text', ((await p.textContent('body'))||'').trim()==='');
   await p.screenshot({path:`${OUT}/no-webgl.png`, fullPage:true});
   await b.close();
 }
@@ -237,30 +251,51 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
   const ctx=await b.newContext({viewport:{width:1280,height:800},javaScriptEnabled:false});
   const p=await ctx.newPage();
   await p.goto(URL,{waitUntil:'load'});
-  const visible=await p.isVisible('#a11y h1');
-  const top=await p.$eval('#a11y h1', e=>e.getBoundingClientRect().top);
-  ok('no JS: the mirror is visible', visible);
-  ok('no JS: it is above the fold', top>=0 && top<800, 'top='+Math.round(top));
-  ok('no JS: it carries the email', /proton\.me/.test(await p.textContent('#a11y')||''));
+  ok('no JS: the page renders without an error', (await p.$('body'))!==null);
+  ok('no JS: it carries no readable text', ((await p.textContent('body'))||'').trim()==='');
   await p.screenshot({path:`${OUT}/no-js.png`, fullPage:true});
   await b.close();
 }
 
-/* --- 9. the link preview is not stale ------------------------------------- */
+/* --- 9. no readable text ships -------------------------------------------- */
 {
-  /* og.jpg is a photograph of the built site, so it can go quietly out of date
-     the moment anything upstream of the page changes - and once has: it was
-     taken between a rendering bug and its fix, and shipped with the last letter
-     of the email address sliced off. */
-  const newest = (dir) => fs.readdirSync(dir, { withFileTypes: true }).reduce((t, e) => {
-    const f = path.join(dir, e.name);
-    return Math.max(t, e.isDirectory() ? newest(f) : fs.statSync(f).mtimeMs);
-  }, 0);
-  const og = path.join(ROOT, '..', 'public', 'og.jpg');
-  const src = newest(path.join(ROOT, '..', 'src'));
-  ok('the link preview is newer than the source it photographs',
-    fs.existsSync(og) && fs.statSync(og).mtimeMs >= src,
-    'run: npm run build && npm run og');
+  /* The premise of the whole site. Every string is drawn into a canvas by the
+     GPU so the page cannot be read by an index, and the premise is undone by
+     one <title>, one meta description, one inlined accessibility mirror or one
+     JSON literal left in the bundle. Each of those was there and each was
+     removed; this is what stops them coming back.
+
+     Read the BUILT files off disk rather than through the browser, because
+     what matters is the bytes the server sends. */
+  const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
+  const html = read('index.html');
+  const js = read('js/main.js');
+  const notfound = read('404.html');
+
+  /* Words from content.json that must not survive anywhere. Not an exhaustive
+     list - an exhaustive list is what the encoder is for - but each of these
+     was a real leak at some point in this file's history. */
+  const CONTENT = ['Josephine', 'Shen', 'proton.me', 'Berlin', 'Geopolitics',
+    'Ontological', 'AIxist', 'Machine learning', 'policy researcher'];
+  const leaks = (src, where) => CONTENT.filter((w) => src.toLowerCase().includes(w.toLowerCase()))
+    .map((w) => `${where}:${w}`);
+
+  ok('the served HTML carries no content', leaks(html, 'index').length === 0, leaks(html, 'index').join(' '));
+  ok('the 404 page carries no content', leaks(notfound, '404').length === 0, leaks(notfound, '404').join(' '));
+  /* The bundle is the one that regressed silently: @rollup/plugin-json used to
+     inline content.json verbatim, so dist/js/main.js opened with her name. */
+  ok('the bundle carries no content literals', leaks(js, 'bundle').length === 0, leaks(js, 'bundle').join(' '));
+  ok('the title is empty', /<title>\s*<\/title>/.test(html));
+  ok('robots noindex is in the served head', /name="robots"[^>]*noindex/.test(html));
+  /* Advisory, but it is the half that actually keeps a bare URL out of a
+     result page - and it must NOT be paired with a robots.txt Disallow, which
+     would stop the crawler ever reading it. */
+  const vercel = JSON.parse(fs.readFileSync(path.join(ROOT, '..', 'vercel.json'), 'utf8'));
+  ok('X-Robots-Tag covers every response',
+    vercel.headers.some((h) => h.source === '/(.*)'
+      && h.headers.some((x) => x.key === 'X-Robots-Tag' && /noindex/.test(x.value))));
+  ok('there is no robots.txt to block the crawl that reads it',
+    !fs.existsSync(path.join(ROOT, 'robots.txt')));
 }
 
 server.close();

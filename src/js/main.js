@@ -11,20 +11,32 @@
    One page, and nothing on it animates except the ground. The language toggle
    is a cut.
 
-   Everything visible is on the canvas. Two invisible DOM layers keep the page
-   an actual document rather than a picture of one: a mirror of every string,
-   for screen readers, crawlers and the no-WebGL path; and a layer of real
-   anchors and buttons positioned over the marks they stand for, so that Tab
-   order, Enter, the pointer cursor, mailto: context menus and cmd-click all
-   work because the browser is doing them, not because we reimplemented them.
+   Everything visible is on the canvas, and this build ships NO readable text
+   anywhere else - no title, no description, no accessible mirror. That is a
+   deliberate decision by the owner and it has a real cost, set out in the
+   README. What remains in the DOM is one invisible layer: real anchors and
+   buttons positioned over the marks they stand for, so that Tab order, Enter,
+   the pointer cursor, mailto: context menus and cmd-click all work because the
+   browser is doing them and not because we reimplemented them. They carry no
+   labels, which is part of the same decision.
    =========================================================================== */
 
-import content from '../content/content.json';
+/* content.json does not arrive as an object. The build XORs and base64s it
+   (see rollup.config.mjs) so that no string on this site survives as a
+   literal in the shipped bundle - the whole point of drawing the page into a
+   canvas is undone if the same sentences sit in plain sight three files
+   later. This is obfuscation and nothing stronger: the key is one line above
+   the payload. It defeats grep and a text-extracting crawler, which is the
+   threat it was chosen for. */
+import payload from '../content/content.json';
 import '../styles/main.css';
 import { TextEngine, loadFonts } from './text.js';
 import { createStage, Marks, drawScene } from './gl.js';
 import { buildScene, fontSpecs, deferredFontSpecs, INK } from './layout.js';
-import { renderMirror } from './mirror.js';
+
+const content = JSON.parse(new TextDecoder().decode(
+  Uint8Array.from(atob(payload), (ch, i) => ch.charCodeAt(0) ^ ((0x5a + (i & 31)) & 255)),
+));
 
 const DPR_CAP = 2;
 /* The ground drifts about 0.005px a frame, so redrawing it sixty times a
@@ -67,12 +79,12 @@ const stage = createStage(canvas);
 if (!stage) fallback();
 else boot(stage).catch(fallback);
 
-/* No WebGL, or a context we could not create: promote the mirror to the
-   visible page. Rare, but a researcher's contact details should not depend on
-   a GPU. */
+/* No WebGL, or a context we could not create. There is nothing to fall back
+   TO any more - the mirror that used to become the page here was the text this
+   build exists not to publish - so this clears the canvas and leaves bare
+   ground. Rare, and the cost of the decision. */
 function fallback() {
   document.documentElement.classList.add('no-js');
-  updateMirror(state.lang);
   if (canvas) canvas.remove();
   if (proxy) proxy.remove();
 }
@@ -80,8 +92,6 @@ function fallback() {
 async function boot(stage) {
   const engine = new TextEngine(stage.gl);
   const marks = new Marks(engine);
-
-  updateMirror(state.lang, true);
 
   /* Rasterising before the webfonts arrive would bake the fallback face into
      the atlas, so the first layout waits - but only on the language actually
@@ -167,13 +177,16 @@ async function boot(stage) {
     state.lang = next;
     document.documentElement.lang = next === 'zh' ? 'zh-Hans' : 'en';
     try { localStorage.setItem('lang', next); } catch (e) { /* ignore */ }
-    updateMirror(state.lang, true);
     relayout();
   }
 
+  /* One control, one action. The scene records which language the toggle would
+     switch TO, so nothing here has to know how many languages there are or
+     which half of the mark was pressed. */
   function act(id) {
-    if (id === 'lang:en') setLang('en');
-    else if (id === 'lang:zh') setLang('zh');
+    if (id !== 'lang:toggle') return;
+    const el = proxy.querySelector('[data-id="lang:toggle"]');
+    setLang((el && el.dataset.other) || (state.lang === 'en' ? 'zh' : 'en'));
   }
 
   /* --- the hit layer ------------------------------------------------------
@@ -190,27 +203,22 @@ async function boot(stage) {
       if (!el || el.tagName.toLowerCase() !== tag) {
         const next = document.createElement(tag);
         next.className = 'hit';
-        next.appendChild(document.createElement('span'));
         if (el) proxy.replaceChild(next, el);
         else proxy.appendChild(next);
         el = next;
       }
       el.dataset.id = h.id;
       el.dataset.key = h.key || '';
+      if (h.other) el.dataset.other = h.other; else delete el.dataset.other;
       el.style.left = `${h.x}px`;
       el.style.top = `${h.y}px`;
       el.style.width = `${h.w}px`;
       el.style.height = `${h.h}px`;
-      el.firstChild.textContent = h.label || h.id;
       if (h.href) {
         el.setAttribute('href', h.href);
         if (h.href.startsWith('http')) { el.target = '_blank'; el.rel = 'me noopener'; }
       } else {
         el.type = 'button';
-        /* Plain toggle buttons, not a tablist. A correct tablist owes the user
-           roving tabindex, arrow-key navigation and a hidden inactive panel;
-           half of that is worse than none, and aria-pressed says the one thing
-           there is to say - which of the two you are looking at. */
         if (h.pressed !== undefined) el.setAttribute('aria-pressed', String(h.pressed));
       }
       if (h.lang) el.setAttribute('lang', h.lang);
@@ -251,8 +259,8 @@ async function boot(stage) {
   /* A lost context takes every GL object with it, and unless the event is
      cancelled the browser is spec-bound never to offer it back - the page would
      be a permanently blank grey rectangle. Cancel it, stop drawing, and rebuild
-     when the browser returns; if it does not come back, fall through to the
-     mirror, which is a readable page. */
+     when the browser returns; if it does not come back, give up and clear the
+     canvas rather than leave a frozen half-drawn page on screen. */
   let lostTimer = 0;
   canvas.addEventListener('webglcontextlost', (e) => {
     e.preventDefault();
@@ -334,7 +342,7 @@ async function boot(stage) {
      small and read-only; `act` is the same function the hit layer calls. */
   window.__stage = {
     act,
-    toggleLang: () => act(state.lang === 'en' ? 'lang:zh' : 'lang:en'),
+    toggleLang: () => act('lang:toggle'),
     diag: () => ({
       lang: state.lang, cols: state.grid.cols, dpr: engine.dpr,
       atlas: `${engine.atlas.width}x${engine.atlas.height}`, overflow: engine.overflow,
@@ -355,29 +363,4 @@ async function boot(stage) {
        run it was. */
     runs: () => engine.pending.map((r) => ({ w: r.devW, h: r.devH, text: r.text })),
   };
-}
-
-/* The mirror's markup comes from mirror.js, which the build also calls to
-   inline the same thing into index.html. This adds the two things a string
-   cannot: the document's own title and description, and the listeners on the
-   language buttons that only the degraded path renders. */
-function updateMirror(lang, inert) {
-  const host = document.getElementById('a11y');
-  if (!host) return;
-  const t = (n) => (n && n[lang] != null ? n[lang] : '');
-
-  document.title = t(content.site.title);
-  const desc = document.querySelector('meta[name="description"]');
-  if (desc) desc.setAttribute('content', t(content.site.description));
-
-  host.innerHTML = renderMirror(content, lang, inert);
-  if (inert) {
-    /* Whatever links remain are duplicates of the hit layer's; keep them in the
-       accessibility tree but out of the tab sequence. */
-    host.querySelectorAll('a').forEach((a) => a.setAttribute('tabindex', '-1'));
-  } else {
-    host.querySelectorAll('[data-lang]').forEach((b) => {
-      b.addEventListener('click', () => updateMirror(b.getAttribute('data-lang'), false));
-    });
-  }
 }

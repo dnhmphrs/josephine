@@ -3,35 +3,37 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Josephine Shen</title>
-  <meta name="description" content="Josephine Shen — AI policy researcher. Geopolitics and technology governance across China, the EU and the multilateral system. Berlin." />
-  <meta name="author" content="Josephine Shen" />
-  <meta name="theme-color" content="#e8e6e1" />
+  <!-- No title, and no description, author, Open Graph or Twitter tags.
+
+       Every string this site shows is drawn into a canvas by the GPU, and the
+       point of that is defeated by one <title>: a search index reads the head
+       before it reads anything else, and the head was the only place her name
+       still appeared as text. An empty title costs the browser tab its label -
+       Chrome falls back to the hostname - which is the price of the decision.
+
+       robots is the load-bearing half of it. Not transmitting a string is the
+       only mechanism that is ENFORCED rather than requested; noindex is a
+       convention, but it is honoured by every index she cares about, and it is
+       what keeps a bare URL out of the results even when someone links here.
+       There is deliberately NO robots.txt: Disallow controls crawling, not
+       indexing, and a crawler told not to fetch the page never reads this tag -
+       so blocking the crawl makes a bare listing MORE likely, not less. The
+       matching X-Robots-Tag header in vercel.json covers what a meta tag
+       cannot reach: the bundle, the fonts, the licence file. -->
+  <title></title>
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
+  <meta name="theme-color" content="#e4e1db" />
 
   <!-- One class carries both degraded paths. It is removed immediately if
-       scripting is on, and put back by main.js if WebGL turns out not to be -
-       so the stylesheet has a single selector for "the mirror is the page". -->
+       scripting is on, and put back by main.js if WebGL turns out not to be. -->
   <script>document.documentElement.classList.remove('no-js')</script>
 
   <link rel="icon" href="/favicon.ico" sizes="any" />
 
-  <meta property="og:type" content="profile" />
-  <meta property="og:title" content="Josephine Shen" />
-  <meta property="og:description" content="AI policy researcher. Geopolitics and technology governance. Berlin." />
-  <meta property="og:image" content="https://josephine-shen.vercel.app/og.jpg" />
-  <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="630" />
-  <meta property="og:image:alt" content="Josephine Shen - AI policy researcher. Berlin." />
-  <meta property="og:url" content="https://josephine-shen.vercel.app" />
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Josephine Shen" />
-  <meta name="twitter:description" content="AI policy researcher. Geopolitics and technology governance. Berlin." />
-  <meta name="twitter:image" content="https://josephine-shen.vercel.app/og.jpg" />
-
   <!-- Self-hosted, subset webfonts. No third-party request: see
        scripts/fetch-fonts.mjs. Preloaded because the WebGL text atlas cannot be
        rasterised until the real faces are in memory. -->
-  <link rel="preload" href="/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/fonts/hanken-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" href="/fonts/newsreader-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" href="/fonts/noto-sans-sc.woff2" as="font" type="font/woff2" crossorigin />
   <!-- The Chinese serif is on the English critical path too: the Languages
@@ -62,26 +64,13 @@
   <div id="svh" aria-hidden="true"></div>
   <div id="safe" aria-hidden="true"></div>
 
-  <!-- Accessible mirror: the same strings the canvas draws, exposed to screen
-       readers, crawlers and anyone whose GPU refuses. Visually hidden, never
-       painted. Populated from content.json by main.js; the document is inlined here so
-       it survives with JavaScript disabled. -->
-  <!-- The accessible mirror. Every string the canvas draws, as a real
-       document, for screen readers, search engines and anyone whose scripting
-       or GPU is not available - in which case this stops being a mirror and
-       becomes the page. The markup is inlined here at build time and rewritten
-       by main.js on load; both come from src/js/mirror.js, so they cannot
-       disagree. -->
-  <main id="a11y" class="sr"><!--mirror--></main>
-
-  <!-- With scripting off, #a11y above is already the whole document in the
-       accessibility tree and in the page; repeating it here would give the
-       document two <h1>s and two copies of it that could drift apart.
-       This says only the one thing #a11y cannot. -->
-  <noscript>
-    <p class="noscript">This page draws itself in WebGL, and needs JavaScript to
-      do it. What you are reading is the same text, as a plain document.</p>
-  </noscript>
+  <!-- There is no accessible mirror here any more, and its absence is the
+       whole change: it was a complete copy of the CV as real HTML, which is
+       exactly the text this page exists not to publish. What that costs is
+       stated plainly in the README - a screen reader now lands on a document
+       that announces nothing, and a visitor without JavaScript or without
+       WebGL gets bare ground. That is a decision the owner made, not an
+       oversight, and reverting the commit that removed it puts it back. -->
 
 <script type="module" src="/js/main.js"></script>
 </body>
