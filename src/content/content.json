@@ -46,13 +46,45 @@
         "en": "Contact",
         "zh": "联系"
       },
-      "email": "Josephine.shen@proton.me",
+      "email": "josephine.shen@proton.me",
       "linkedin": {
         "label": "LinkedIn",
         "url": "https://linkedin.com/in/josephinesb"
       }
     }
   },
+  "areas": [
+    {
+      "title": {
+        "en": "Geopolitics and technology governance",
+        "zh": "地缘政治与技术治理"
+      },
+      "org": {
+        "en": "China and the EU",
+        "zh": "中国与欧盟"
+      }
+    },
+    {
+      "title": {
+        "en": "Artificial intelligence in international security",
+        "zh": "国际安全中的人工智能"
+      },
+      "org": {
+        "en": "Non-proliferation, regulation",
+        "zh": "防扩散与监管"
+      }
+    },
+    {
+      "title": {
+        "en": "Public-interest AI, labour and social movements",
+        "zh": "公共利益人工智能、劳工与社会运动"
+      },
+      "org": {
+        "en": "Civil society",
+        "zh": "公民社会"
+      }
+    }
+  ],
   "cv": [
     {
       "section": {
@@ -80,47 +112,6 @@
           "org": {
             "en": "Research and facilitation",
             "zh": "研究与协调"
-          }
-        }
-      ]
-    },
-    {
-      "section": {
-        "en": "Research",
-        "zh": "研究"
-      },
-      "entries": [
-        {
-          "year": "",
-          "title": {
-            "en": "Geopolitics and technology governance",
-            "zh": "地缘政治与技术治理"
-          },
-          "org": {
-            "en": "China and the EU",
-            "zh": "中国与欧盟"
-          }
-        },
-        {
-          "year": "",
-          "title": {
-            "en": "Artificial intelligence in international security",
-            "zh": "国际安全中的人工智能"
-          },
-          "org": {
-            "en": "Non-proliferation, regulation",
-            "zh": "防扩散与监管"
-          }
-        },
-        {
-          "year": "",
-          "title": {
-            "en": "Public-interest AI, labour and social movements",
-            "zh": "公共利益人工智能、劳工与社会运动"
-          },
-          "org": {
-            "en": "Civil society",
-            "zh": "公民社会"
           }
         }
       ]
