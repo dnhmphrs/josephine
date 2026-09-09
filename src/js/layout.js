@@ -38,6 +38,25 @@ export const RULE = [0.133, 0.129, 0.118];   // primary, drawn at low alpha
    and a few thousandths either way is invisible under 11px capitals. */
 export const PAPER = [0.894, 0.882, 0.859];  // #e4e1db
 
+/* The switch's fill. The ground's own lilac - rgba(143,95,160), the single hue
+   on this site and the reason the concrete reads as a surface with light on it
+   - taken 45% of the way down toward the ink.
+
+   It cannot be used neat. At full strength the ground lilac against the paper
+   value is 3.73:1, and the label inside the block is 11px capitals, which is
+   normal text: it fails AA outright. So the depth is not a taste, it is a
+   floor - and deepened it reads better anyway, because a saturated block would
+   be the loudest thing by far on a page that has spent every round getting
+   quieter. What is wanted is a black with the page's own hue in it.
+
+   45% is where it starts to READ as lilac at 30x11px rather than as a black
+   that something is slightly wrong with. Rendered at 20% and 30% it is
+   indistinguishable from the ink at real size; at 60% and beyond it is a
+   purple button. This is the one place the hue is ever seen directly, which
+   is worth something: the ground has been carrying it at eight percent since
+   the first build and nobody would know. */
+export const LILAC_INK = [0.326, 0.239, 0.347];  // #533d58   PAPER on it: 7.42:1
+
 /* ---- the two voices -------------------------------------------------------
    Hanken Grotesk over Newsreader, divided by job rather than by hierarchy: the
    grotesque is the STRUCTURE - the name, the toggle, the section heads, every
@@ -534,7 +553,7 @@ function planToggle(scene, content, lang, g) {
           cx.fill();
         },
       );
-      scene.sprite('nav.fill', fill, on ? x0 + enW : x0, boxTop, fillW, boxH, INK, 1, { fixed: true });
+      scene.sprite('nav.fill', fill, on ? x0 + enW : x0, boxTop, fillW, boxH, LILAC_INK, 1, { fixed: true });
 
       /* The outline is what makes the unselected half read as the other half of
          one control rather than as a word standing next to a block. Stroked
