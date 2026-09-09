@@ -107,36 +107,6 @@ export class TextEngine {
     return handle;
   }
 
-  /* Reserve a SPRITE: a box in the atlas that something other than a font
-     paints. The packer already takes arbitrary device-pixel boxes - a run is
-     only a box with a fillText in it - so this needs no new machinery, just a
-     handle with a `paint` callback instead of a font.
-
-     It exists because the page has one non-typographic mark: the rounded
-     square of the approach diagram. Drawing that with the white texel gives
-     hard corners, and rounding it in the shader would mean a second program
-     and an SDF for one shape. Canvas2D already has roundRect, the atlas
-     already rasterises with Canvas2D, and every cell is the same size - so one
-     sprite is rasterised at its exact device size and drawn many times, which
-     is both the simplest answer and the sharpest.
-
-     `key` must vary with anything that changes the pixels, size included. */
-  sprite(key, w, h, paint) {
-    const hit = this.cache.get(key);
-    if (hit) return hit;
-    const devW = Math.max(1, Math.round(w * this.dpr));
-    const devH = Math.max(1, Math.round(h * this.dpr));
-    const handle = {
-      sprite: true, paint, text: key,
-      devW, devH, pad: 0, n: 0, gs: [], cuts: [], ax: [], dw: [],
-      width: devW / this.dpr, height: devH / this.dpr,
-      uv: new Float32Array(0), uvAll: new Float32Array(4), rect: null,
-    };
-    this.cache.set(key, handle);
-    this.pending.push(handle);
-    return handle;
-  }
-
   /* Width of a string in CSS px without reserving atlas space. The line breaker
      asks this about dozens of candidate lines it will never draw, and every one
      of those would otherwise be rasterised and thrown away. */
@@ -304,25 +274,13 @@ export class TextEngine {
       if (!r.rect) { this.overflow++; continue; }
       const bx = r.rect.x;
       const by = r.rect.y;
+      c.font = r.font;
       c.fillStyle = '#fff';
-      /* A sprite paints itself, in white, into its own reserved box. White
-         because the marks shader multiplies coverage by the vertex colour -
-         the same contract every glyph is drawn under. It falls through to the
-         UV assignment below like everything else: a sprite is one quad, so
-         uvAll is the whole of its geometry. */
-      if (r.sprite) {
-        c.save();
-        c.translate(bx, by);
-        r.paint(c, r.devW, r.devH, this.dpr);
-        c.restore();
+      const baseY = by + r.devBaseline;
+      if (r.tracked) {
+        for (let i = 0; i < r.n; i++) c.fillText(r.gs[i], bx + r.pad + r.cuts[i], baseY);
       } else {
-        c.font = r.font;
-        const baseY = by + r.devBaseline;
-        if (r.tracked) {
-          for (let i = 0; i < r.n; i++) c.fillText(r.gs[i], bx + r.pad + r.cuts[i], baseY);
-        } else {
-          c.fillText(r.text, bx + r.pad, baseY);
-        }
+        c.fillText(r.text, bx + r.pad, baseY);
       }
       r.uvAll[0] = bx / aw;
       r.uvAll[1] = by / ah;

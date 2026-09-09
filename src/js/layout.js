@@ -315,9 +315,6 @@ class Scene {
        head() measures it; gl.js reads it. Null until then, and drawScene
        treats null as "no edge", which is what a scene without a toggle wants. */
     this.edge = null;
-    /* The approach diagram's geometry, so the renderer can put a diagonal
-       through it every frame without a relayout. Null on a page without one. */
-    this.diagram = null;
     this.height = 0;
   }
 
@@ -362,16 +359,6 @@ class Scene {
   /* Prepare and place in one move, which is what most of the page needs. */
   text(key, str, role, x, baseline, color, opts) {
     return this.place(key, this.prepare(str, role), x, baseline, color, opts);
-  }
-
-  /* A sprite: one quad, one atlas box, drawn at an explicit size. The only
-     caller is the approach diagram's cell. */
-  sprite(key, spr, x, y, w, h, color, opts = {}) {
-    this.items.push({
-      kind: 'sprite', key, run: spr, x, y, w, h,
-      color: color || INK, alpha: opts.alpha === undefined ? 1 : opts.alpha,
-      cell: opts.cell || null, fixed: !!opts.fixed,
-    });
   }
 
   rect(key, x, y, w, h, color, alpha, opts = {}) {
@@ -470,6 +457,7 @@ function planToggle(scene, content, lang, g) {
     /* How far below its own baseline the toggle's ink reaches, so the page can
        be told where its top edge has to be clear. */
     descent: Math.max(en.inkDescent || 0, zh.inkDescent || 0),
+    ascent: Math.max(en.inkAscent || en.capHeight || 0, zh.inkAscent || zh.capHeight || 0),
     draw(y) {
       scene.place('nav.zh', zh, g.right, y, lang === 'zh' ? INK : INK_3, { align: 'right', fixed: true });
       const barX = g.right - zh.width - gap;
@@ -557,7 +545,19 @@ function head(scene, content, lang, g) {
   const top = Math.max(26, Math.round(g.margin)) + g.safeTop;
   const y0 = Math.round(top + (nameRun.inkAscent || nameRun.capHeight));
   scene.place('index.name', nameRun, g.left, y0, INK);
-  nav.draw(y0);
+  /* The toggle rides ABOVE the name's baseline, not on it.
+
+     Sharing a baseline is the obvious alignment and the wrong one: an 11px
+     tracked capital and a 54px name have nothing like the same ink, so setting
+     their feet level leaves the toggle sitting at the very bottom of the
+     name's visual block, reading as something that has slipped. What the eye
+     actually pairs is their CENTRES, so that is what is matched - the toggle's
+     ink centre is put on the name's, which lifts it by about a fifth of the
+     name's cap height and costs nothing else on the page. */
+  const navY = Math.round(y0
+    - ((nameRun.inkAscent || nameRun.capHeight) - (nameRun.inkDescent || 0)) / 2
+    + (nav.ascent - nav.descent) / 2);
+  nav.draw(navY);
 
 
   /* The credential line. Segments are measured first, then packed into as many
@@ -680,7 +680,7 @@ function head(scene, content, lang, g) {
      the page. */
   scene.edge = {
     x0: Math.round(g.right - nav.width - g.gutter * 0.5),
-    clear: Math.round(top),
+    clear: Math.round(Math.min(top, navY - nav.ascent)),
     full: Math.round(avY + avValue.inkDescent + 2),
   };
 
@@ -786,118 +786,6 @@ function measureSections(engine, sections, lang, g, S) {
   });
 }
 
-/* ---- the approach diagram -------------------------------------------------
-   The one picture on the page, and the only mark on it that is not type or a
-   hairline.
-
-   The claim it makes is hers: most people work VERTICALLY, inside one level of
-   society, and she works DIAGONALLY across them. That is a spatial claim, and a
-   sentence describing a shape is always worse than the shape. So: three rows of
-   cells - state, corporations, grassroots - and a diagonal that cuts down and
-   across them. Every cell is quiet; the ones the diagonal passes through are
-   lit. The eye completes the line without one being drawn, which is why none
-   is: a ruled diagonal would be a fourth kind of line on a page that has
-   exactly one.
-
-   The cell is a rounded square, and it is the same square the tab mark and the
-   open-ended years already use - the page had acquired that motif before it
-   had a use for it, and this is the use. It is a SPRITE (see engine.sprite),
-   rasterised once at its exact device size by Canvas2D's roundRect and drawn
-   many times, because every cell is identical. Rounding it in the shader would
-   mean a second program and a distance field for one shape.
-
-   The row labels hang in the empty first column, exactly as a CV section's
-   name does. The grid is the same grid; nothing here is a special case except
-   the sprite. */
-const DIA_ROWS = 3;
-
-function diagramMetrics(g) {
-  const m = cvMetrics(g);
-  const x = m.hang ? m.x0 : g.left;
-  const w = g.right - x;
-  /* Cells stay large. Below about 64px a rounded square stops reading as a
-     block and starts reading as a button, which is the wrong object. */
-  const cols = Math.max(4, Math.min(12, Math.round(w / (g.vw < 720 ? 66 : 92))));
-  const gap = Math.max(5, Math.round(g.u * 0.7));
-  const cellW = (w - gap * (cols - 1)) / cols;
-  const cellH = Math.max(30, Math.round(cellW * 0.60));
-  const h = cellH * DIA_ROWS + gap * (DIA_ROWS - 1);
-  return { ...m, x, w, cols, gap, cellW, cellH, h, r: Math.max(3, Math.round(cellW * 0.13)) };
-}
-
-function diagram(scene, blk, lang, g, y0) {
-  const S = scale(g.vw);
-  const u = g.u;
-  const d = blk.diagram;
-  const m = diagramMetrics(g);
-
-  /* One sprite for every cell. The key carries the device size, because that
-     is the only thing that changes its pixels. */
-  const dpr = scene.engine.dpr;
-  const dw = Math.round(m.cellW * dpr);
-  const dh = Math.round(m.cellH * dpr);
-  const rr = Math.round(m.r * dpr);
-  const cell = scene.engine.sprite(`cell ${dw}x${dh}r${rr}`, m.cellW, m.cellH, (c, w, h) => {
-    c.beginPath();
-    /* roundRect is the whole reason this is a sprite; where it is missing, a
-       plain rectangle is the right degradation - the diagram still reads. */
-    if (c.roundRect) c.roundRect(0, 0, w, h, rr); else c.rect(0, 0, w, h);
-    c.fill();
-  });
-
-  let y = y0;
-  const labelRole = adapt(S.section, lang);
-  const labelProbe = scene.engine.run({ ...labelRole, text: 'H' });
-
-  /* Not hanging means one column, so the row's name goes above it. */
-  const stacked = !m.hang;
-  const rowStep = m.cellH + m.gap + (stacked ? labelProbe.lineHeight + u * 1.2 : 0);
-
-  for (let r = 0; r < DIA_ROWS; r++) {
-    const top = y + r * rowStep;
-    const label = (d.layers[r] || { en: '', zh: '' })[lang];
-    let cellTop = top;
-    if (stacked) {
-      scene.text(`dia.label.${r}`, label, S.section, g.left, top + labelProbe.ascent, INK_3);
-      cellTop = top + labelProbe.lineHeight + u * 1.2;
-    } else {
-      /* Optically centred on the row, by ink rather than by line box. */
-      const lift = Math.round(m.cellH / 2 + (labelProbe.inkAscent || labelProbe.capHeight) / 2);
-      scene.text(`dia.label.${r}`, label, S.section, g.left, Math.round(top + lift), INK_3);
-    }
-    for (let c = 0; c < m.cols; c++) {
-      scene.sprite(`dia.${r}.${c}`, cell,
-        Math.round(m.x + c * (m.cellW + m.gap)), Math.round(cellTop), m.cellW, m.cellH,
-        INK, { cell: [r, c] });
-    }
-  }
-  y += rowStep * (DIA_ROWS - 1) + m.cellH;
-
-  /* Everything the renderer needs to put a diagonal through it, in the same
-     coordinates the cells were placed in. */
-  scene.diagram = {
-    x: m.x, y: y0, w: m.w, h: y - y0,
-    cols: m.cols, gap: m.gap, cellW: m.cellW, cellH: m.cellH, rowStep,
-    /* How far the diagonal travels horizontally over the full height: three
-       columns, which is steep enough to read as a cut rather than a lean. */
-    span: (m.cellW + m.gap) * 3,
-  };
-
-  /* The caption. Under the diagram, in the serif, at the grid's own left edge -
-     it explains the picture, so it comes after it. */
-  const capRole = adapt(S.title, lang);
-  const capW = Math.min(m.w, 34 * capRole.size);
-  const capLead = lead(S.title);
-  const capProbe = scene.engine.run({ ...capRole, text: 'H' });
-  const caption = wrap(scene.engine, d.line[lang], capRole, capW);
-  y += u * 4 + capProbe.ascent;
-  const capSeal = scene.seal(`${blk.key}.caption`, y, 0);
-  caption.forEach((t, i) => {
-    scene.text(`dia.line.${i}`, t, S.title, m.x, y + i * capLead, INK_2, { seal: capSeal });
-  });
-  return y + (caption.length - 1) * capLead + capProbe.descent;
-}
-
 /* The threshold: one hairline across the measure, interrupted at the left by
    the word that names what is under it.
 
@@ -929,7 +817,6 @@ function block(scene, blk, lang, g, y0, measured) {
      the interval either side is being judged against the real thing. */
   if (!measured.length) {
     threshold(scene, blk, lang, g, y, S, u);
-    if (blk.diagram) return diagram(scene, blk, lang, g, y + u * 5);
     return y + u * 9;
   }
 
@@ -949,16 +836,10 @@ function block(scene, blk, lang, g, y0, measured) {
     if (si > 0) scene.rect(`${k}.${si}.rule`, ruleX, Math.round(y), g.right - ruleX, 1, RULE, HAIRLINE);
     let top = y + sec.topPad;
 
-    /* A block with one section whose name is the block's name says it twice.
-       The threshold already carries the word; the section head is dropped. */
-    const echo = measured.length === 1
-      && sec.sec.section[lang].toUpperCase() === blk.label[lang].toUpperCase();
-    if (!echo) {
-      const headSeal = scene.seal(`${k}.${si}.head`, top, 0);
-      scene.text(`${k}.${si}.head`, sec.sec.section[lang], S.section, g.left, top + sec.head.ascent, INK_3,
-        { seal: headSeal });
-      if (!m.hang) top += sec.head.lineHeight + u * 2.6;
-    }
+    const headSeal = scene.seal(`${k}.${si}.head`, top, 0);
+    scene.text(`${k}.${si}.head`, sec.sec.section[lang], S.section, g.left, top + sec.head.ascent, INK_3,
+      { seal: headSeal });
+    if (!m.hang) top += sec.head.lineHeight + u * 2.6;
 
     sec.entries.forEach((en, ei) => {
       const col = ei % m.across;
@@ -1100,7 +981,6 @@ export function fontSpecs(content, vw, lang) {
     ...content.index.context.map((v) => v[lang]),
     content.index.available.label[lang], content.index.available.value[lang],
     ...content.blocks.map((b) => b.label[lang]
-      + (b.diagram ? b.diagram.line[lang] + b.diagram.layers.map((l) => l[lang]).join('') : '')
       + b.sections.map((s) => s.section[lang]
         + s.entries.map((e) => (e.year || '') + e.title[lang] + (e.org ? e.org[lang] : '')).join('')).join('')),
     content.labels.zh,
