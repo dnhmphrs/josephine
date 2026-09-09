@@ -364,6 +364,19 @@ export class Marks {
     this.quad(x0, y0, x1, y1, u, v, u, v, col, alpha);
   }
 
+  /* A sprite: the whole of one reserved atlas box, drawn at an explicit size.
+     Snapped like a rule is, because a rounded corner resampled off the pixel
+     grid is exactly where the softness would show. */
+  sprite(spr, x, y, w, h, col, alpha) {
+    if (!spr || !spr.rect) return;
+    const d = this.engine.dpr;
+    const uv = spr.uvAll;
+    const x0 = Math.round(x * d) / d;
+    const y0 = Math.round(y * d) / d;
+    this.quad(x0, y0, x0 + Math.round(w * d) / d, y0 + Math.round(h * d) / d,
+      uv[0], uv[1], uv[2], uv[3], col, alpha);
+  }
+
   strokeRect(x, y, w, h, weight, col, alpha) {
     this.rect(x, y, w, weight, col, alpha);
     this.rect(x, y + h - weight, w, weight, col, alpha);
@@ -498,7 +511,7 @@ export function drawScene(marks, scene, alpha = 1, hoverKey = null, reveal = nul
        under the toggle is nothing; a threshold rule dissolving while the word
        that names it stays put is a page coming apart. The frame of the
        document is always drawn - the same rule the seals follow. */
-    if (!it.fixed && it.kind !== 'rect' && scene.edge) {
+    if (!it.fixed && it.kind === 'text' && scene.edge) {
       /* In scope only if the mark reaches into the toggle's column. */
       if (it.edge || it.x + it.run.width > scene.edge.x0) {
         const bottom = it.y - fixedY + (it.run.inkDescent || 0);
@@ -506,13 +519,14 @@ export function drawScene(marks, scene, alpha = 1, hoverKey = null, reveal = nul
         if (a <= 0.002) continue;
       }
     }
-    if (it.kind === 'rect') {
-      /* A hovered rect gains PRESENCE, not a colour. The only one that is ever
-         hovered is the language switch's outline, and a hairline that steps up
-         says "live" without touching anything inside the control. */
-      const ra = it.key === hoverKey ? Math.min(1, a * 2.6) : a;
-      if (it.stroke) marks.strokeRect(it.x, y, it.w, it.h, it.stroke, it.color, ra);
-      else marks.rect(it.x, y, it.w, it.h, it.color, ra);
+    /* A hovered SHAPE gains presence, not a colour. The only one ever hovered
+       is the language switch's outline, and a hairline that steps up says
+       "live" without touching anything inside the control. */
+    if (it.kind === 'rect' || it.kind === 'sprite') {
+      const sa = it.key === hoverKey ? Math.min(1, a * 2.6) : a;
+      if (it.kind === 'sprite') marks.sprite(it.run, it.x, y, it.w, it.h, it.color, sa);
+      else if (it.stroke) marks.strokeRect(it.x, y, it.w, it.h, it.stroke, it.color, sa);
+      else marks.rect(it.x, y, it.w, it.h, it.color, sa);
       continue;
     }
     const col = it.key === hoverKey ? HOVER_INK : it.color;
