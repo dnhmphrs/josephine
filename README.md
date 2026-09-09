@@ -1,8 +1,12 @@
 # Josephine Shen
 
 One page — an opening, a severely compressed CV, a footer — rendered entirely
-in WebGL. There is no DOM text in the render path: the ground, the rules and
-every glyph are drawn by the GPU.
+in WebGL. The ground, the rules and every glyph are drawn by the GPU.
+
+**Nothing readable ships.** Not a title, not a meta description, not an
+accessible mirror, not a string literal in the bundle. That is deliberate: the
+owner wants the page to exist and not to be searchable. What it costs is set
+out in [Zero text](#zero-text), and the cost is not small.
 
 ## Stack
 
@@ -18,27 +22,26 @@ npm run preview  # serve the built dist/
 npm run fonts    # re-fetch and re-subset the webfonts (see below)
 npm run lint
 npm run check    # drive the built site in a real browser (see below)
-npm run og       # regenerate the link-preview image
 ```
 
-`check` and `og` need Playwright, which is deliberately not a dependency — it
-pulls a browser, and both run rarely (`npm i -D playwright && npx playwright
-install chromium`).
+`check` needs Playwright, which is deliberately not a dependency — it pulls a
+browser and this runs rarely (`npm i -D playwright && npx playwright install
+chromium`). Set `CHROMIUM_PATH` if the machine has a browser already and cannot
+download another.
 
 **`npm run check` is the important one.** Everything visible here is inside a
 canvas, so the usual safety nets do not apply: a unit test cannot see a glyph,
 and a type error is not the failure mode to worry about. It drives the real
 built site in a real browser and asserts on what it does — that the hit layer
-is made of real anchors and buttons, that tab order is reading order, that the
-language switch lands on the very next frame and is finished there, that the
-opening holds the first screen and the CV follows it, that nothing overflows
-the measure, that a rapid triple toggle leaves the state, the mirror and the
-drawing agreeing, and that it still says who she is with WebGL removed, with
+is made of real anchors and buttons and carries no readable text, that tab
+order is reading order, that the language control is a single element, that the
+switch lands on the very next frame and is finished there, that the opening is
+shallow and the CV is already on the first screen, that nothing overflows the
+measure, that no content word survives into the served HTML or the bundle, that
+`noindex` is present and `robots.txt` is not — and that it still fails quietly
+with WebGL removed, with
 `localStorage` throwing, without `Intl.Segmenter`, under
 `prefers-reduced-motion`, at 320x480, and through a resize storm.
-
-`og` regenerates the link preview by photographing the built site at 1200x630,
-so it can never drift out of date with the page.
 
 Deploys on Vercel as a static build (`outputDirectory: dist`).
 
@@ -52,11 +55,9 @@ src/
     text.js             glyph atlas
     gl.js               the renderer
     layout.js           the box model
-    mirror.js           the accessible document, as a pure function
     main.js             state, the DOM layers
   styles/main.css       ~190 lines, and none of them style any text
 public/fonts/           subset woff2 + the generated @font-face rules
-public/og.jpg           the link preview: a photograph of the page itself
 ```
 
 **text.js — the glyph atlas.** Nothing here is DOM text, so type has to become
@@ -94,38 +95,93 @@ which is a quieter instrument than size and a more exact one.
 again, the atlas is rebuilt, and the other language is on screen the next
 frame — the same work a resize already does, inside the click.
 
-**The ground.** A light warm off-white and one wash: a single soft mass, low
-and off-axis, with an edge that creeps the way ink creeps into damp paper. It
-moves at about one percent of walking pace and is still a painting when frozen.
-A mid grey would have been the safe answer and the dull one — it makes every
-value on the page a version of itself. The only hue anywhere is a trace of
-violet in the deepest part of the wash, which is why the ground reads as a
-surface with light falling on it rather than a flat fill. Most of the shader is
-spent on things you are not meant to see: the uneven tone of the surface, its
-tooth, and a dither without which a gradient eight levels deep bands into
-visible contours.
+**The ground.** A port of the washi ground from the archived builds
+(`_archive/rebuilds/file2.html`), not of the silk shader beside it. The silk is
+the interesting one to write and the wrong one for this page. What the archive
+actually did was two lines of CSS:
 
-## The two invisible DOM layers
+```css
+radial-gradient(120% 80% at  50% -10%, rgba(143,95,160,.045), transparent 60%)
+radial-gradient(100% 60% at 100% 110%, rgba(143,95,160,.035), transparent 55%)
+```
 
-The canvas is a picture of text, and a picture of text is not text. Two hidden
-layers keep the page an actual document:
+Two enormous, very soft, off-centre pools at four and a half and three and a
+half percent, over a warm broadsheet white, with a faint grain on top. So
+shallow that on most displays you cannot point at where one begins — the whole
+sheet spans about ten percent of luminance. That is a better gesture than the
+brushed wash it replaces, which had a defined upper edge and was therefore a
+*thing on* the page rather than a property *of* it.
 
-- `#a11y` mirrors every string as real headings, lists and links, for screen
-  readers, search engines, and the case where WebGL — or JavaScript — is
-  unavailable, where it stops being a mirror and becomes the visible page, set
-  in the same two faces. `mirror.js` renders it as a pure function, which
-  `main.js` writes in on load and which the Rollup build calls to inline the
-  same markup into `index.html`; so the page a crawler sees is the whole
-  document, and there is no second copy to drift away from `content.json`.
-- `#scroll` carries a transparent `<a>` or `<button>` over every interactive
-  mark, in content coordinates. Tab order, Enter, the pointer cursor, touch
-  slop, the status-bar URL preview, `mailto:` context menus and cmd-click all
-  work because the browser is doing them, not because they were reimplemented.
+The pools are lilac, from the archive and ultimately from the WebGPU silk, and
+they are the only hue anywhere. A neutral pool of the same depth reads as a
+smudge; a violet one reads as light, because a warm ground with a cool shadow
+is how a surface under a real sky behaves. They are anchored to the page at a
+tenth of the scroll rather than to the viewport: a gradient pinned to the
+window is a vignette and announces itself the moment you scroll. And the dither
+is the most important term in the file — ten percent of luminance is about
+eight of the 256 available levels, which bands into visible contours without
+it.
 
-One consequence of the medium is honest to state: **visible text cannot be
-selected, and find-in-page will not highlight it.** Every string that matters
-exists as copyable DOM in the mirror, and the email and LinkedIn are real
-anchors, but the canvas itself is an image.
+## Zero text
+
+The canvas is a picture of text, and a picture of text is not text — which is
+the point. A search index reads the DOM; it does not screenshot a page and OCR
+it. So drawing every string into a canvas is the one mechanism here that is
+*enforced* rather than requested. It is also undone completely by a single
+`<title>`, which is where her name lived until this pass.
+
+What was removed, in order of how much each was leaking:
+
+| | was |
+|---|---|
+| `#a11y` | the entire CV as real HTML, inlined into `index.html` at build |
+| `<title>`, description, author | her name and a one-line biography |
+| Open Graph + Twitter tags | eleven tags of pure crawler food, and `og.jpg` |
+| the bundle | `content.json` inlined verbatim by `@rollup/plugin-json` |
+| the hit layer | an off-screen `<span>` per control carrying its label |
+| `<noscript>` | thirty-one words explaining the mechanism |
+| HTML comments | 36% of the served bytes, all of it readable English |
+| `404.html` | a full error page set in both faces |
+
+`content.json` now ships pruned, XOR-ed and base64-ed by a Rollup `load` plugin
+— `@rollup/plugin-json` is deleted, and *that deletion* is what makes the
+guarantee. Call the encoding what it is: obfuscation. The key sits one line
+above the payload. It defeats `grep`, a text-extracting crawler and a
+view-source, and it defeats nothing else. The prune also drops `_readme`,
+`note` and `placeholder`, which are the owner's private marks recording which
+CV facts are still unverified.
+
+The other half is **`noindex`, and deliberately no `robots.txt`.** Those two
+are mutually exclusive and the wrong one is the popular one: `Disallow`
+controls *crawling*, not indexing, so a crawler told not to fetch the page
+never reads the `noindex` — and a URL linked from anywhere can still be listed,
+bare, as "No information is available for this page". Blocking the crawl makes
+a listing more likely, not less. So the crawl is allowed and the answer is
+given: a `robots` meta in the served head, and an `X-Robots-Tag` header on
+`/(.*)` in `vercel.json` for everything a meta tag cannot reach — the bundle,
+the fonts, the licence file.
+
+**What this costs, plainly.** A screen reader now lands on a document that
+announces nothing: the canvas is `aria-hidden` and there is no other text. A
+visitor without JavaScript, or with a GPU that refuses WebGL, gets bare ground
+and no contact details. Printing produces a blank sheet. Find-in-page,
+translation and Reader Mode return nothing. The three controls have no
+accessible names. Link previews are bare URL chips, and the browser tab shows
+the hostname. None of that is a bug; all of it is the decision, and reverting
+the commit that made it puts every piece back.
+
+Two things it does **not** buy, and should not be described as buying.
+Unsearchable is not private — the hostname carries her name, and if the GitHub
+repository is public then `content.json` is readable there in full. And nothing
+here stops a human, a screenshot-and-OCR scraper, or a crawler with a vision
+model; only authentication would.
+
+What survives, and why: `#scroll` still carries a transparent `<a>` or
+`<button>` over every interactive mark, in content coordinates, so tab order,
+Enter, the pointer cursor, touch slop, `mailto:` context menus and cmd-click
+are the browser's job rather than ours. Their `href`s are assigned at runtime
+from the decoded content, so they are absent from the served bytes. And
+**visible text cannot be selected**; it never could.
 
 ## Editing content
 
@@ -135,6 +191,9 @@ leaves a hole on screen. Plain text only: no HTML, no `<br/>`. The layout engine
 decides line breaks.
 
 - `index` — the name, the role, the sentence, the four facts, the contact block.
+- `labels` — the CV heading and the two words in the language toggle. They live
+  here rather than in `layout.js` because anything the encoder cannot see is a
+  string that ships in plain sight.
 - `cv` — sections, each with entries of `{ year, title, org }`. One line each.
 - An entry marked `"placeholder": true` is a real thing with a fact still
   missing; read its `note`, fill the value in, delete both keys.
@@ -153,16 +212,22 @@ the condition of redistribution unmet.
 
 ## Typography
 
-Archivo over Newsreader, divided by job rather than by hierarchy: the grotesque
-is the structure — the name, the toggle, the section heads, every tracked
-capital — and the serif is the voice, the places where a sentence is being
-spoken rather than a page labelled. Nothing is set in both.
+Hanken Grotesk over Newsreader, divided by job rather than by hierarchy: the
+grotesque is the structure — the name, the toggle, the section heads, every
+tracked capital — and the serif is the voice, the places where a sentence is
+being spoken rather than a page labelled. Nothing is set in both.
 
-Archivo is cut from the American gothics of nineteenth-century wood type and
-job printing; Newsreader is a newspaper serif in its bones and a contemporary
-drawing on its surface. Both are set light and small. A face this neutral does
-not need weight to be certain, and a page that whispers in a large enough room
-is heard.
+Hanken Grotesk is the Swiss one without being a Helvetica tracing: horizontal
+terminals and a rational frame, but slightly open apertures and a generous
+x-height. That is what earns it the job here — a face has to hold a name at
+52px *and* a capital tracked to +0.15em at 10px, and the ones that manage the
+first usually shut down at the second. Newsreader is a newspaper serif in its
+bones and a contemporary drawing on its surface.
+
+Nothing is heavier than 600 and nothing is larger than 54px. A grotesque with
+presence at 500 lets the page stay quiet and still sound certain; the face this
+replaces needed weight to do the same work, and weight is what made an earlier
+pass read as shouting.
 
 Noto Sans SC and Noto Serif SC are the Chinese companions: 黑体 under the
 grotesque, 宋体 under the serif. Every string on this site exists twice, so the
@@ -182,16 +247,29 @@ technical one, after LG München I 3 O 17493/20.
 
 ## Layout
 
-| viewport | columns | content width |
-|---|---|---|
-| < 720 | 1 | viewport − margins |
-| 720 – 1119 | 2 | viewport − margins |
-| 1120 – 1599 | 3 | viewport − margins |
-| ≥ 1600 | 4 | 1440, gutters take the rest |
+| viewport | columns | margin | track |
+|---|---|---|---|
+| 390 | 1 | 24 | 332 |
+| 744 | 2 | 28 | 333 |
+| 1280 | 3 | 49 | 380 |
+| 1440 | 3 | 55 | 416 |
+| 1920 | 4 | 73 | 402 |
+| 2560 | 5 | 96 | 427 |
+| 3440 | 6 | 96 | 500 |
 
-1600 is where three things coincide: the fourth column appears, the content
-reaches its 1440 maximum exactly, and the type scale tops out. Above it the
-page is frozen and only the void grows.
+Margin is `clamp(vw × 0.038, 24, 96)`; content is the viewport less two of
+them, always.
+
+There is no maximum width and nothing is centred in a field of empty gutter.
+The previous rule capped the content at 1440 and then centred it, which on a
+2560 display left 560px of nothing on each side: neither hugging the edges, so
+the page had no frame, nor deliberately centred, because the margins were set
+by a cap rather than by proportion. Hugging the edges is a decision; a cap is
+an accident.
+
+What a cap was protecting is the LINE MEASURE, and columns protect it better —
+so the column count keeps rising with the viewport, six of them past 2700, and
+every track stays inside about 27em whatever the display does.
 
 The opening is held to the first screen: name and role at the top, one sentence
 under them at half the page width, the four facts at the foot, and the space
@@ -213,14 +291,13 @@ hang in, so the name goes above its entries and they take the full measure.
   at DPR 1 rather than splitting into several draw calls.
 - A lost WebGL context is caught, cancelled (so the browser will offer it back)
   and rebuilt; if it does not return within five seconds the page falls through
-  to the mirror. The first paint waits on the webfonts, but only for 1.5s — a
+  and cleared. The first paint waits on the webfonts, but only for 1.5s — a
   canvas has no fallback face to paint in the meantime.
 - Text is rasterised at up to 2x device pixels. On a 3x phone the type is
   therefore upscaled by half; raising the cap is a one-line change in
   `main.js`, at the cost of a much larger atlas.
-- Printing takes the same path as the no-JavaScript case: the mirror, unclipped,
-  as a plain document. A fixed canvas would put one screenful on the first sheet
-  and nothing after it, which is not a CV.
+- Printing produces a blank sheet, like every other path that is not the
+  canvas. See [Zero text](#zero-text).
 - `_archive/webgpu/` holds the previous WebGPU background — the silk shader
   whose vocabulary (washi, gofun white, ink in damp paper) the current ground
   descends from. Nothing there is bundled.

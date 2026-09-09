@@ -20,7 +20,7 @@
 /* The ground. The shader's vertical mix averages to exactly this, and so does
    --concrete in styles/main.css, so the CSS ground and the first painted frame
    are the same value and there is no flash between them. */
-export const CONCRETE = [0.9098, 0.9020, 0.8824];   // #e8e6e1
+export const CONCRETE = [0.8941, 0.8824, 0.8588];   // #e4e1db
 
 /* Coverage exponent - see the mark fragment shader. 1.0 is raw coverage and
    renders visibly heavy; the theoretical correction for ink this dark on a
@@ -46,30 +46,41 @@ void main() {
 }`;
 
 /* ---------------------------------------------------------------------------
-   The ground: concrete, and one wash.
+   The ground: paper, and two pools.
 
-   Almost all of this shader is spent on things you are not meant to see - the
-   uneven tone of a cast slab, the tooth of its surface, and a dither that stops
-   a gradient eight levels deep from banding into contours on an 8-bit display.
-   The only deliberate gesture is a single soft wash, low and to one side, with
-   an edge that creeps the way ink creeps into damp washi and a faint darker rim
-   where such a wash dries. The rest is 留白: negative space as the subject
-   rather than the leftovers.
+   This is a port of the washi ground from the archived builds - _archive/
+   rebuilds/file2.html and initial-builds/rebuild1.html - and not of the silk
+   shader beside them. The silk is the interesting one to write and the wrong
+   one for this page: a domain-warped, folding, chromatic field, at the top of
+   a document whose entire argument is that it does not raise its voice.
+
+   What the archive actually did, in CSS, was two lines:
+
+     radial-gradient(120% 80% at  50% -10%, rgba(143,95,160,.045), transparent 60%)
+     radial-gradient(100% 60% at 100% 110%, rgba(143,95,160,.035), transparent 55%)
+
+   over a warm broadsheet white, with a faint grain on top. Two enormous, very
+   soft, off-centre pools at four and a half and three and a half percent - so
+   shallow that on most displays you cannot point at where one begins. That is
+   the whole gesture, and it is a better one than the wash it replaces, which
+   was a brushed mass with a defined upper edge and therefore a THING on the
+   page rather than a property of it.
 
    Three decisions carry it:
 
-     - The wash is COOL where the concrete is WARM (blue above red, against a
-       ground with red above blue). That hue rotation, not darkness, is what
-       makes a 5% mark read as ink rather than as a dirty smudge, and it lets
-       the mark stay pale enough to never compete with the type.
-     - The paper does not move, only the ink does. The fibre creep and the
-       aggregate are fixed in screen space; the wash drifts through them on two
-       incommensurate sines with periods of twenty-odd minutes. Over any span
-       of attention it is still, which is the point - and it means the frozen
-       frame the reduced-motion path renders loses nothing.
-     - The dither is triangular (two decorrelated interleaved-gradient-noise
-       taps, differenced) and applied last, in the space the framebuffer
-       quantises. It is the most important term in the file.
+     - The pools are LILAC, from the archive and ultimately from the WebGPU
+       silk. It is the only hue anywhere on this page. A neutral grey pool of
+       the same depth reads as a smudge or a dirty screen; a violet one reads
+       as light, because a warm ground with a cool shadow is how a surface
+       under a real sky behaves. Four percent of a hue does more than eight
+       percent of a value.
+     - They are anchored to the PAGE, at a tenth of the scroll, not to the
+       viewport. A gradient pinned to the window is a vignette and announces
+       itself the moment you scroll; one that lags slightly reads as something
+       the page is printed on.
+     - The dither is the most important term in the file. The whole ramp is
+       about eight of the 256 available levels deep, and without a dither it
+       bands into visible contours on any 8-bit display.
    --------------------------------------------------------------------------- */
 const GROUND_FS = `
 #ifdef GL_FRAGMENT_PRECISION_HIGH
@@ -84,32 +95,23 @@ uniform float uScroll;   // page scroll, in viewport heights
 varying vec2  vUv;       // y up
 varying vec2  vPix;      // device px, at vertex precision
 
-/* Mean of these two is exactly #e8e6e1. Light, and warm by six points of red
-   over blue - enough to read as a surface, not enough to read as beige. A mid
-   grey is the safe answer and the dull one: it makes every value on the page a
-   version of itself and the page goes flat. Lifting the ground into the high
-   eighties does two things at once - it gives the type somewhere to sit that
-   is not competing with it, and it buys back the contrast that lets the
-   secondary greys be genuinely quiet. */
-const vec3 CONC_TOP = vec3(0.894, 0.886, 0.863);   // #e4e2dc
-const vec3 CONC_BOT = vec3(0.925, 0.918, 0.902);   // #eceae6
-/* The wash is a warm grey a shade off the ground, never black and never a
-   colour: the shadow a low sun leaves on a limewashed wall. */
-const vec3 INK      = vec3(0.541, 0.525, 0.482);   // #8a867b
-/* One trace of the lilac the previous WebGPU background was built on, kept at
-   well under one percent of the final pixel. Set WET to 0.0 to remove it;
-   nothing else depends on it. */
-const vec3 LILAC    = vec3(0.416, 0.298, 0.769);   // #6a4cc4
+/* Mean of these two is exactly #e4e1db: a warm broadsheet off-white, six
+   points of red over blue. The archive set its paper at #f3f1ea, which is
+   brighter than this page wants - the ink here is quiet, and a quiet ink on a
+   bright ground is a page that looks unfinished rather than restrained. */
+const vec3 PAPER_TOP = vec3(0.878, 0.867, 0.839);   // #e0ddd6
+const vec3 PAPER_BOT = vec3(0.910, 0.898, 0.878);   // #e8e5e0
+/* rgba(143,95,160) - the archive's pool colour, and the same lilac the WebGPU
+   silk was built on. Never seen as a colour; only ever as the reason the
+   ground reads as a surface with light on it. */
+const vec3 LILAC     = vec3(0.561, 0.373, 0.627);   // #8f5fa0
 
-const float WASH   = 0.085;        // peak ink density
-/* Cool light needs no help; cool SHADOW does. A trace of violet in the deepest
-   part of a warm wash is the oldest trick in oil painting, and it is the only
-   thing on this page that is a hue rather than a value - which is why the
-   ground reads as a surface with light falling on it rather than a flat fill. */
-const float WET    = 0.060;        // lilac in the ink, proportional to density
-const float TOOTH  = 0.008;        // aggregate grain
+const float POOL_A = 0.048;        // upper pool, from 120% 80% at 50% -10%
+const float POOL_B = 0.038;        // lower pool, from 100% 60% at 100% 110%
+const float TOOTH  = 0.007;        // paper grain
 const float DITHER = 2.0 / 255.0;  // 1/255 is pure TPDF; 2 also reads as surface
-const float DRIFT  = 0.013;        // one full cycle, about twenty minutes
+const float DRIFT  = 0.011;        // one full cycle, about twenty minutes
+const float LAG    = 0.10;         // how much of the scroll the pools take
 
 float hash21(vec2 p) {
   vec3 p3 = fract(vec3(p.x, p.y, p.x) * 0.1031);
@@ -134,74 +136,53 @@ float ign(vec2 p) {
   return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715))));
 }
 
+/* One CSS radial-gradient, as a number. Centre in viewport units with y UP
+   (so a CSS "at 50% -10%" is 0.5, 1.10 here), half-extents as fractions of the
+   viewport, and the stop where CSS said transparent. Linear in, smoothstepped out - a CSS gradient interpolates
+   linearly and looks slightly harder at the stop than this does, which on a
+   pool four percent deep is an improvement rather than an infidelity. */
+float pool(vec2 uv, vec2 c, vec2 r, float stop) {
+  return 1.0 - smoothstep(0.0, stop, length((uv - c) / r));
+}
+
 void main() {
-  float aspect = uRes.x / max(uRes.y, 1.0);
-  vec2 p = vec2(vUv.x * aspect, vUv.y);      // height-normalised
   float t = uTime * DRIFT;
+  /* The pools lag the page. Not parallax for its own sake: a background
+     pinned to the viewport is a vignette, and the eye finds the seam the
+     moment the document moves under it. */
+  vec2 uv = vec2(vUv.x, vUv.y + clamp(uScroll, 0.0, 6.0) * LAG);
 
-  /* The slab. One mix, and nothing else: no mottle, no vignette. Both were
-     tried and both were removed - the dither and the aggregate below already
-     give the surface its material. The mix runs on a diagonal rather than
-     straight down, so the light pools away from the wash instead of on top of
-     it: a vertical ramp puts its brightest band exactly where the ink sits and
-     the two cancel. */
-  vec3 col = mix(CONC_BOT, CONC_TOP, clamp(0.5 + 0.62 * (vUv.y - 0.5) - 0.34 * (vUv.x - 0.5), 0.0, 1.0));
+  /* The sheet. One mix on a shallow diagonal, and nothing else - no mottle, no
+     vignette. The grain and the dither below are what give it a surface. */
+  vec3 col = mix(PAPER_BOT, PAPER_TOP,
+    clamp(0.5 + 0.58 * (vUv.y - 0.5) - 0.30 * (vUv.x - 0.5), 0.0, 1.0));
 
-  /* The gesture. Centre proportional to width, so it stays right of centre
-     from a phone to an ultrawide, drifting on two periods that never coincide. */
-  vec2 c = vec2(0.68 * aspect, 0.20);
-  c += vec2(sin(t * 0.37), sin(t * 0.23 + 1.7)) * 0.035;
-  c.y += clamp(uScroll, 0.0, 1.5) * 0.05;    // the wall lags the page a little
+  /* Two pools, drifting on periods that never coincide. The displacement is
+     about one percent of the viewport over twenty minutes: still, at any span
+     of attention, which is what lets the reduced-motion path freeze a frame
+     and lose nothing. */
+  float a = pool(uv, vec2(0.50 + sin(t * 0.37) * 0.012, 1.10 + sin(t * 0.23 + 1.7) * 0.010),
+    vec2(1.20, 0.80), 0.60);
+  float b = pool(uv, vec2(1.00 + sin(t * 0.29 + 2.4) * 0.010, -0.10 - sin(t * 0.19) * 0.012),
+    vec2(1.00, 0.60), 0.55);
 
-  /* Half-extents, clamped against the aspect so the mass stays a CORNER mass
-     on a narrow viewport. Unclamped it grows wider than a phone screen and
-     turns into a full-width band sitting under the name, which is a different
-     picture from the one this is. */
-  vec2 e = vec2(min(0.44 + 0.16 * aspect, 0.62 * aspect), 0.34);
-  /* Rotated off the axes. Everything else in this shader - the noise lattice,
-     the ground ramp, the viewport itself - is aligned to x and y, and a mass
-     that shares that alignment reads as a gradient someone applied rather than
-     as a stroke someone made. Twenty degrees is enough. */
-  vec2 r0 = (p - c) / e;
-  vec2 q = vec2(r0.x * 0.940 - r0.y * -0.342, r0.x * -0.342 + r0.y * 0.940);
+  /* Fibre. Static in screen space - the paper does not move, only the light
+     does - and small enough that it only shows where a pool edge crosses it,
+     which is where washi actually wicks. */
+  float fibre = (vnoise(vUv * vec2(9.0, 6.0) + 31.7) - 0.5) * 0.06;
+  a = clamp(a + fibre, 0.0, 1.0);
+  b = clamp(b + fibre, 0.0, 1.0);
 
-  /* Asymmetric falloff - tighter above, bleeding below. This is the difference
-     between a brushed form and a radial gradient: the upper edge, the one that
-     meets the negative space, is the defined one. */
-  q.y *= 1.0 + 0.34 * smoothstep(-0.6, 0.6, q.y);
-  float d = length(q);
+  col = mix(col, LILAC, a * POOL_A);
+  col = mix(col, LILAC, b * POOL_B);
 
-  /* Lobes: the shape of the stroke, drifting with the ink. */
-  float w = vnoise(p * 1.2 + vec2(t * 0.50, -t * 0.31)) - 0.5;
-  d += w * 0.62;
-
-  /* Fibre creep. Static in screen space - the paper does not move. The
-     smoothstep saturates the core, so this only shows at the edge, which is
-     where sumi actually wicks into damp washi. */
-  d += (vnoise(p * 12.0 + 31.7) - 0.5) * 0.075;
-
-  float wash = 1.0 - smoothstep(0.16, 1.06, d);
-  /* Pooling: densest where the lobe noise pushed the edge outward, which is
-     w BELOW zero. Reading the multiplier off w directly puts the minimum
-     exactly where the mass is deepest, which is the opposite of how ink
-     settles. */
-  wash *= mix(0.72, 1.0, 0.5 - w);
-  float rim = smoothstep(0.02, 0.16, d) * (1.0 - smoothstep(0.16, 0.34, d));
-
-  vec3 ink = mix(INK, LILAC, WET * wash);
-  /* Capped at WASH. The rim peaks exactly where the wash does - both terms hit
-     their maximum at d = 0.16 - so uncapped the darkest ground is 6% deeper
-     than the number the ink palette's contrast was derived from, and the CV's
-     smallest grey drops below 4.5:1 where it scrolls through it. */
-  col = mix(col, ink, min(WASH, wash * WASH + rim * wash * 0.06));
-
-  /* Aggregate. Screen-fixed, so it reads as the tooth of the wall rather than
-     as film grain sitting on the page. */
+  /* Grain. Screen-fixed, so it reads as the tooth of the sheet rather than as
+     film grain sitting on the page. */
   col += (vnoise(vPix * 0.80) - 0.5) * TOOTH;
 
   /* Dither, last, in the space the framebuffer quantises. Without it the whole
-     wash bands into visible contours - the entire ramp is only about eight of
-     the 256 available levels deep.
+     ramp bands into visible contours - it is only about eight of the 256
+     available levels deep.
 
      One tap, not two. The obvious way to build a triangular PDF is to
      difference two offset taps, but IGN is a dot product inside a fract: an
@@ -210,9 +191,11 @@ void main() {
      first and the difference collapses towards zero. A single uniform tap
      actually dithers.
 
-     The coordinate comes from vPix rather than gl_FragCoord: see the vertex
-     shader. Wrapped to 256 as well, which costs nothing and keeps the argument
-     small however large the framebuffer is. */
+     The coordinate comes from vPix rather than gl_FragCoord: gl_FragCoord is
+     specified as mediump in GLSL ES 1.00 whatever the fragment default says,
+     so on a device without highp it would have lost its mantissa near the
+     bottom of a tall page and banded on its own. Wrapped to 256 as well, which
+     costs nothing and keeps the argument small however large the buffer is. */
   col += (ign(mod(vPix, 256.0)) - 0.5) * DITHER;
 
   gl_FragColor = vec4(col, 1.0);

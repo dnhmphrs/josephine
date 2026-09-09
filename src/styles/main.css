@@ -10,7 +10,7 @@
 :root {
   /* The concrete. Kept in sync with GROUND in js/gl.js so the page never
      flashes a different colour before the first frame. */
-  --concrete: #e8e6e1;
+  --concrete: #e4e1db;
 }
 
 * { box-sizing: border-box; }
@@ -79,14 +79,10 @@ body {
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-/* The accessible name, off-screen: the visible word is on the canvas. */
-#scroll .hit span {
-  position: absolute;
-  width: 1px; height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
+/* These carry no accessible name. They used to hold an off-screen <span> with
+   the word the canvas draws, which is what made the hit layer usable with a
+   screen reader; that span was also readable text in the live DOM, and the
+   owner asked for none. What is left is three unlabelled controls. */
 /* The focus ring is drawn on the canvas, where the thing being focused is. */
 #scroll .hit:focus { outline: none; }
 
@@ -103,92 +99,8 @@ body {
 #svh { height: 100vh; height: 100svh; }
 #safe { height: env(safe-area-inset-top, 0px); }
 
-/* Accessible mirror. Off-screen but focusable and readable — never
-   display:none, which would hide it from assistive technology too. */
-.sr {
-  position: absolute;
-  width: 1px; height: 1px;
-  margin: -1px; padding: 0;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  clip-path: inset(50%);
-  white-space: nowrap;
-  border: 0;
-}
-/* Keyboard focus must be visible even though the visual page is on the canvas,
-   so a focused link inside the mirror comes back on screen as a plain chip.
-   Scoped away from the fallback, where the mirror is the visible page and
-   teleporting a focused link into the corner would be absurd. */
-body:not(.no-js) .sr a:focus-visible {
-  position: fixed;
-  left: 16px; top: 16px;
-  width: auto; height: auto;
-  margin: 0; padding: 10px 14px;
-  clip: auto; clip-path: none;
-  overflow: visible;
-  z-index: 10;
-  background: #22211e;
-  color: #eceae6;
-  font: 500 13px/1 ui-sans-serif, system-ui, sans-serif;
-  letter-spacing: 0.04em;
-  text-decoration: none;
-  border-radius: 2px;
-}
+/* There is no accessible mirror and no no-JavaScript document any more: both
+   were complete copies of the CV as real HTML, which is the text this build
+   exists not to publish. Roughly half of this stylesheet went with them. What
+   the degraded paths now show is bare ground - see the README. */
 
-/* Scripting off: #a11y stops being a mirror and becomes the page, and this
-   note explains why it looks like a plain document. */
-.noscript {
-  position: relative;
-  z-index: 2;
-  max-width: 34em;
-  margin: 0;
-  padding: clamp(28px, 8vw, 96px) clamp(28px, 8vw, 96px) clamp(28px, 8vw, 96px);
-  color: #605d51;
-  font: 400 14px/1.65 "Archivo", ui-sans-serif, system-ui, sans-serif;
-}
-
-/* No WebGL, no successful boot, or no JavaScript at all: the mirror stops
-   being a mirror and becomes the page. Rare, but a researcher's contact
-   details should not depend on a GPU. `no-js` is on <html> from the markup,
-   removed by an inline script the moment scripting proves to be on, and put
-   back by main.js if the canvas turns out not to be usable. */
-.no-js .sr {
-  position: static;
-  font-family: "Newsreader", "Noto Serif SC", ui-serif, Georgia, serif;
-  width: auto; height: auto;
-  margin: 0; padding: clamp(28px, 8vw, 96px);
-  max-width: 68ch;
-  overflow: visible;
-  clip: auto; clip-path: none;
-  white-space: normal;
-  color: #22211e;
-  /* Not the `font` shorthand: a CSS-wide keyword is not a legal family name
-     inside it, so `font: 400 18px/1.55 inherit` is dropped whole and the page
-     silently reads at the browser default with the default leading. */
-  font-weight: 400;
-  font-size: 18px;
-  line-height: 1.55;
-}
-.no-js h1 { font-family: "Archivo", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif; font-weight: 500; font-size: clamp(30px, 5vw, 48px); line-height: 1.06; letter-spacing: -0.022em; margin: 0 0 0.6em; }
-.no-js h2, .no-js h3 { font-family: "Archivo", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; color: #605d51; margin: 3em 0 1em; }
-.no-js h3 { margin-top: 1.8em; }
-.no-js dl { display: grid; grid-template-columns: max-content 1fr; align-items: baseline; gap: 0.6em 1.5em; margin: 2em 0; }
-.no-js dt { font-family: "Archivo", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif; font-size: 10.5px; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; color: #605d51; }
-.no-js ul { list-style: none; margin: 0; padding: 0; }
-.no-js li { margin: 0 0 0.4em; }
-.no-js a { color: inherit; }
-.no-js a:focus-visible { outline: 2px solid #22211e; outline-offset: 3px; }
-/* The language control, which in this path is the only one there is. */
-.no-js button {
-  font: 500 11px/1 "Archivo", ui-sans-serif, system-ui, sans-serif;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: #605d51;
-  background: none;
-  border: 0;
-  border-bottom: 1px solid rgba(34, 33, 30, 0.28);
-  padding: 6px 2px;
-  margin: 2.5em 1.5em 0 0;
-  cursor: pointer;
-}
-.no-js button[aria-pressed='true'] { color: #22211e; border-bottom-color: #22211e; }

@@ -40,32 +40,31 @@ const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (
 
 /* The Latin faces, one file each.
 
-   Archivo over Newsreader. The brief asked for two faces that feel
-   contemporary and classic at the same time, which is a request for revivals
-   rather than for period pieces - a face drawn now, out of a form with a long
-   history. Archivo is Omnibus-Type's grotesque, cut from the American gothics
-   that set nineteenth-century wood type and job printing: the ancestors of
-   Helvetica, from before Switzerland sanded the grit off them. Newsreader is
-   Production Type's reading serif, a newspaper Times in its bones and nothing
-   like one in its drawing.
+   Hanken Grotesk over Newsreader. Two faces that feel contemporary and classic
+   at once, which is a request for revivals rather than for period pieces.
 
-   Both carry real axes, and neither ships more of one than it uses. ctx.font
-   is the CSS font shorthand and carries no font-variation-settings, so an axis
-   is unreachable from Canvas2D through a family name alone; asking Google for
-   the axis PINNED to one value - `wdth,wght@100,400..800` - returns a partial
-   instance with that axis frozen and the weight still variable, and the file
-   is a third the size of the two-axis original: 33kB against 87kB. A width cut
-   of Archivo was carried here for one line of display type and is gone with
-   it; the mechanism is worth keeping documented, because it is also what makes
-   the optical size below free.
+   Hanken Grotesk is Alfredo Marco Pradil's grotesque, and it is the Swiss one
+   of the shortlist without being a Helvetica tracing: horizontal terminals and
+   a rational frame, but slightly open apertures and a generous x-height, so it
+   holds a name at 52px and a capital tracked to +0.15em at 10px with the same
+   voice. Newsreader is Production Type's reading serif, a newspaper Times in
+   its bones and nothing like one in its drawing.
+
+   Neither ships more of an axis than it uses. ctx.font is the CSS font
+   shorthand and carries no font-variation-settings, so an axis is unreachable
+   from Canvas2D through a family name alone; asking Google for the axis PINNED
+   to one value - opsz,wght@20,300..700 - returns a partial instance with that
+   axis frozen and the weight still variable, at a third the size of the
+   two-axis original. A family name is therefore how an optical size gets
+   chosen. Hanken Grotesk has only a weight axis, so it needs none of this.
 
    Latin subsets are whole, so English copy can be edited without regenerating.
    unicode-range means a visitor only downloads what the page actually sets. */
 const LATIN = [
   /* Everything structural: the name, the toggle, labels, section heads, years,
-     organisations. Width pinned at 100 - the normal cut, and no second file. */
-  { as: 'Archivo', family: 'Archivo', axis: 'wdth,wght@100,400..800', file: 'archivo',
-    subsets: ['latin', 'latin-ext'], range: '400 800', ofl: 'archivo' },
+     organisations. One weight axis, no width axis, so nothing to pin. */
+  { as: 'Hanken Grotesk', family: 'Hanken Grotesk', axis: 'wght@400..700', file: 'hanken-grotesk',
+    subsets: ['latin', 'latin-ext'], range: '400 700', ofl: 'hankengrotesk' },
   /* The voice: the lede, the CV titles, the contact line. Pinned at optical
      size 20, the middle of the 15-27px band it is set in. One instance rather
      than two - Newsreader is a text face and holds together across that range;

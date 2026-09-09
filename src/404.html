@@ -2,66 +2,38 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Not found — Josephine Shen</title>
-  <meta name="robots" content="noindex" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title></title>
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
+  <meta name="theme-color" content="#e4e1db" />
   <link rel="icon" href="/favicon.ico" sizes="any" />
-  <link rel="stylesheet" href="/fonts/fonts.css" />
   <style>
-    /* The index is a WebGL canvas; this page deliberately is not. An error page
-       that needs a GPU, a texture atlas and a font subset to tell you a URL is
-       wrong has misunderstood its job. Same concrete, same two faces, plain DOM. */
-    :root { --concrete:#e8e6e1; --ink:#22211e; --ink-2:#4f4c43; --ink-3:#605d51; }
-    * { box-sizing: border-box; }
-    html { background: var(--concrete); -webkit-text-size-adjust: 100%; }
-    body {
-      margin: 0;
-      min-height: 100svh;
-      display: flex;
-      align-items: center;
-      padding: clamp(24px, 5.5vw, 80px);
-      background: var(--concrete);
-      color: var(--ink);
-      font: 400 clamp(19px, 1.9vw, 27px)/1.44 "Newsreader", ui-serif, Georgia, serif;
-      -webkit-font-smoothing: antialiased;
+    /* Vercel serves this for every path that is not the index. It used to be a
+       proper error page, set in the site's two faces, explaining that the URL
+       was wrong - and every word of that was readable text on a site whose
+       premise is that it carries none. What is left is the ground and a link
+       back, and the link has no label because a label is text.
+
+       An unlabelled link is a bad error page. It is also the only error page
+       consistent with the decision, and the alternative - rewriting every
+       unmatched path to the index - hides the 404 rather than removing the
+       text, which is worse: it tells a crawler that every URL on this host
+       exists. */
+    html, body { margin: 0; height: 100%; background: #e4e1db; }
+    a {
+      display: block;
+      height: 100%;
+      /* A single hairline mark, low and left, on the same margin the site uses.
+         It is a target and an acknowledgement that something is here, and it
+         says nothing. */
+      background: linear-gradient(#22211e, #22211e) no-repeat;
+      background-size: 44px 1px;
+      background-position: clamp(24px, 3.8vw, 96px) calc(100% - clamp(24px, 3.8vw, 96px));
+      opacity: 0.55;
     }
-    main { max-width: 30em; }
-    .eyebrow {
-      font: 500 clamp(10.5px, 0.9vw, 12px)/1.2 "Archivo", ui-sans-serif, system-ui, sans-serif;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: var(--ink-3);
-      margin: 0 0 clamp(18px, 2vw, 28px);
-    }
-    h1 {
-      font: 500 clamp(30px, 5vw, 48px)/1.06 "Archivo", ui-sans-serif, system-ui, sans-serif;
-      letter-spacing: -0.022em;
-      margin: 0 0 clamp(20px, 2.4vw, 34px);
-    }
-    p { margin: 0; color: var(--ink-2); }
-    p + p { margin-top: 0.35em; font-size: 0.86em; }
-    p:lang(zh) { font-family: "Noto Serif SC", ui-serif, serif; }
-    .back {
-      display: inline-block;
-      margin-top: clamp(26px, 3vw, 42px);
-      font: 500 clamp(10.5px, 0.9vw, 12px)/1.2 "Archivo", ui-sans-serif, system-ui, sans-serif;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: var(--ink);
-      text-decoration: none;
-      border-bottom: 1px solid rgba(34, 33, 30, 0.3);
-      padding-bottom: 4px;
-    }
-    .back:hover { border-bottom-color: var(--ink); }
+    a:hover, a:focus-visible { opacity: 1; }
+    a:focus-visible { outline: 1px solid #22211e; outline-offset: -4px; }
   </style>
 </head>
-<body>
-  <main>
-    <p class="eyebrow">404</p>
-    <h1>Nothing here</h1>
-    <p>There is no page at this address.</p>
-    <p lang="zh-Hans">此处没有页面。</p>
-    <a class="back" href="/">Back to the card</a>
-  </main>
-</body>
+<body><a href="/"></a></body>
 </html>

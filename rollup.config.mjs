@@ -1,20 +1,18 @@
 import fs from 'node:fs';
 import { nodeResolve } from '@rollup/plugin-node-resolve';
-import json from '@rollup/plugin-json';
 import postcss from 'rollup-plugin-postcss';
 import copy from 'rollup-plugin-copy';
 import terser from '@rollup/plugin-terser';
 import serve from 'rollup-plugin-serve';
 import livereload from 'rollup-plugin-livereload';
-import { renderMirror } from './src/js/mirror.js';
 
 /* ---------------------------------------------------------------------------
    Build
    ---------------------------------------------------------------------------
-   Entry is src/js/main.js. It imports content.json (bundled by @rollup/plugin-json)
-   and the stylesheet (main.css), which rollup-plugin-postcss extracts into
-   dist/assets/styles.css. The HTML pages, the content folder, and anything in
-   public/ are copied across verbatim.
+   Entry is src/js/main.js. It imports content.json - ENCODED, see below - and
+   the stylesheet (main.css), which rollup-plugin-postcss extracts into
+   dist/assets/styles.css. index.html and anything in public/ are copied across,
+   index.html with its comments stripped.
 
    index.html links /js/main.js (the bundle) and /assets/styles.css directly.
 
@@ -25,6 +23,49 @@ import { renderMirror } from './src/js/mirror.js';
    --------------------------------------------------------------------------- */
 
 const dev = process.env.ROLLUP_WATCH === 'true';
+
+/* ---------------------------------------------------------------------------
+   The content, encoded.
+
+   Every visible string on this site is drawn into a canvas by the GPU so that
+   the page carries no readable text. That is undone completely if the same
+   sentences ship as a JS object literal three files later, which is exactly
+   what @rollup/plugin-json used to do - dist/js/main.js opened with her name,
+   her email and both CVs in plain sight.
+
+   So plugin-json is GONE from the plugin list, and this replaces it. The
+   deletion is what makes the guarantee; the plugin below is only what fills
+   the hole. Rollup takes the first non-null `load` result, so this must also
+   come first.
+
+   Prune, stringify, XOR with a rolling key, base64. Call it what it is:
+   obfuscation. The key sits one line above the payload in the same bundle, so
+   it stops `grep`, a text-extracting crawler and a casual view-source, and it
+   stops nothing else. It is chosen for being synchronous, dependency-free and
+   free of any browser-support floor - not for being strong.
+
+   The prune matters as much as the encoding: `note` and `placeholder` are the
+   owner's private editing marks recording which CV facts are still unverified,
+   and they have no business leaving the repository at all. */
+const PRIVATE_KEYS = ['_readme', 'note', 'placeholder'];
+const XOR_KEY = 0x5a;
+
+const prune = (v) => (Array.isArray(v) ? v.map(prune)
+  : (v && typeof v === 'object')
+    ? Object.fromEntries(Object.entries(v)
+      .filter(([k]) => !PRIVATE_KEYS.includes(k))
+      .map(([k, x]) => [k, prune(x)]))
+    : v);
+
+const encodedContent = () => ({
+  name: 'encoded-content',
+  load(id) {
+    if (!id.replace(/\\/g, '/').endsWith('src/content/content.json')) return null;
+    const bytes = Buffer.from(JSON.stringify(prune(JSON.parse(fs.readFileSync(id, 'utf8')))), 'utf8');
+    for (let i = 0; i < bytes.length; i++) bytes[i] ^= (XOR_KEY + (i & 31)) & 255;
+    return `export default ${JSON.stringify(bytes.toString('base64'))};`;
+  },
+});
 
 export default {
   input: 'src/js/main.js',
@@ -38,8 +79,8 @@ export default {
     sourcemap: dev,
   },
   plugins: [
+    encodedContent(),
     nodeResolve(),
-    json(),
     postcss({
       // Relative to output.dir (dist/), so this writes dist/assets/styles.css —
       // which is exactly what index.html links to.
@@ -56,21 +97,18 @@ export default {
         {
           src: 'src/index.html',
           dest: 'dist',
-          /* The accessible mirror is inlined at build time from the same
-             function main.js uses at runtime, so the page a crawler or a
-             visitor without JavaScript sees is the WHOLE document rather than
-             a hand-written summary that drifts away from content.json. */
-          transform: (contents) => {
-            const content = JSON.parse(fs.readFileSync('src/content/content.json', 'utf8'));
-            return contents.toString().replace('<!--mirror-->', renderMirror(content, 'en', false));
-          },
+          /* The comments in this file are two thirds of its served bytes and
+             every one of them is readable English. They are worth keeping in
+             src/, where they explain the decisions; they are not worth
+             shipping to a page whose entire premise is that it carries no
+             text. */
+          transform: (contents) => contents.toString().replace(/<!--[\s\S]*?-->/g, '').replace(/\n{3,}/g, '\n\n'),
         },
         { src: 'src/404.html',     dest: 'dist' },   // Vercel serves this for not-found routes
-        /* content.json is NOT copied. @rollup/plugin-json already inlines it
-           into the bundle, so a second public copy would add nothing but a
-           readable file carrying the internal editing notes - including which
-           facts are still marked as missing. */
-        { src: 'public/*',         dest: 'dist' },   // favicon, square.png, etc.
+        /* content.json is NOT copied. It ships encoded inside the bundle; a
+           second public copy would be the readable original, complete with the
+           editing notes the encoder is careful to prune. */
+        { src: 'public/*',         dest: 'dist' },   // favicon, square.png
       ],
       copyOnce: false,
     }),

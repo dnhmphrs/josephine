@@ -1,20 +1,12 @@
 {
-  "_readme": "ALL text on the site lives here, in English (en) and Chinese (zh). Nothing is rendered from HTML, so this file is the only place to edit wording. Keep both languages filled: the toggle is a cut between them and a missing value leaves a hole on screen. Do not rename keys. Plain text only - no HTML tags, no <br/>: line breaks are decided by the layout engine. Opening runs carry no terminal punctuation - a page that states does not narrate. An entry marked \"placeholder\": true is a real thing with a fact still missing; read its \"note\", fill the value in, then delete both keys. After adding any NEW Chinese character, run `npm run fonts` - the CJK webfonts are subset to exactly the characters this file uses.",
-  "site": {
-    "title": {
-      "en": "Josephine Shen",
-      "zh": "沈菲菲"
-    },
-    "description": {
-      "en": "Josephine Shen - AI policy researcher. Geopolitics and technology governance across China, the EU and the multilateral system. Berlin.",
-      "zh": "沈菲菲，人工智能政策研究者。研究地缘政治与技术治理，横跨中国、欧盟与多边体系。柏林。"
-    }
-  },
+  "_readme": "ALL text on the site lives here, in English (en) and Chinese (zh). Nothing is rendered from HTML - every string is drawn into a canvas by the GPU - so this file is the only place to edit wording, and it is the only readable copy that exists. The build XORs and base64s it into the bundle and prunes the keys below, so none of this ships as text. Keep both languages filled: the toggle is a cut between them and a missing value leaves a hole on screen. Do not rename keys. Plain text only - no HTML tags, no <br/>: line breaks are decided by the layout engine. Opening runs carry no terminal punctuation - a page that states does not narrate. An entry marked \"placeholder\": true is a real thing with a fact still missing; read its \"note\", fill the value in, then delete both keys. _readme, note and placeholder are stripped at build and never leave the repository. After adding any NEW Chinese character, run `npm run fonts` - the CJK webfonts are subset to exactly the characters this file uses.",
   "labels": {
     "cv": {
       "en": "CV",
       "zh": "简历"
-    }
+    },
+    "en": "EN",
+    "zh": "中"
   },
   "index": {
     "name": {

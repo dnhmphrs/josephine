@@ -17,59 +17,70 @@
 /* ---- ink ------------------------------------------------------------------
    Three greys against the ground, warm like it, and nothing else.
 
-   The ground is light now, which buys back the contrast that lets the
-   secondary values be genuinely quiet - #605D51 is a soft warm grey rather
-   than a near-black doing an impression of one, and it still measures 4.8:1
-   over the deepest point of the wash, which is the constraint that sets it.
+   The ground is light, which buys back the contrast that lets the secondary
+   values be genuinely quiet - #5B584C is a soft warm grey rather than a
+   near-black doing an impression of one, and it still measures 5.0:1 over the
+   deepest point of the wash, which is the constraint that actually sets it.
    Restraint here is a consequence of the ground, not a compromise with it. */
 export const INK = [0.133, 0.129, 0.118];    // #22211e  primary       11.8:1
 export const INK_2 = [0.310, 0.298, 0.263];  // #4f4c43  prose          6.3:1
-export const INK_3 = [0.376, 0.365, 0.318];  // #605d51  labels, meta   4.8:1
+export const INK_3 = [0.357, 0.345, 0.298];  // #5b584c  labels, meta   5.0:1
 export const RULE = [0.133, 0.129, 0.118];   // primary, drawn at low alpha
 
 /* ---- the two voices -------------------------------------------------------
-   Archivo over Newsreader, divided by job rather than by hierarchy: the
+   Hanken Grotesk over Newsreader, divided by job rather than by hierarchy: the
    grotesque is the STRUCTURE - the name, the toggle, the section heads, every
    tracked capital - and the serif is the VOICE, the places where a sentence is
    being spoken rather than a page labelled. Nothing is set in both.
 
-   Both are set light and small. A face this neutral does not need weight to be
-   certain, and a page that whispers in a large enough room is heard: the
-   confidence here is meant to come from the space around the type and the
-   exactness of the grid, never from the size of the letters.
+   Hanken Grotesk is the Swiss one without being a Helvetica tracing:
+   horizontal terminals and a rational frame, but slightly open apertures and a
+   generous x-height. That last part is what earns it the job here. A face has
+   to hold a name at 52px AND a capital tracked to +0.15em at 10px, and the
+   ones that manage the first usually shut down at the second. A grotesque with
+   presence at 500 also lets the page stay quiet and still sound certain; the
+   face this replaces needed weight to do the same work, and weight is what
+   made the previous pass read as shouting.
 
    The CJK companions are appended as fallbacks, so a mixed string like
    "English, 中文" resolves per character without needing a second run. Noto
-   Sans SC is 黑体 - square frame, near-monolinear - which is the argument
-   Archivo makes in Latin; Noto Serif SC is 宋体, which is Newsreader's. */
-const SANS = '"Archivo", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif';
+   Sans SC is 黑体 - square frame, near-monolinear - which is the argument the
+   grotesque makes in Latin; Noto Serif SC is 宋体, which is Newsreader's. */
+const SANS = '"Hanken Grotesk", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif';
 const SERIF = '"Newsreader", "Noto Serif SC", ui-serif, Georgia, serif';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const lerp = (a, b, t) => a + (b - a) * t;
 
 /* ---- grid -----------------------------------------------------------------
-   1 column on a phone, 2 on a tablet, 3 on a laptop, 4 on a wide display, and
-   past 1440px the content stops growing so the gutters take the difference.
+   EDGE-BASED. The content spans the viewport less a margin, and that is all -
+   there is no maximum width and nothing is centred in a field of empty gutter.
+
+   The previous rule capped the content at 1440 and then centred it, which on a
+   2560 display left 560px of nothing on each side. That is the worst of both
+   conventions: it does not hug the edges, so the page has no frame; and it is
+   not deliberately centred either, because the margins are set by a cap rather
+   than by proportion. A reader reads it as a page that failed to fill its
+   window. Hugging the edges is a decision; a cap is an accident.
+
+   What a cap was protecting is the LINE MEASURE, and columns protect that
+   better. So the column count keeps rising with the viewport - six of them
+   past 2700 - and every track stays inside about 27em whatever the display
+   does. The margin is proportional with a ceiling, so the frame reads as a
+   frame rather than growing without limit.
 
    Breakpoints sit between real logical widths rather than on round numbers.
    720 clears every phone portrait (max 430) and falls below every tablet
-   portrait (min 744). 1120 clears iPad Pro landscape at 1024. 1600 is chosen
-   so three things coincide at one number: the fourth column appears, the
-   content reaches its 1440 maximum exactly (1600 - 2x80), and the type scale
-   tops out. Above it the page is frozen and only the void grows.
-
-   The gutter is a fraction of the CONTENT, not of the viewport: past the
-   maximum width the block must be frozen, and a viewport-relative gutter would
-   keep prising the columns apart out to 2560 while the content stood still. */
+   portrait (min 744). 1120 clears iPad Pro landscape at 1024. 1600, 2100 and
+   2700 are where a track would otherwise pass 30em and stop being one glance. */
 export function grid(vw, safeTop = 0, safeSide = 0) {
-  const cols = vw < 720 ? 1 : vw < 1120 ? 2 : vw < 1600 ? 3 : 4;
+  const cols = vw < 720 ? 1 : vw < 1120 ? 2 : vw < 1600 ? 3 : vw < 2100 ? 4 : vw < 2700 ? 5 : 6;
   /* The margin also has to clear the landscape sensor housing, which
      viewport-fit=cover puts the page underneath. */
-  const margin = Math.max(safeSide, clamp(vw * 0.055, 24, 80));
-  const contentW = Math.round(Math.min(vw - margin * 2, 1440));
-  const left = Math.round((vw - contentW) / 2);
-  const gutter = Math.round(clamp(contentW * 0.030, 20, 44));
+  const margin = Math.max(safeSide, clamp(vw * 0.038, 24, 96));
+  const contentW = Math.round(vw - margin * 2);
+  const left = Math.round(margin);
+  const gutter = Math.round(clamp(contentW * 0.028, 20, 56));
   const track = (contentW - gutter * (cols - 1)) / cols;
   return {
     vw, safeTop, cols, margin, contentW, left, gutter,
@@ -87,10 +98,16 @@ export function grid(vw, safeTop = 0, safeSide = 0) {
    the content freezes. `upper` is a layout instruction, not a font one: there
    are no synthetic small caps here, just capitals with the tracking they need.
 
-   Nothing is set above 54px and nothing is heavier than 500. The whole scale
+   Nothing is set above 54px and nothing is heavier than 600. The whole scale
    spans about five to one, where a display page would span fifteen: hierarchy
    is carried by the space around a thing and by which of the two faces it is
-   set in, which is a quieter instrument than size and a more exact one.
+   set in, which is a quieter instrument than size and a more exact one. The
+   tracked capitals sit at 600 rather than 500 because at 10-12px a grotesque
+   loses more to the rasteriser than it does at 52, and a label that has been
+   spaced to +0.15em needs the stem back. Their Chinese counterparts step back
+   only one notch rather than two: 现在 has no capitals to be tracked and no
+   case to distinguish it, so weight is the only thing left holding it apart
+   from the entry titles under it.
 
    `lh` is a multiple of the FONT SIZE, never of the font's bounding box. That
    distinction is the difference between a page that holds still and one that
@@ -104,16 +121,16 @@ function scale(vw) {
   /* `zh` is the per-role correction for Chinese: a size factor, a floor in CSS
      px, and a weight step. See adapt(). */
   return {
-    name: { family: SANS, size: f(32, 54), lh: 1.06, weight: 500, tracking: f(-0.016, -0.026), zh: { k: 0.94, dw: -100, track: 0.02 } },
-    role: { family: SANS, size: f(10.5, 12), lh: 1.2, weight: 500, tracking: f(0.17, 0.15), upper: true, zh: { k: 0.98, floor: 12, dw: -100 } },
+    name: { family: SANS, size: f(32, 54), lh: 1.05, weight: 500, tracking: f(-0.018, -0.028), zh: { k: 0.94, dw: -100, track: 0.02 } },
+    role: { family: SANS, size: f(10.5, 12), lh: 1.2, weight: 600, tracking: f(0.17, 0.15), upper: true, zh: { k: 0.98, floor: 12, dw: -100 } },
     lede: { family: SERIF, size: f(19, 27), lh: 1.44, weight: 400, tracking: 0, zh: { k: 0.90, dw: -50 } },
-    label: { family: SANS, size: f(10, 11), lh: 1.2, weight: 500, tracking: f(0.17, 0.15), upper: true, zh: { k: 0.98, floor: 11.5, dw: -100 } },
+    label: { family: SANS, size: f(10, 11), lh: 1.2, weight: 600, tracking: f(0.17, 0.15), upper: true, zh: { k: 0.98, floor: 11.5, dw: -100 } },
     value: { family: SERIF, size: f(15.5, 17.5), lh: 1.42, weight: 400, tracking: 0, zh: { k: 0.92, floor: 15 } },
-    nav: { family: SANS, size: f(10.5, 11.5), lh: 1.2, weight: 500, tracking: f(0.17, 0.15), upper: true, zh: { k: 0.98, floor: 12, dw: -100 } },
-    section: { family: SANS, size: f(10.5, 12), lh: 1.2, weight: 500, tracking: f(0.17, 0.15), upper: true, zh: { k: 0.98, floor: 12, dw: -100 } },
+    nav: { family: SANS, size: f(10.5, 11.5), lh: 1.2, weight: 600, tracking: f(0.17, 0.15), upper: true, zh: { k: 0.98, floor: 12, dw: -100 } },
+    section: { family: SANS, size: f(10.5, 12), lh: 1.2, weight: 600, tracking: f(0.17, 0.15), upper: true, zh: { k: 1, floor: 13, dw: -100 } },
     title: { family: SERIF, size: f(16, 18.5), lh: 1.38, weight: 400, tracking: 0, zh: { k: 0.92, floor: 15 } },
     meta: { family: SANS, size: f(11, 12), lh: 1.35, weight: 400, tracking: 0.01, zh: { k: 0.98, floor: 12 } },
-    year: { family: SANS, size: f(11, 12), lh: 1.35, weight: 500, tracking: 0.03, zh: { k: 1, floor: 12 } },
+    year: { family: SANS, size: f(11, 12), lh: 1.35, weight: 600, tracking: 0.03, zh: { k: 1, floor: 12 } },
     mail: { family: SERIF, size: f(16, 18), lh: 1.35, weight: 400, tracking: 0, zh: { k: 1 } },
   };
 }
@@ -293,33 +310,51 @@ class Scene {
 const HAIRLINE = 0.16;
 
 /* ---- the toggle -----------------------------------------------------------
-   The only control on the page, in the top right, showing both languages at
-   once: the one you are not reading is the button. There is no rule under it
-   and nothing opposite it - the top left of the page is left empty, because a
+   The only control on the page, in the top right. ONE element: both scripts
+   inside a single target, separated by a hairline, the language you are
+   reading lit and the other one dim. Clicking anywhere on it switches.
+
+   Two marks with two hit regions was the wrong object. It asked the reader to
+   aim - to notice which half of a small pair of words is the one they want -
+   and a control with two targets and two states is a pair of radio buttons
+   pretending to be a switch. A switch shows you both positions and takes the
+   press wherever it lands. Showing both also answers the harder case: a
+   Chinese reader arriving on the English page can see that 中 exists without
+   reading a word of English, and the reverse.
+
+   Nothing opposite it: the top left of the page is left empty, because a
    wordmark there would be the name repeated a hundred pixels above itself.
    Returns the y below which content may start. */
-function toggle(scene, lang, g) {
+function toggle(scene, content, lang, g) {
   const S = scale(g.vw);
   const y = Math.round(clamp(g.vw * 0.045, 30, 58)) + g.safeTop;
   const on = S.nav;
-  /* Active and inactive differ in weight as well as tone. Tone alone is not
-     enough: the inactive value still has to clear 4.5:1 like everything else,
-     which leaves it close enough to the active one to be ambiguous. */
+  /* Lit and dim differ in weight as well as tone. Tone alone is not enough:
+     the dim value still has to clear 4.5:1 like everything else, which leaves
+     it close enough to the lit one to be ambiguous. */
   const off = { ...S.nav, weight: 400 };
+  const gap = Math.round(Math.max(9, g.u * 0.8));
 
-  const zh = scene.text('nav.zh', '中', { ...(lang === 'zh' ? on : off), tracking: 0 }, g.right, y,
+  /* Both marks come from content.json rather than sitting here as literals:
+     everything the encoder cannot see is a string that ships in plain sight. */
+  const zh = scene.text('nav.zh', content.labels.zh, { ...(lang === 'zh' ? on : off), tracking: 0 }, g.right, y,
     lang === 'zh' ? INK : INK_3, { align: 'right' });
-  const zhX = g.right - zh.width;
-
-  /* Wide enough that two 44px targets centred on their marks do not overlap:
-     EN sets about 18px and 中 about 12px, so the gap has to carry the rest. */
-  const gap = Math.max(32, g.vw * 0.022);
-  const en = scene.text('nav.en', 'EN', lang === 'en' ? on : off, zhX - gap, y,
+  const barX = g.right - zh.width - gap;
+  /* A hairline, not a slash: a slash is a glyph and would take the colour and
+     weight of one side or the other. The rule belongs to neither. */
+  scene.rect('nav.bar', barX, Math.round(y - zh.ascent * 0.86), 1, Math.round(zh.ascent * 1.02), RULE, 0.28);
+  const en = scene.text('nav.en', content.labels.en, lang === 'en' ? on : off, barX - gap, y,
     lang === 'en' ? INK : INK_3, { align: 'right' });
-  /* 中 is drawn first because EN is positioned relative to it, but the hits go
-     in the order they are read - and the hit order is the tab order. */
-  scene.hit('lang:en', en, zhX - gap - en.width, y, { key: 'nav.en', label: 'English', lang: 'en', pressed: lang === 'en' });
-  scene.hit('lang:zh', zh, zhX, y, { key: 'nav.zh', label: '中文', lang: 'zh-Hans', pressed: lang === 'zh' });
+
+  /* ONE hit, spanning both marks and the rule between them, and generous
+     around all of it. Everything in it does the same thing. */
+  const x0 = barX - gap - en.width;
+  const span = { width: g.right - x0, lineHeight: en.lineHeight, ascent: en.ascent };
+  scene.hit('lang:toggle', span, x0, y, {
+    key: 'nav.en',
+    other: lang === 'en' ? 'zh' : 'en',
+    lang: lang === 'zh' ? 'zh-Hans' : 'en',
+  });
 
   return y + en.descent;
 }
@@ -334,7 +369,7 @@ function toggle(scene, lang, g) {
    one that assumes it already is. Nothing here is centred, nothing is a card,
    and no line is longer than about sixty characters.
    --------------------------------------------------------------------------- */
-function opening(scene, content, lang, g, vh, topY) {
+function opening(scene, content, lang, g, topY) {
   const S = scale(g.vw);
   const c = content.index;
   const u = g.u;
@@ -353,7 +388,7 @@ function opening(scene, content, lang, g, vh, topY) {
      against a box of 1.0, while the Han glyphs falling back into the same run
      reach 0.88 above the baseline. Setting a name by the box leaves the
      English floating; setting it by cap height drops 沈 into the line below. */
-  let y = topY + u * 9 + (nameRun.inkAscent || nameRun.capHeight);
+  let y = topY + u * 6 + (nameRun.inkAscent || nameRun.capHeight);
   scene.text('index.name', c.name[lang], name, g.left, y, INK);
   y += nameRun.inkDescent;
 
@@ -362,18 +397,21 @@ function opening(scene, content, lang, g, vh, topY) {
   scene.text('index.role', c.role[lang], S.role, g.left, y, INK_3);
   y += roleRun.descent;
 
-  /* The lede is tied to the grid rather than to an em measure: two tracks of
-     four, two of three, everything otherwise - and capped at 26em regardless,
-     which is about sixty characters. Half the page width at the widest, which
-     is what leaves the right-hand side of the opening empty. */
-  const span = g.cols >= 3 ? 2 : g.cols;
+  /* The lede is tied to the grid rather than to an em measure: three tracks of
+     five or six, two of three or four, everything otherwise - capped at 34em,
+     which is about eighty characters and the outside edge of what reads in one
+     pass. Wider than it was, deliberately: the same sentence over two lines
+     instead of three is most of what makes this block shorter, and a head that
+     is wide and shallow sits on an edge-based grid the way a narrow one does
+     not. */
+  const span = g.cols >= 5 ? 3 : g.cols >= 3 ? 2 : g.cols;
   const ledeRole = adapt(S.lede, lang);
-  const ledeW = Math.min(g.colX(span - 1) + g.colW - g.left, 26 * ledeRole.size);
+  const ledeW = Math.min(g.colX(span - 1) + g.colW - g.left, 34 * ledeRole.size);
   const ledeRun = scene.engine.run({ ...ledeRole, text: 'H' });
   const ledeLead = lead(S.lede);
   const lines = wrap(scene.engine, c.line[lang], ledeRole, ledeW);
 
-  y += u * 5 + ledeRun.ascent;
+  y += u * 4 + ledeRun.ascent;
   lines.forEach((t, i) => {
     scene.text(`index.lede.${i}`, t, S.lede, g.left, y + i * ledeLead, INK_2);
   });
@@ -391,28 +429,21 @@ function opening(scene, content, lang, g, vh, topY) {
     f, texts: wrap(scene.engine, f.value[lang], adapt(S.value, lang), fieldW),
   }));
 
-  /* The facts sit at the FOOT of the first screen, not below the sentence -
-     which puts the empty page between the two blocks, where it is a decision,
-     rather than under them, where it is only what was left over. They fall
-     back to flowing when the window is too short to hold both. */
+  /* The facts follow the sentence rather than being pushed to the foot of the
+     window. Anchoring them to the fold made the head as tall as the screen and
+     put a second caption row on the page - and once what follows is a CV
+     rather than a footer, the empty page between them stops being a
+     composition and becomes a hole. */
   const rows = Math.ceil(fields.length / perRow);
-  const rowLines = [];
-  let fieldsH = 0;
+  const rowTop = [];
+  y += u * 7;
   for (let r = 0; r < rows; r++) {
+    rowTop.push(y);
     let mx = 1;
     for (let i = r * perRow; i < Math.min(fields.length, (r + 1) * perRow); i++) {
       mx = Math.max(mx, fields[i].texts.length);
     }
-    rowLines.push(mx);
-    fieldsH += labelRun.ascent + u * 1.8 + valueRun.ascent + (mx - 1) * valueLead + valueRun.descent;
-    if (r < rows - 1) fieldsH += u * 3.2;
-  }
-
-  const rowTop = [];
-  y = Math.max(y + u * 9, vh - u * 16 - fieldsH);
-  for (let r = 0; r < rows; r++) {
-    rowTop.push(y);
-    y += labelRun.ascent + u * 1.8 + valueRun.ascent + (rowLines[r] - 1) * valueLead + valueRun.descent;
+    y += labelRun.ascent + u * 1.8 + valueRun.ascent + (mx - 1) * valueLead + valueRun.descent;
     if (r < rows - 1) y += u * 3.2;
   }
 
@@ -575,14 +606,13 @@ export function buildScene(engine, content, vw, vh, lang = 'en', safeTop = 0, sa
   const S = scale(vw);
   const scene = new Scene(engine, lang, g);
 
-  const topY = toggle(scene, lang, g);
-  const openEnd = opening(scene, content, lang, g, vh, topY);
+  const topY = toggle(scene, content, lang, g);
+  const openEnd = opening(scene, content, lang, g, topY);
 
-  /* The CV starts near the fold, and below it when the opening runs long. The
-     first screen is therefore the opening and almost nothing else, which is
-     the whole point of it; the hairline sitting just above the fold is what
-     says there is more without needing to say so. */
-  const cvTop = Math.round(Math.max(openEnd + g.u * 10, vh - g.u * 6));
+  /* The CV follows the opening directly. It used to be held down to the fold,
+     which made the head as tall as the window whatever it contained; a head
+     that is wide and shallow wants the page to keep moving under it instead. */
+  const cvTop = Math.round(openEnd + g.u * 11);
   const measured = measureSections(engine, content, lang, g, S);
   const cvEnd = cvBlock(scene, content, lang, g, cvTop, measured);
 
@@ -619,7 +649,7 @@ export function fontSpecs(content, vw, lang) {
     ...content.index.fields.map((f) => f.label[lang] + f.value[lang]),
     ...content.cv.map((s) => s.section[lang]
       + s.entries.map((e) => (e.year || '') + e.title[lang] + (e.org ? e.org[lang] : '')).join('')),
-    '中',
+    content.labels.zh,
   ].join('');
   const exotic = [...new Set([...strings])].filter((c) => c.codePointAt(0) > 0x7f).join('');
 
