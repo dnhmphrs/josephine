@@ -1,17 +1,15 @@
 /* ===========================================================================
    Josephine Shen - entry point.
 
-   Wires the four pieces together and owns the two bits of state the whole site
-   has: which view you are on, and which language you are reading.
+   Wires the three pieces together and owns the one piece of state the whole
+   site has: which language you are reading.
 
-     content.json  ->  layout.js   builds four scenes (index/cv x en/zh)
+     content.json  ->  layout.js   builds the scene
      text.js       ->  rasterises every run into one atlas texture
      gl.js         ->  draws the ground and the marks
 
-   Nothing on this page animates except the ground. The language toggle is a
-   cut - both languages are already laid out and rasterised, so switching is a
-   different draw call and nothing more - and changing view is a cross-fade
-   short enough to read as a page turning rather than as a transition.
+   One page, and nothing on it animates except the ground. The language toggle
+   is a cut.
 
    Everything visible is on the canvas. Two invisible DOM layers keep the page
    an actual document rather than a picture of one: a mirror of every string,
@@ -25,7 +23,7 @@ import content from '../content/content.json';
 import '../styles/main.css';
 import { TextEngine, loadFonts } from './text.js';
 import { createStage, Marks, drawScene } from './gl.js';
-import { buildScenes, fontSpecs, deferredFontSpecs, INK } from './layout.js';
+import { buildScene, fontSpecs, deferredFontSpecs, INK } from './layout.js';
 import { renderMirror } from './mirror.js';
 
 const DPR_CAP = 2;
@@ -33,10 +31,6 @@ const DPR_CAP = 2;
    second buys nothing but heat. Five is indistinguishable, and scroll,
    pointer and transitions all set `dirty` and redraw immediately anyway. */
 const IDLE_FRAME_MS = 200;
-/* Long enough to see, too short to wait through. A view change is a different
-   page, not a movement of this one, so it dissolves in place rather than
-   sliding: nothing here has a direction. */
-const VIEW_FADE_MS = 170;
 
 const canvas = document.getElementById('stage');
 const proxy = document.getElementById('scroll');
@@ -45,11 +39,9 @@ const safeProbe = document.getElementById('safe');
 const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 
 const state = {
-  view: 'index',
   lang: 'en',
-  scenes: null,
+  scene: null,
   grid: null,
-  transition: null,
   lost: false,
   dirty: true,
   lastDraw: 0,
@@ -105,8 +97,6 @@ async function boot(stage) {
     new Promise((r) => setTimeout(r, 1500)),
   ]);
 
-  const scene = () => state.scenes[`${state.view}:${state.lang}`];
-
   /* --- layout ------------------------------------------------------------ */
 
   function relayout() {
@@ -117,11 +107,10 @@ async function boot(stage) {
     const safeTop = safeProbe ? safeProbe.offsetHeight : 0;
 
     engine.reset(dpr);
-    const built = buildScenes(engine, content, state.vw, state.vhStable, state.lang, safeTop);
+    const built = buildScene(engine, content, state.vw, state.vhStable, state.lang, safeTop);
     const atlas = engine.build();
-    state.scenes = built.scenes;
+    state.scene = built.scene;
     state.grid = built.grid;
-    state.transition = null;
 
     /* Atlas overflow means the page needs more texture than this GPU will give
        us. One lever, not a multi-atlas state machine: halve the resolution and
@@ -151,17 +140,17 @@ async function boot(stage) {
   }
 
   /* The SMALL viewport height - what is available with the browser chrome at
-     its largest. LAYOUT uses this, so the index view is guaranteed to fit in
-     the worst case and never jitters as the iOS bars animate in and out. */
+     its largest. LAYOUT uses this, so the opening is guaranteed to fill the
+     worst case and never jitters as the iOS bars animate in and out. */
   function stableHeight() {
     return (svhProbe && svhProbe.offsetHeight) || innerHeight;
   }
 
   function syncProxy() {
-    proxy.style.height = `${Math.ceil(scene().height)}px`;
+    proxy.style.height = `${Math.ceil(state.scene.height)}px`;
   }
 
-  /* --- state changes ------------------------------------------------------ */
+  /* --- language ----------------------------------------------------------- */
 
   /* A cut, and a whole re-layout to make it: only the language being read is
      in the atlas, so this measures, rasterises and re-uploads the other one.
@@ -170,11 +159,11 @@ async function boot(stage) {
      has to promise. Keeping both languages in the texture would save nothing a
      reader could perceive and cost twice the atlas.
 
-     The document does change height under them - the Chinese CV is shorter
+     The document does change height under them - the Chinese page is shorter
      than the English one - and the browser will clamp a scroll past the new
      end. That is correct: the page really is that length now. */
   function setLang(next) {
-    if (next === state.lang || !state.scenes) return;
+    if (next === state.lang || !state.scene) return;
     state.lang = next;
     document.documentElement.lang = next === 'zh' ? 'zh-Hans' : 'en';
     try { localStorage.setItem('lang', next); } catch (e) { /* ignore */ }
@@ -182,22 +171,8 @@ async function boot(stage) {
     relayout();
   }
 
-  function setView(next) {
-    if (next === state.view || !state.scenes) return;
-    const from = scene();
-    state.view = next;
-    /* Reduced motion gets the cut it asked for. */
-    state.transition = reduced.matches ? null : { from, ms: 0 };
-    scrollTo(0, 0);
-    syncProxy();
-    syncHits();
-    state.dirty = true;
-  }
-
   function act(id) {
-    if (id === 'view:index') setView('index');
-    else if (id === 'view:cv') setView('cv');
-    else if (id === 'lang:en') setLang('en');
+    if (id === 'lang:en') setLang('en');
     else if (id === 'lang:zh') setLang('zh');
   }
 
@@ -207,7 +182,7 @@ async function boot(stage) {
      exists anywhere in the interaction path. */
 
   function syncHits() {
-    const hits = scene().hits;
+    const hits = state.scene.hits;
     while (proxy.children.length > hits.length) proxy.removeChild(proxy.lastChild);
     hits.forEach((h, i) => {
       let el = proxy.children[i];
@@ -322,41 +297,21 @@ async function boot(stage) {
   /* --- the loop ---------------------------------------------------------- */
 
   const t0 = performance.now();
-  let last = t0;
 
   function frame(now) {
     requestAnimationFrame(frame);
-    const dt = Math.min(64, now - last);
-    last = now;
-    if (document.hidden || state.lost || !state.scenes) return;
+    if (document.hidden || state.lost || !state.scene) return;
 
-    const tr = state.transition;
-    if (!tr && !state.dirty && now - state.lastDraw < IDLE_FRAME_MS) return;
-    if (!tr && reduced.matches && !state.dirty) return;
+    if (!state.dirty && now - state.lastDraw < IDLE_FRAME_MS) return;
+    if (reduced.matches && !state.dirty) return;
     state.lastDraw = now;
     state.dirty = false;
 
     marks.clear();
-    if (tr) {
-      tr.ms += dt;
-      if (tr.ms >= VIEW_FADE_MS) {
-        /* Land exactly. A scene drawn at alpha 1 goes out as one quad per run;
-           the same scene at 0.999 goes out identically but through a blend the
-           framebuffer rounds, so finishing on the plain path is what makes the
-           type snap back to full density. */
-        state.transition = null;
-        drawScene(marks, scene(), 1, state.hover);
-      } else {
-        const e = tr.ms / VIEW_FADE_MS;
-        drawScene(marks, tr.from, 1 - e);
-        drawScene(marks, scene(), e);
-      }
-    } else {
-      drawScene(marks, scene(), 1, state.hover);
-    }
+    drawScene(marks, state.scene, 1, state.hover);
 
     if (state.focus) {
-      const h = scene().hits.find((x) => x.id === state.focus);
+      const h = state.scene.hits.find((x) => x.id === state.focus);
       if (h) marks.strokeRect(h.x - 4, h.y - 4, h.w + 8, h.h + 8, 2, INK, 0.85);
     }
 
@@ -381,15 +336,13 @@ async function boot(stage) {
     act,
     toggleLang: () => act(state.lang === 'en' ? 'lang:zh' : 'lang:en'),
     diag: () => ({
-      view: state.view, lang: state.lang, cols: state.grid.cols, dpr: engine.dpr,
+      lang: state.lang, cols: state.grid.cols, dpr: engine.dpr,
       atlas: `${engine.atlas.width}x${engine.atlas.height}`, overflow: engine.overflow,
-      quads: marks.count, height: Math.round(scene().height),
-      /* Elapsed ms of the running cross-fade, or null. */
-      t: state.transition ? Math.round(state.transition.ms) : null,
+      quads: marks.count, height: Math.round(state.scene.height),
     }),
     grid: () => ({ ...state.grid, colX: undefined }),
     /* Every placed run, for checking that nothing overflows its column. */
-    items: () => scene().items.filter((i) => i.kind === 'text').map((i) => ({
+    items: () => state.scene.items.filter((i) => i.kind === 'text').map((i) => ({
       key: i.key, text: i.run.text,
       x: Math.round(i.x), y: Math.round(i.y), w: Math.round(i.run.width),
     })),

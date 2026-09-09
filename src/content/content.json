@@ -1,5 +1,5 @@
 {
-  "_readme": "ALL text on the site lives here, in English (en) and Chinese (zh). Nothing is rendered from HTML, so this file is the only place to edit wording. Keep both languages filled: the toggle is a cut between them and a missing value leaves a hole on screen. Do not rename keys. Plain text only - no HTML tags, no <br/>: line breaks are decided by the layout engine. Index runs carry no terminal punctuation - a page that states does not narrate. An entry marked \"placeholder\": true is a real thing with a fact still missing; read its \"note\", fill the value in, then delete both keys. After adding any NEW Chinese character, run `npm run fonts` - the CJK webfonts are subset to exactly the characters this file uses.",
+  "_readme": "ALL text on the site lives here, in English (en) and Chinese (zh). Nothing is rendered from HTML, so this file is the only place to edit wording. Keep both languages filled: the toggle is a cut between them and a missing value leaves a hole on screen. Do not rename keys. Plain text only - no HTML tags, no <br/>: line breaks are decided by the layout engine. Opening runs carry no terminal punctuation - a page that states does not narrate. An entry marked \"placeholder\": true is a real thing with a fact still missing; read its \"note\", fill the value in, then delete both keys. After adding any NEW Chinese character, run `npm run fonts` - the CJK webfonts are subset to exactly the characters this file uses.",
   "site": {
     "title": {
       "en": "Josephine Shen",
@@ -10,18 +10,10 @@
       "zh": "沈菲菲，人工智能政策研究者。研究地缘政治与技术治理，横跨中国、欧盟与多边体系。柏林。"
     }
   },
-  "nav": {
-    "index": {
-      "en": "Index",
-      "zh": "首页"
-    },
+  "labels": {
     "cv": {
       "en": "CV",
       "zh": "简历"
-    },
-    "lang": {
-      "en": "EN",
-      "zh": "中"
     }
   },
   "index": {
