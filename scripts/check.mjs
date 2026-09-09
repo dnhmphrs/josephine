@@ -114,6 +114,58 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
       head.avail !== null && head.avail < head.cv, JSON.stringify(head));
   }
 
+  /* The approach diagram. Three rows, labelled top to bottom, a caption, and a
+     diagonal that answers the pointer - and, the load-bearing one, a diagonal
+     that never leaves a row dark, because three levels lit AT ONCE is the
+     whole claim the picture makes. */
+  {
+    const d = await p.evaluate(() => window.__stage.diagram());
+    ok('the approach diagram is laid out',
+      !!d && d.cols >= 4 && d.h > 60 && d.w > 200, JSON.stringify(d));
+    const rows = await p.evaluate(() => window.__stage.items()
+      .filter((i) => /^dia\.label\./.test(i.key)).map((i) => [i.text, i.y]));
+    ok('its three levels are labelled, in order',
+      rows.length === 3 && rows[0][1] < rows[1][1] && rows[1][1] < rows[2][1],
+      JSON.stringify(rows));
+    ok('and it carries a caption',
+      (await p.evaluate(() => window.__stage.items().some((i) => /^dia\.line\./.test(i.key)))));
+
+    /* Every row is lit at every position of the sweep. Read off the geometry
+       the renderer uses, so this checks the arrangement rather than a picture
+       of it: a cell counts as lit when the diagonal passes within one cell of
+       its centre. */
+    const worst = await p.evaluate(() => {
+      const d2 = window.__stage.diagram();
+      let min = Infinity;
+      for (let k = 0; k <= 40; k++) {
+        const dia = k / 40;
+        for (let r = 0; r < 3; r++) {
+          const cy = d2.y + r * d2.rowStep + d2.cellH / 2;
+          const lx = d2.x + dia * Math.max(0, d2.w - d2.span) + ((cy - d2.y) / d2.h) * d2.span;
+          let best = Infinity;
+          for (let c = 0; c < d2.cols; c++) {
+            const cx = d2.x + c * (d2.cellW + d2.gap) + d2.cellW / 2;
+            best = Math.min(best, Math.abs(cx - lx) / d2.cellW);
+          }
+          min = Math.min(min, 1 - best);
+        }
+      }
+      return min;
+    });
+    ok('the diagonal never leaves a level dark', worst > 0, `closest-miss margin ${worst.toFixed(2)} cells`);
+
+    /* And it moves. */
+    const before = await p.evaluate(() => window.__stage.diagram().dia);
+    const box = await p.evaluate(() => { const d3 = window.__stage.diagram(); return [d3.x, d3.y, d3.w, d3.h]; });
+    await p.evaluate((y) => scrollTo(0, y), Math.max(0, box[1] - 200));
+    await p.mouse.move(box[0] + box[2] * 0.9, box[1] - Math.max(0, box[1] - 200) + box[3] / 2);
+    await p.waitForTimeout(900);
+    const after = await p.evaluate(() => window.__stage.diagram().dia);
+    ok('the diagonal follows the pointer', after > before + 0.1, JSON.stringify({ before, after }));
+    await p.evaluate(() => scrollTo(0, 0));
+    await p.waitForTimeout(300);
+  }
+
   /* Sticky. The toggle is drawn viewport-anchored and its target lives in the
      fixed layer, so scrolling must not move either: the mark's drawn y rises
      with scrollY by exactly the amount the renderer takes back out, and the

@@ -57,8 +57,8 @@
     {
       "key": "work",
       "label": {
-        "en": "Research and writing",
-        "zh": "研究与写作"
+        "en": "Research",
+        "zh": "研究"
       },
       "sections": [
         {
@@ -67,16 +67,6 @@
             "zh": "研究"
           },
           "entries": [
-            {
-              "title": {
-                "en": "Geopolitics and technology governance",
-                "zh": "地缘政治与技术治理"
-              },
-              "org": {
-                "en": "China and the EU",
-                "zh": "中国与欧盟"
-              }
-            },
             {
               "title": {
                 "en": "Artificial intelligence in international security",
@@ -98,51 +88,37 @@
               }
             }
           ]
-        },
-        {
-          "section": {
-            "en": "Writing",
-            "zh": "论述"
-          },
-          "entries": [
-            {
-              "year": "",
-              "title": {
-                "en": "Ontological Insecurity: Sovereignty, Nationalism and how the EU navigates the China-US Competition for Market Dominance of Artificial Intelligence",
-                "zh": "本体性不安全：主权、民族主义，以及欧盟如何在中美争夺人工智能市场主导权的竞争中寻路"
-              },
-              "org": {
-                "en": "Working paper",
-                "zh": "工作论文"
-              },
-              "placeholder": true,
-              "note": "Add the year, and the venue if it is published. Title is verbatim - do not shorten it."
-            },
-            {
-              "year": "",
-              "title": {
-                "en": "Artificial Intelligence in Nuclear Regulation Frameworks: Trends in Security Narratives and Regulatory Change",
-                "zh": "核监管框架中的人工智能：安全叙事与监管变革的趋势"
-              },
-              "org": {
-                "en": "Briefing",
-                "zh": "简报"
-              },
-              "placeholder": true,
-              "note": "Add the year, and the venue if it is published. Title is verbatim - do not shorten it."
-            }
-          ]
         }
       ]
     },
     {
       "key": "mid",
-      "_note": "PLACEHOLDER. Rename the label and add sections; it renders as a tagged rule and a reserved band until then.",
       "label": {
-        "en": "Projects",
-        "zh": "项目"
+        "en": "Approach",
+        "zh": "方法"
       },
-      "sections": []
+      "sections": [],
+      "diagram": {
+        "_note": "DRAFT COPY - her positioning, in my words. Replace before this is public.",
+        "layers": [
+          {
+            "en": "State",
+            "zh": "国家"
+          },
+          {
+            "en": "Corporations",
+            "zh": "企业"
+          },
+          {
+            "en": "Grassroots",
+            "zh": "民间"
+          }
+        ],
+        "line": {
+          "en": "Most work runs vertically, inside one level. Hers runs diagonally — the same question carried from the state, through industry, to the movements organising around both.",
+          "zh": "多数工作纵向展开，局限于单一层级。她的工作斜向穿过：同一个问题，自国家而产业，再到围绕两者组织起来的民间运动。"
+        }
+      }
     },
     {
       "key": "cv",
@@ -178,6 +154,40 @@
                 "en": "Research and facilitation",
                 "zh": "研究与协调"
               }
+            }
+          ]
+        },
+        {
+          "section": {
+            "en": "Writing",
+            "zh": "论述"
+          },
+          "entries": [
+            {
+              "year": "",
+              "title": {
+                "en": "Ontological Insecurity: Sovereignty, Nationalism and how the EU navigates the China-US Competition for Market Dominance of Artificial Intelligence",
+                "zh": "本体性不安全：主权、民族主义，以及欧盟如何在中美争夺人工智能市场主导权的竞争中寻路"
+              },
+              "org": {
+                "en": "Working paper",
+                "zh": "工作论文"
+              },
+              "placeholder": true,
+              "note": "Add the year, and the venue if it is published. Title is verbatim - do not shorten it."
+            },
+            {
+              "year": "",
+              "title": {
+                "en": "Artificial Intelligence in Nuclear Regulation Frameworks: Trends in Security Narratives and Regulatory Change",
+                "zh": "核监管框架中的人工智能：安全叙事与监管变革的趋势"
+              },
+              "org": {
+                "en": "Briefing",
+                "zh": "简报"
+              },
+              "placeholder": true,
+              "note": "Add the year, and the venue if it is published. Title is verbatim - do not shorten it."
             }
           ]
         },

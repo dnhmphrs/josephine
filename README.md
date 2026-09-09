@@ -107,6 +107,30 @@ does, inside the click. Nothing eases, nothing crossfades, and `npm run check`
 asserts that what is on screen one frame after the click is what is there when
 it settles, quad for quad.
 
+**The approach diagram.** The one picture on the page, and the only mark on it
+that is not type or a hairline. Three rows of cells — state, corporations,
+grassroots — and a diagonal that cuts down and across them. Every cell is
+quiet; the ones the diagonal passes through are lit, on a smooth falloff rather
+than a hit test, so it reads as something being illuminated rather than a
+control being operated. The line itself is never drawn: the eye completes it,
+and a ruled diagonal would be a fourth kind of line on a page that has exactly
+one.
+
+Its offset is bounded so the whole diagonal always sits inside the grid. There
+is no position at which a row goes dark, which matters because *three levels at
+once* is the entire claim — sweeping it off the ends was the first version and
+it broke the sentence it illustrates. The pointer moves it, eased at a tenth
+per frame; it rests centred, and a touch screen (no pointer) gets that resting
+state.
+
+The cell is a **sprite**: `engine.sprite()` reserves a box in the atlas that
+something other than a font paints. The packer already takes arbitrary
+device-pixel boxes — a run is only a box with a `fillText` in it — so this
+needed no new machinery. Canvas2D's `roundRect` draws it once at its exact
+device size and it is drawn many times, since every cell is identical. Rounding
+it in the shader would have meant a second program and a distance field for one
+shape.
+
 **The redaction ships OFF.** The machinery is complete and audited, and it is
 one query parameter away, but the resting page is a document rather than a
 document being declassified. With it on, a run that is partway open is drawn as
@@ -286,11 +310,14 @@ decides line breaks.
   prefixes every scene key it draws, and `sections` are `{ section, entries }`
   with entries of `{ year, title, org }`. One line each.
 
-  There are three — **Research and writing**, a placeholder, and **CV** — and
-  the parallel is the point: the reader is told which body of material they
-  have arrived in by the same device every time. A block with an empty
-  `sections` array still draws its threshold and reserves a band under it,
-  which is what makes it usable as a placeholder.
+  There are three — **Research**, **Approach** and **CV** — and the parallel is
+  the point: the reader is told which body of material they have arrived in by
+  the same device every time. A block whose one section repeats its own name
+  does not draw the section head; the threshold already carries the word.
+
+  A block may also carry a `diagram` instead of sections — see below. One with
+  neither still draws its threshold and reserves a band, which is what makes it
+  usable as a placeholder.
 - An entry marked `"placeholder": true` is a real thing with a fact still
   missing; read its `note`, fill the value in, delete both keys.
 
