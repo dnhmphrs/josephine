@@ -372,6 +372,15 @@ class Scene {
     return this.place(key, this.prepare(str, role), x, baseline, color, opts);
   }
 
+  /* A sprite: one quad, one atlas box, drawn at an explicit size. The only
+     caller is the language switch, which is a rounded rectangle. */
+  sprite(key, spr, x, y, w, h, color, alpha, opts = {}) {
+    this.items.push({
+      kind: 'sprite', key, run: spr, x, y, w, h,
+      color: color || INK, alpha, fixed: !!opts.fixed,
+    });
+  }
+
   rect(key, x, y, w, h, color, alpha, opts = {}) {
     /* opts.stroke draws the OUTLINE at that weight instead of filling. One
        caller: the language toggle's box. It stays a rect rather than becoming
@@ -495,21 +504,54 @@ function planToggle(scene, content, lang, g) {
     ascent: padY + ink,
     descent: padY,
     draw(y) {
+      const dpr = scene.engine.dpr;
       const x0 = Math.round(g.right - boxW);
       const boxTop = Math.round(y - ink - padY);
       const on = lang === 'en' ? 0 : 1;
 
-      /* Fill first, border over it, type last. */
-      /* INK_2, not INK. A SOLID AREA of a value reads far heavier than strokes
-         of it - the same black that is quiet as a 15px serif is a slab at
-         30x11px - so the block is set one step back to weigh what the type
-         around it weighs. At INK it was the darkest thing on the page by some
-         way, which is too much authority for a language switch. */
-      scene.rect('nav.fill', on ? x0 + enW : x0, boxTop, on ? zhW : enW, boxH, INK_2, 1, { fixed: true });
+      /* Fill first, outline over it, type last.
+
+         Both are SPRITES rather than rects, for one reason: the corners. A
+         square-cornered block sits next to a square-cornered glyph and reads
+         as harder than it, because the glyph's corners are softened by the
+         rasteriser and a quad's are not. A tenth of the box's height of radius
+         is enough to put them in the same family - it is not a pill, and at a
+         glance nobody could tell you it is rounded, which is the point.
+
+         The fill is rounded on its OUTER corners only. It is one half of a
+         two-part control, so its inner edge is a division and must stay
+         straight; rounding it would make two pills in a box. */
+      const r = Math.max(1.5, boxH * 0.1);
+      const fillW = on ? zhW : enW;
+      const fill = scene.engine.sprite(
+        `navfill ${Math.round(fillW * dpr)}x${Math.round(boxH * dpr)}r${Math.round(r * dpr)}${on}`,
+        fillW, boxH,
+        (cx, w, h, d) => {
+          const rr = r * d;
+          cx.beginPath();
+          if (cx.roundRect) cx.roundRect(0, 0, w, h, on ? [0, rr, rr, 0] : [rr, 0, 0, rr]);
+          else cx.rect(0, 0, w, h);
+          cx.fill();
+        },
+      );
+      scene.sprite('nav.fill', fill, on ? x0 + enW : x0, boxTop, fillW, boxH, INK, 1, { fixed: true });
+
       /* The outline is what makes the unselected half read as the other half of
-         one control rather than as a word standing next to a block. */
-      scene.rect('nav.box', x0, boxTop, boxW, boxH, RULE, HAIRLINE * 1.6,
-        { fixed: true, stroke: 1 });
+         one control rather than as a word standing next to a block. Stroked
+         inside its own box so the shape does not grow by half a line width. */
+      const box = scene.engine.sprite(
+        `navbox ${Math.round(boxW * dpr)}x${Math.round(boxH * dpr)}r${Math.round(r * dpr)}`,
+        boxW, boxH,
+        (cx, w, h, d) => {
+          const lw = Math.max(1, Math.round(d));
+          cx.lineWidth = lw;
+          cx.beginPath();
+          if (cx.roundRect) cx.roundRect(lw / 2, lw / 2, w - lw, h - lw, r * d);
+          else cx.rect(lw / 2, lw / 2, w - lw, h - lw);
+          cx.stroke();
+        },
+      );
+      scene.sprite('nav.box', box, x0, boxTop, boxW, boxH, RULE, HAIRLINE * 1.6, { fixed: true });
 
       scene.place('nav.en', en, Math.round(x0 + (enW - en.width) / 2), y,
         on ? INK_2 : PAPER, { fixed: true });

@@ -87,6 +87,38 @@ export class TextEngine {
     this.overflow = 0;
   }
 
+  /* Reserve a SPRITE: a box in the atlas that something other than a font
+     paints. The packer already takes arbitrary device-pixel boxes - a run is
+     only a box with a fillText in it - so this needs no new machinery, just a
+     handle carrying a `paint` callback instead of a font.
+
+     It exists for the language switch, which is a rounded rectangle. Rounding
+     it in the shader would mean a second program and a distance field for one
+     shape; Canvas2D already has roundRect and this atlas already rasterises
+     with Canvas2D, so the shape is drawn once at its exact device size and
+     tinted like any glyph.
+
+     paint(ctx, devW, devH, dpr) draws in WHITE. The marks shader multiplies
+     coverage by the vertex colour, which is the same contract every glyph is
+     drawn under - so a sprite takes its colour and alpha at draw time, not
+     here. `key` must vary with anything that changes the pixels, size and
+     radius included. */
+  sprite(key, w, h, paint) {
+    const hit = this.cache.get(key);
+    if (hit) return hit;
+    const devW = Math.max(1, Math.round(w * this.dpr));
+    const devH = Math.max(1, Math.round(h * this.dpr));
+    const handle = {
+      sprite: true, paint, text: key,
+      devW, devH, pad: 0, n: 0, gs: [], cuts: [], ax: [], dw: [],
+      width: devW / this.dpr, height: devH / this.dpr,
+      uv: new Float32Array(0), uvAll: new Float32Array(4), rect: null,
+    };
+    this.cache.set(key, handle);
+    this.pending.push(handle);
+    return handle;
+  }
+
   /* Measure a run and reserve it in the next atlas build.
 
      spec: { text, family, size, weight = 400, italic = false, tracking = 0 }
@@ -274,13 +306,24 @@ export class TextEngine {
       if (!r.rect) { this.overflow++; continue; }
       const bx = r.rect.x;
       const by = r.rect.y;
-      c.font = r.font;
       c.fillStyle = '#fff';
-      const baseY = by + r.devBaseline;
-      if (r.tracked) {
-        for (let i = 0; i < r.n; i++) c.fillText(r.gs[i], bx + r.pad + r.cuts[i], baseY);
+      c.strokeStyle = '#fff';
+      /* A sprite paints itself into its own reserved box, then falls through
+         to the UV assignment like everything else - it is one quad, so uvAll
+         is the whole of its geometry. */
+      if (r.sprite) {
+        c.save();
+        c.translate(bx, by);
+        r.paint(c, r.devW, r.devH, this.dpr);
+        c.restore();
       } else {
-        c.fillText(r.text, bx + r.pad, baseY);
+        c.font = r.font;
+        const baseY = by + r.devBaseline;
+        if (r.tracked) {
+          for (let i = 0; i < r.n; i++) c.fillText(r.gs[i], bx + r.pad + r.cuts[i], baseY);
+        } else {
+          c.fillText(r.text, bx + r.pad, baseY);
+        }
       }
       r.uvAll[0] = bx / aw;
       r.uvAll[1] = by / ah;
