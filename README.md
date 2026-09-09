@@ -30,6 +30,10 @@ and wrong to take silently for a bug, and the two look identical from outside.
 Keep her name out of any such string: `npm run check` greps the bundle for
 content words, and a log prefix is text like any other.
 
+`npm run check` also asserts what is NOT in the head: no `og:title`, no
+`og:description`, no `twitter:title`, no `twitter:description`. The share card
+is an image and nothing else, and that absence is the assertion.
+
 `check` needs Playwright, which is deliberately not a dependency — it pulls a
 browser and this runs rarely (`npm i -D playwright && npx playwright install
 chromium`). Set `CHROMIUM_PATH` if the machine has a browser already and cannot
@@ -218,7 +222,7 @@ What was removed, in order of how much each was leaking:
 |---|---|
 | `#a11y` | the entire CV as real HTML, inlined into `index.html` at build |
 | `<title>`, description, author | her name and a one-line biography (the title is now a block-glyph mark) |
-| Open Graph + Twitter tags | eleven tags of pure crawler food, and `og.jpg` |
+| Open Graph + Twitter tags | eleven tags of pure crawler food, and `og.jpg`. Four came back, and only four: `og:image`, its type, `twitter:card` and `twitter:image`, all pointing at `public/square.png`. A link pasted into a message unfurls as the mark and no words. `og:title` and `og:description` are the two that would put her name back in the served HTML, so `npm run check` asserts they stay absent. |
 | the bundle | `content.json` inlined verbatim by `@rollup/plugin-json` |
 | the hit layer | an off-screen `<span>` per control carrying its label |
 | `<noscript>` | thirty-one words explaining the mechanism |

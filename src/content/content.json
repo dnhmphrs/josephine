@@ -74,8 +74,8 @@
                 "zh": "研究员"
               },
               "org": {
-                "en": "AIxist",
-                "zh": "AIxist"
+                "en": "AIxist — geopolitics, labour and national security",
+                "zh": "AIxist — 地缘政治、劳动与国家安全"
               }
             },
             {
@@ -132,8 +132,8 @@
                 "zh": "本体性不安全：主权、民族主义，以及欧盟如何在中美争夺人工智能市场主导权的竞争中寻路"
               },
               "org": {
-                "en": "Working paper",
-                "zh": "工作论文"
+                "en": "Working paper — sovereignty narratives and the China–US bind",
+                "zh": "工作论文 — 主权叙事与中美竞争格局"
               },
               "placeholder": true,
               "note": "Add the year, and the venue if it is published. Title is verbatim - do not shorten it."
@@ -145,8 +145,8 @@
                 "zh": "核监管框架中的人工智能：安全叙事与监管变革的趋势"
               },
               "org": {
-                "en": "Briefing",
-                "zh": "简报"
+                "en": "Briefing — AI as a rising subject in international security",
+                "zh": "简报 — 人工智能作为国际安全的新兴议题"
               },
               "placeholder": true,
               "note": "Add the year, and the venue if it is published. Title is verbatim - do not shorten it."

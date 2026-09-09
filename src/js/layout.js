@@ -972,25 +972,14 @@ export function buildScene(engine, content, vw, vh, lang = 'en', safeTop = 0, sa
      much that the page comes apart into three separate documents. */
   let y = Math.round(headEnd + g.u * 17);
 
-  /* One mark in the void, and it is the only thing in it.
-
-     The gap between the head and the record is the largest interval on the
-     page and the only one doing no work, which is what makes it legible as a
-     division - but an interval that large with nothing in it reads, at a
-     glance, as a page that has not finished loading. So it gets a single
-     square: the same square as the tab mark and the open-ended years, at the
-     size the type already sets it, solid, on the left margin the name and the
-     CV both start from.
-
-     It is the printer's device at the end of an article, used here between two
-     halves of a document rather than after one - a full stop, not an
-     ornament. Nothing else may go here; the point of the space is that it is
-     empty, and one mark is the most that can be added without spending it. */
-  {
-    const probe = scene.engine.run({ ...adapt(S.section, lang), text: 'H' });
-    const side = Math.round(probe.inkAscent || probe.capHeight || 9);
-    scene.rect('void.mark', g.left, Math.round((headEnd + y) / 2 - side / 2), side, side, INK, 1);
-  }
+  /* Nothing goes in the void, and that is the decision rather than the
+     absence of one. A mark was tried here and taken out: the square already
+     MEANS something on this page - it is what an open-ended year ends with,
+     "still running" - and a second one floating with nothing to refer to makes
+     it an ornament, which retroactively makes the year marks look like
+     ornaments too. The gap is bounded by the tagline above and a ruled
+     threshold below; it reads as deliberate because of what is on either side
+     of it, not because something is in it. */
 
   content.blocks.forEach((blk, bi) => {
     if (bi) y = Math.round(y + g.u * 10);

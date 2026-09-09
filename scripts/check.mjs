@@ -376,6 +376,17 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
       t.length > 0 && t.length <= 64 && /^[\u2580-\u25FF]+$/.test(t), JSON.stringify(t));
   }
   ok('robots noindex is in the served head', /name="robots"[^>]*noindex/.test(html));
+
+  /* The share card is an image and nothing else. og:title and og:description
+     are the two tags that would put her name back into the served HTML, and
+     the whole architecture exists to keep it out - so their ABSENCE is the
+     assertion, and the image's presence is the other half. */
+  ok('the share card is declared', /property="og:image" content="\/square\.png"/.test(html)
+    && /name="twitter:card"/.test(html));
+  ok('and it is the only Open Graph tag',
+    !/og:(title|description|site_name)|twitter:(title|description)/.test(html),
+    (html.match(/og:(title|description|site_name)|twitter:(title|description)/g) || []).join(' '));
+  ok('the card is actually served', fs.existsSync(path.join(ROOT, 'square.png')));
   /* Advisory, but it is the half that actually keeps a bare URL out of a
      result page - and it must NOT be paired with a robots.txt Disallow, which
      would stop the crawler ever reading it. */
