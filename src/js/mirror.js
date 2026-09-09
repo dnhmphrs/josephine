@@ -33,7 +33,7 @@ export function bilingual(str) {
 
 export function renderMirror(content, lang, inert) {
   const t = (n) => (n && n[lang] != null ? n[lang] : '');
-  const c = content.card;
+  const c = content.index;
   const out = [
     `<h1>${bilingual(t(c.name))}</h1>`,
     `<p>${bilingual(t(c.role))}. ${bilingual(t(c.line))}</p>`,

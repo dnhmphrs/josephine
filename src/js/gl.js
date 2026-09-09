@@ -20,7 +20,7 @@
 /* The concrete. The ground shader's vertical mix averages to exactly this, and
    so does --concrete in styles/main.css, so the CSS ground and the first
    painted frame are the same grey and there is no flash between them. */
-export const CONCRETE = [0.8353, 0.8275, 0.8078];   // #d5d3ce
+export const CONCRETE = [0.7686, 0.7804, 0.7843];   // #c4c7c8
 
 /* Coverage exponent - see the mark fragment shader. 1.0 is raw coverage and
    renders visibly heavy; the theoretical correction for ink this dark on a
@@ -84,11 +84,17 @@ uniform float uScroll;   // page scroll, in viewport heights
 varying vec2  vUv;       // y up
 varying vec2  vPix;      // device px, at vertex precision
 
-/* Mean of these two is exactly #d5d3ce. Warm-neutral: red above blue. */
-const vec3 CONC_TOP = vec3(0.820, 0.812, 0.792);   // #d1cfca
-const vec3 CONC_BOT = vec3(0.851, 0.843, 0.824);   // #d9d7d2
-/* The ink is the reverse: blue above red, and never black. */
-const vec3 INK      = vec3(0.541, 0.549, 0.565);   // #8a8c90
+/* Mean of these two is exactly #c4c7c8. Cool-neutral - blue above red - and a
+   full nine percent darker than the ground this replaces. The two changes are
+   one correction: warm and pale is plaster or paper, and what this wants to be
+   is concrete, a cast mineral grey that black type sits ON rather than floats
+   over. Darkening it is also what lets the type read heavier without gaining a
+   single unit of weight. */
+const vec3 CONC_TOP = vec3(0.753, 0.765, 0.769);   // #c0c3c4
+const vec3 CONC_BOT = vec3(0.784, 0.796, 0.800);   // #c8cbcc
+/* The wash goes deeper still, and cooler again: a damp patch in a slab rather
+   than a stain on it. Never black. */
+const vec3 INK      = vec3(0.463, 0.486, 0.518);   // #767c84
 /* One trace of the lilac the previous WebGPU background was built on, kept at
    under one percent of the final pixel. Not a colour - the reason the deepest
    ink reads as wet. Set WET to 0.0 to remove it; nothing else depends on it. */
@@ -230,8 +236,9 @@ void main() {
 
    The atlas holds coverage in alpha and white in rgb, so a mark is its vertex
    colour masked by that coverage. Output is premultiplied, to pair with
-   blendFunc(ONE, ONE_MINUS_SRC_ALPHA): during a morph two glyph populations
-   overlap at partial alpha, and straight-alpha blending composites that wrong. */
+   blendFunc(ONE, ONE_MINUS_SRC_ALPHA): during a view cross-fade two whole
+   scenes overlap at partial alpha, and straight-alpha blending composites that
+   wrong. */
 const MARK_FS = `
 #ifdef GL_FRAGMENT_PRECISION_HIGH
 precision highp float;
@@ -278,14 +285,13 @@ function program(gl, vs, fs, label) {
 /* ---------------------------------------------------------------------------
    Marks: the CPU-side vertex list.
 
-   Eight floats a vertex (position, uv, rgba), six vertices a quad. At rest a
-   whole run is ONE quad - the atlas holds the run's bitmap intact, so there is
-   no reason to cut it into glyphs until something has to move them. That takes
-   the resting page from roughly a thousand quads to about a hundred and thirty.
+   Eight floats a vertex (position, uv, rgba), six vertices a quad. A whole run
+   is ONE quad wherever it can be - the atlas holds the run's bitmap intact, so
+   there is no reason to cut it into glyphs unless the glyphs have moved. That
+   takes the page from roughly a thousand quads to a few dozen.
    --------------------------------------------------------------------------- */
 const FLOATS_PER_VERTEX = 8;
 const FLOATS_PER_QUAD = FLOATS_PER_VERTEX * 6;
-const IDENTITY = () => ({ x: 0, y: 0, s: 1, a: 1 });
 
 export class Marks {
   constructor(engine) {
@@ -350,49 +356,6 @@ export class Marks {
     this.rect(x + w - weight, y + weight, weight, h - weight * 2, col, alpha);
   }
 
-  /* A hairline between two points. The attention traces are the only
-     non-axis-aligned geometry on the page. */
-  line(x0, y0, x1, y1, weight, col, alpha) {
-    const dx = x1 - x0;
-    const dy = y1 - y0;
-    const len = Math.hypot(dx, dy);
-    if (len < 0.01 || alpha <= 0.002) return;
-    const nx = (-dy / len) * weight * 0.5;
-    const ny = (dx / len) * weight * 0.5;
-    const [u, v] = this.engine.whiteUv;
-    this._room();
-    const d = this.data;
-    let o = this.count * FLOATS_PER_QUAD;
-    const r = col[0];
-    const g = col[1];
-    const b = col[2];
-    const put = (x, y) => {
-      d[o++] = x; d[o++] = y; d[o++] = u; d[o++] = v;
-      d[o++] = r; d[o++] = g; d[o++] = b; d[o++] = alpha;
-    };
-    put(x0 - nx, y0 - ny); put(x1 - nx, y1 - ny); put(x0 + nx, y0 + ny);
-    put(x1 - nx, y1 - ny); put(x1 + nx, y1 + ny); put(x0 + nx, y0 + ny);
-    this.count++;
-  }
-
-  /* Where glyph i of a run sits at rest, in CSS px, given the run's pen origin
-     and baseline. Snapping the ORIGIN to a whole device pixel and then adding
-     integer slice offsets is what keeps static text sharp - every texel lands
-     on exactly one screen pixel, and the sub-pixel letterfit the browser baked
-     into the bitmap survives intact. Rounding each slice independently would
-     destroy it. */
-  glyphRect(run, penX, baselineY, i) {
-    const dpr = this.engine.dpr;
-    const ox = Math.round(penX * dpr);
-    const top = Math.round(baselineY * dpr) - run.devBaseline;
-    return {
-      x0: (ox + run.dx[i]) / dpr,
-      y0: top / dpr,
-      x1: (ox + run.dx[i] + run.dw[i]) / dpr,
-      y1: (top + run.devH) / dpr,
-    };
-  }
-
   /* A run at rest: one quad for the whole bitmap. */
   run(run, penX, baselineY, col, alpha) {
     /* A run that failed to pack has no atlas rect and its UVs are still zero -
@@ -402,10 +365,7 @@ export class Marks {
     if (!run.rect) return;
     /* A post-tracked run's glyphs are not where the bitmap put them, so it has
        to go out a glyph at a time. Only the name is post-tracked. */
-    if (run.post) {
-      this.runTransformed(run, penX, baselineY, col, alpha, IDENTITY);
-      return;
-    }
+    if (run.post) { this.runGlyphs(run, penX, baselineY, col, alpha); return; }
     const dpr = this.engine.dpr;
     const ox = Math.round(penX * dpr) - run.pad;
     const top = Math.round(baselineY * dpr) - run.devBaseline;
@@ -414,30 +374,46 @@ export class Marks {
       u[0], u[1], u[2], u[3], col, alpha);
   }
 
-  /* A run whose glyphs are individually displaced, scaled and faded - the
-     mechanism behind both the attention morph and the decode wipe.
-     `xform(i, rect)` returns { x, y, s, a }: an offset in CSS px, a scale about
-     the glyph's own centre and baseline, and an alpha multiplier. Returning a
-     falsy value skips the glyph. */
-  runTransformed(run, penX, baselineY, col, alpha, xform) {
+  /* The same run, one quad a glyph, at the positions its tracking asks for.
+
+     Snapping the ORIGIN to a whole device pixel and then adding integer slice
+     offsets is what keeps this as sharp as the single-quad path: every texel
+     still lands on exactly one screen pixel, and the sub-pixel letterfit the
+     browser baked into the bitmap survives intact. Rounding each slice
+     independently would destroy it. */
+  runGlyphs(run, penX, baselineY, col, alpha) {
     if (!run.rect) return;
+    const dpr = this.engine.dpr;
     const u = run.uv;
+    const ox = Math.round(penX * dpr);
+    const top = Math.round(baselineY * dpr) - run.devBaseline;
     for (let i = 0; i < run.n; i++) {
       if (run.dw[i] <= 0) continue;
-      const g = this.glyphRect(run, penX, baselineY, i);
-      const tf = xform(i, g);
-      if (!tf || tf.a <= 0.002) continue;
-      const cx = (g.x0 + g.x1) * 0.5;
-      const s = tf.s === undefined ? 1 : tf.s;
       this.quad(
-        cx + (g.x0 - cx) * s + tf.x,
-        baselineY + (g.y0 - baselineY) * s + tf.y,
-        cx + (g.x1 - cx) * s + tf.x,
-        baselineY + (g.y1 - baselineY) * s + tf.y,
-        u[i * 4], u[i * 4 + 1], u[i * 4 + 2], u[i * 4 + 3], col, alpha * tf.a);
+        (ox + run.dx[i]) / dpr, top / dpr,
+        (ox + run.dx[i] + run.dw[i]) / dpr, (top + run.devH) / dpr,
+        u[i * 4], u[i * 4 + 1], u[i * 4 + 2], u[i * 4 + 3], col, alpha);
     }
   }
 }
+
+/* A whole scene, as it stands. There is nothing else to draw: the language
+   toggle is a cut and the view change is a cross-fade, so no path here has to
+   interpolate one scene into another. `alpha` is the cross-fade; `hoverKey`
+   names the one mark under the pointer, which darkens rather than moving. */
+export function drawScene(marks, scene, alpha = 1, hoverKey = null) {
+  for (const it of scene.items) {
+    if (it.kind === 'rect') {
+      marks.rect(it.x, it.y, it.w, it.h, it.color, it.alpha * alpha);
+    } else {
+      marks.run(it.run, it.x, it.y, it.key === hoverKey ? HOVER_INK : it.color, it.alpha * alpha);
+    }
+  }
+}
+
+/* Hover resolves to the primary ink whatever the mark's resting value: the one
+   thing a pointer has to say is "this one is live". */
+const HOVER_INK = [0.078, 0.078, 0.094];
 
 /* ---------------------------------------------------------------------------
    The stage.

@@ -6,7 +6,7 @@
   <title>Josephine Shen</title>
   <meta name="description" content="Josephine Shen — AI policy researcher. Geopolitics and technology governance across China, the EU and the multilateral system. Berlin." />
   <meta name="author" content="Josephine Shen" />
-  <meta name="theme-color" content="#d5d3ce" />
+  <meta name="theme-color" content="#c4c7c8" />
 
   <!-- One class carries both degraded paths. It is removed immediately if
        scripting is on, and put back by main.js if WebGL turns out not to be -
@@ -31,8 +31,9 @@
   <!-- Self-hosted, subset webfonts. No third-party request: see
        scripts/fetch-fonts.mjs. Preloaded because the WebGL text atlas cannot be
        rasterised until the real faces are in memory. -->
-  <link rel="preload" href="/fonts/jost-latin.woff2" as="font" type="font/woff2" crossorigin />
-  <link rel="preload" href="/fonts/bodoni-moda-latin.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/fonts/archivo-wide-latin.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/fonts/newsreader-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" href="/fonts/noto-sans-sc.woff2" as="font" type="font/woff2" crossorigin />
   <!-- The Chinese serif is on the English critical path too: the Languages
        field reads "English, 中文", and those two characters are set in the
@@ -56,7 +57,7 @@
   <div id="scroll"></div>
 
   <!-- Viewport probes. #svh reports the SMALL viewport height (what is left
-       with the browser chrome at its largest), which drives layout so the card
+       with the browser chrome at its largest), which drives layout so the page
        never jitters as the iOS URL bar animates; #safe reports the notch inset,
        since viewport-fit=cover puts the page under it. -->
   <div id="svh" aria-hidden="true"></div>
@@ -64,7 +65,7 @@
 
   <!-- Accessible mirror: the same strings the canvas draws, exposed to screen
        readers, crawlers and anyone whose GPU refuses. Visually hidden, never
-       painted. Populated from content.json by main.js; the card is inlined here so
+       painted. Populated from content.json by main.js; the document is inlined here so
        it survives with JavaScript disabled. -->
   <!-- The accessible mirror. Every string the canvas draws, as a real
        document, for screen readers, search engines and anyone whose scripting
@@ -76,7 +77,7 @@
 
   <!-- With scripting off, #a11y above is already the whole document in the
        accessibility tree and in the page; repeating it here would give the
-       document two <h1>s and two copies of the card that could drift apart.
+       document two <h1>s and two copies of it that could drift apart.
        This says only the one thing #a11y cannot. -->
   <noscript>
     <p class="noscript">This page draws itself in WebGL, and needs JavaScript to

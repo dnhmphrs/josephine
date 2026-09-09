@@ -10,7 +10,7 @@
 :root {
   /* The concrete. Kept in sync with GROUND in js/gl.js so the page never
      flashes a different colour before the first frame. */
-  --concrete: #d5d3ce;
+  --concrete: #c4c7c8;
 }
 
 * { box-sizing: border-box; }
@@ -127,7 +127,7 @@ body:not(.no-js) .sr a:focus-visible {
   clip: auto; clip-path: none;
   overflow: visible;
   z-index: 10;
-  background: #16161a;
+  background: #141418;
   color: #eceae5;
   font: 500 13px/1 ui-sans-serif, system-ui, sans-serif;
   letter-spacing: 0.04em;
@@ -143,8 +143,8 @@ body:not(.no-js) .sr a:focus-visible {
   max-width: 34em;
   margin: 0;
   padding: clamp(28px, 8vw, 96px) clamp(28px, 8vw, 96px) clamp(28px, 8vw, 96px);
-  color: #55565c;
-  font: 400 13px/1.6 "Jost", ui-sans-serif, system-ui, sans-serif;
+  color: #494b51;
+  font: 400 14px/1.65 "Archivo", ui-sans-serif, system-ui, sans-serif;
 }
 
 /* No WebGL, no successful boot, or no JavaScript at all: the mirror stops
@@ -154,31 +154,36 @@ body:not(.no-js) .sr a:focus-visible {
    back by main.js if the canvas turns out not to be usable. */
 .no-js .sr {
   position: static;
-  font-family: "Bodoni Moda Text", "Bodoni Moda", "Noto Serif SC", ui-serif, Georgia, serif;
+  font-family: "Newsreader", "Noto Serif SC", ui-serif, Georgia, serif;
   width: auto; height: auto;
   margin: 0; padding: clamp(28px, 8vw, 96px);
   max-width: 68ch;
   overflow: visible;
   clip: auto; clip-path: none;
   white-space: normal;
-  color: #16161a;
-  font: 400 18px/1.55 inherit;
+  color: #141418;
+  /* Not the `font` shorthand: a CSS-wide keyword is not a legal family name
+     inside it, so `font: 400 18px/1.55 inherit` is dropped whole and the page
+     silently reads at the browser default with the default leading. */
+  font-weight: 400;
+  font-size: 18px;
+  line-height: 1.55;
 }
-.no-js h1 { font-family: "Jost", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif; font-weight: 600; font-size: clamp(34px, 7vw, 60px); line-height: 1.02; letter-spacing: -0.025em; margin: 0 0 0.5em; }
-.no-js h2, .no-js h3 { font-family: "Jost", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: #55565c; margin: 2.4em 0 0.8em; }
+.no-js h1 { font-family: "Archivo Wide", "Archivo", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif; font-weight: 700; font-size: clamp(34px, 7vw, 64px); line-height: 0.98; letter-spacing: -0.015em; text-transform: uppercase; margin: 0 0 0.5em; }
+.no-js h2, .no-js h3 { font-family: "Archivo", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.13em; text-transform: uppercase; color: #494b51; margin: 2.8em 0 0.9em; }
 .no-js h3 { margin-top: 1.8em; }
-.no-js dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.35em 1.5em; margin: 2em 0; }
-.no-js dt { font-family: "Jost", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #55565c; }
+.no-js dl { display: grid; grid-template-columns: max-content 1fr; align-items: baseline; gap: 0.6em 1.5em; margin: 2em 0; }
+.no-js dt { font-family: "Archivo", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: #494b51; }
 .no-js ul { list-style: none; margin: 0; padding: 0; }
 .no-js li { margin: 0 0 0.4em; }
 .no-js a { color: inherit; }
-.no-js a:focus-visible { outline: 2px solid #16161a; outline-offset: 3px; }
+.no-js a:focus-visible { outline: 2px solid #141418; outline-offset: 3px; }
 /* The language control, which in this path is the only one there is. */
 .no-js button {
-  font: 500 12px/1 "Jost", ui-sans-serif, system-ui, sans-serif;
+  font: 700 12px/1 "Archivo", ui-sans-serif, system-ui, sans-serif;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #55565c;
+  color: #494b51;
   background: none;
   border: 0;
   border-bottom: 1px solid rgba(22, 22, 26, 0.25);
@@ -186,4 +191,4 @@ body:not(.no-js) .sr a:focus-visible {
   margin: 2.5em 1.5em 0 0;
   cursor: pointer;
 }
-.no-js button[aria-pressed='true'] { color: #16161a; border-bottom-color: #16161a; }
+.no-js button[aria-pressed='true'] { color: #141418; border-bottom-color: #141418; }

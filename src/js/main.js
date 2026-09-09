@@ -4,10 +4,14 @@
    Wires the four pieces together and owns the two bits of state the whole site
    has: which view you are on, and which language you are reading.
 
-     content.json  ->  layout.js   builds four scenes (card/cv x en/zh)
+     content.json  ->  layout.js   builds four scenes (index/cv x en/zh)
      text.js       ->  rasterises every run into one atlas texture
-     morph.js      ->  interpolates between two scenes
      gl.js         ->  draws the ground and the marks
+
+   Nothing on this page animates except the ground. The language toggle is a
+   cut - both languages are already laid out and rasterised, so switching is a
+   different draw call and nothing more - and changing view is a cross-fade
+   short enough to read as a page turning rather than as a transition.
 
    Everything visible is on the canvas. Two invisible DOM layers keep the page
    an actual document rather than a picture of one: a mirror of every string,
@@ -20,9 +24,8 @@
 import content from '../content/content.json';
 import '../styles/main.css';
 import { TextEngine, loadFonts } from './text.js';
-import { createStage, Marks } from './gl.js';
+import { createStage, Marks, drawScene } from './gl.js';
 import { buildScenes, fontSpecs, deferredFontSpecs, INK } from './layout.js';
-import { planLanguage, planView, drawScene, drawPlan, TIMING } from './morph.js';
 import { renderMirror } from './mirror.js';
 
 const DPR_CAP = 2;
@@ -30,6 +33,10 @@ const DPR_CAP = 2;
    second buys nothing but heat. Five is indistinguishable, and scroll,
    pointer and transitions all set `dirty` and redraw immediately anyway. */
 const IDLE_FRAME_MS = 200;
+/* Long enough to see, too short to wait through. A view change is a different
+   page, not a movement of this one, so it dissolves in place rather than
+   sliding: nothing here has a direction. */
+const VIEW_FADE_MS = 170;
 
 const canvas = document.getElementById('stage');
 const proxy = document.getElementById('scroll');
@@ -38,7 +45,7 @@ const safeProbe = document.getElementById('safe');
 const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 
 const state = {
-  view: 'card',
+  view: 'index',
   lang: 'en',
   scenes: null,
   grid: null,
@@ -110,7 +117,7 @@ async function boot(stage) {
     const safeTop = safeProbe ? safeProbe.offsetHeight : 0;
 
     engine.reset(dpr);
-    const built = buildScenes(engine, content, state.vw, state.vhStable, safeTop);
+    const built = buildScenes(engine, content, state.vw, state.vhStable, state.lang, safeTop);
     const atlas = engine.build();
     state.scenes = built.scenes;
     state.grid = built.grid;
@@ -144,82 +151,51 @@ async function boot(stage) {
   }
 
   /* The SMALL viewport height - what is available with the browser chrome at
-     its largest. LAYOUT uses this, so the card is guaranteed to fit in the
-     worst case and never jitters as the iOS bars animate in and out. */
+     its largest. LAYOUT uses this, so the index view is guaranteed to fit in
+     the worst case and never jitters as the iOS bars animate in and out. */
   function stableHeight() {
     return (svhProbe && svhProbe.offsetHeight) || innerHeight;
   }
 
-  function syncProxy(spanning) {
-    let h = scene().height;
-    if (spanning) {
-      /* Both languages of the current view, so the document cannot shrink
-         under the reader mid-transition. */
-      for (const lang of ['en', 'zh']) h = Math.max(h, state.scenes[`${state.view}:${lang}`].height);
-    }
-    proxy.style.height = `${Math.ceil(h)}px`;
+  function syncProxy() {
+    proxy.style.height = `${Math.ceil(scene().height)}px`;
   }
 
-  /* --- transitions ------------------------------------------------------- */
+  /* --- state changes ------------------------------------------------------ */
 
-  function begin(plan, kind, opts = {}) {
-    state.transition = {
-      plan, kind, ms: 0, dir: 1,
-      duration: reduced.matches ? TIMING.DURATION_REDUCED : plan.duration,
-      suppressTrace: !!opts.suppressTrace,
-      fromLang: opts.fromLang,
-    };
-    state.dirty = true;
-  }
+  /* A cut, and a whole re-layout to make it: only the language being read is
+     in the atlas, so this measures, rasterises and re-uploads the other one.
+     That is exactly the work a window resize already does, it happens inside
+     the click, and it lands on the next frame - which is the only thing a cut
+     has to promise. Keeping both languages in the texture would save nothing a
+     reader could perceive and cost twice the atlas.
 
+     The document does change height under them - the Chinese CV is shorter
+     than the English one - and the browser will clamp a scroll past the new
+     end. That is correct: the page really is that length now. */
   function setLang(next) {
     if (next === state.lang || !state.scenes) return;
-    const tr = state.transition;
-    /* A second press mid-flight reverses the motion rather than snapping or
-       stacking a new plan on top of it. The remaining time is what has already
-       elapsed, so correcting yourself feels quicker than committing - which is
-       right. Traces are suppressed for the rest of a reversed transition;
-       strobing hairlines are the one way this becomes cheap. */
-    if (tr && tr.kind === 'lang') {
-      /* Both directions: a lang plan always runs between the two languages of
-         the current view, so a third press is a request to run the same plan
-         the other way, not to build a new one. Only flipping on a match would
-         restart from zero and stack a second identical plan on the first. */
-      tr.dir = tr.fromLang === next ? -1 : 1;
-      tr.suppressTrace = true;
-    } else {
-      const fromLang = state.lang;
-      begin(planLanguage(marks,
-        state.scenes[`${state.view}:${fromLang}`],
-        state.scenes[`${state.view}:${next}`]), 'lang', { fromLang });
-    }
     state.lang = next;
     document.documentElement.lang = next === 'zh' ? 'zh-Hans' : 'en';
     try { localStorage.setItem('lang', next); } catch (e) { /* ignore */ }
     updateMirror(state.lang, true);
-    /* The proxy is held at the taller of the two while the morph runs, and the
-       hit layer is left where it is. Committing either at press time would move
-       the ground under a reader who is halfway down the Chinese CV - which is
-       shorter than the English one, so the browser clamps their scroll and the
-       page jumps - and would slide the nav's targets to the new language's
-       geometry ahead of the glyphs they stand for. Both settle in the frame
-       loop when the transition lands. */
-    syncProxy(true);
-    state.dirty = true;
+    relayout();
   }
 
   function setView(next) {
     if (next === state.view || !state.scenes) return;
     const from = scene();
     state.view = next;
-    begin(planView(marks, from, scene()), 'view');
+    /* Reduced motion gets the cut it asked for. */
+    state.transition = reduced.matches ? null : { from, ms: 0 };
     scrollTo(0, 0);
     syncProxy();
     syncHits();
+    state.dirty = true;
   }
 
   function act(id) {
-    if (id === 'view:card') setView('card');
+    if (id === 'view:index') setView('index');
     else if (id === 'view:cv') setView('cv');
     else if (id === 'lang:en') setLang('en');
     else if (id === 'lang:zh') setLang('zh');
@@ -362,17 +338,18 @@ async function boot(stage) {
 
     marks.clear();
     if (tr) {
-      tr.ms += dt * tr.dir;
-      if (tr.ms >= tr.duration || tr.ms <= 0) {
-        /* Land exactly: at the end, draw the destination through the plain
-           snapped path. Trusting the transform to evaluate to an identity
-           leaves it half a pixel out, and the type finishes soft. */
+      tr.ms += dt;
+      if (tr.ms >= VIEW_FADE_MS) {
+        /* Land exactly. A scene drawn at alpha 1 goes out as one quad per run;
+           the same scene at 0.999 goes out identically but through a blend the
+           framebuffer rounds, so finishing on the plain path is what makes the
+           type snap back to full density. */
         state.transition = null;
-        drawScene(marks, scene());
-        syncProxy();
-        syncHits();
+        drawScene(marks, scene(), 1, state.hover);
       } else {
-        drawPlan(marks, tr.plan, tr.ms, { reduced: reduced.matches, suppressTrace: tr.suppressTrace });
+        const e = tr.ms / VIEW_FADE_MS;
+        drawScene(marks, tr.from, 1 - e);
+        drawScene(marks, scene(), e);
       }
     } else {
       drawScene(marks, scene(), 1, state.hover);
@@ -390,10 +367,11 @@ async function boot(stage) {
   relayout();
   requestAnimationFrame(frame);
 
-  /* The other language's faces follow without blocking anything. Its scenes
-     exist from the first layout - the morph needs both sides - so they are
-     briefly measured in a fallback face, off screen, and this re-rasterises
-     them properly the moment the real one lands. */
+  /* The other language's faces follow without blocking anything, so that the
+     toggle - which re-lays out and re-rasterises on the spot - has them in
+     memory before it is ever pressed. Without this the first press of 中 would
+     set the whole page in a fallback face for as long as a download takes,
+     inside the one transition that is supposed to be instantaneous. */
   loadFonts(deferredFontSpecs(content, innerWidth, state.lang)).then(relayout).catch(() => {});
 
   /* The test surface. scripts/check.mjs drives the built site through this,
@@ -404,11 +382,9 @@ async function boot(stage) {
     toggleLang: () => act(state.lang === 'en' ? 'lang:zh' : 'lang:en'),
     diag: () => ({
       view: state.view, lang: state.lang, cols: state.grid.cols, dpr: engine.dpr,
-      atlas: engine.size, overflow: engine.overflow,
+      atlas: `${engine.atlas.width}x${engine.atlas.height}`, overflow: engine.overflow,
       quads: marks.count, height: Math.round(scene().height),
-      /* Elapsed ms of the running transition, or null. The only way to sample
-         the morph at a known point: a screenshot's own latency is larger than
-         several of its phases. */
+      /* Elapsed ms of the running cross-fade, or null. */
       t: state.transition ? Math.round(state.transition.ms) : null,
     }),
     grid: () => ({ ...state.grid, colX: undefined }),
@@ -420,6 +396,11 @@ async function boot(stage) {
     /* The atlas itself, as a PNG data URL - the fastest way to tell whether a
        packing or rasterisation bug is in the texture or in the draw. */
     atlas: () => engine.atlas.toDataURL('image/png'),
+    /* Every run reserved in the current atlas, in DEVICE px. The companion to
+       atlas(): one run wider than the texture forces the packer to the next
+       size and quadruples the memory, and this is the only way to see which
+       run it was. */
+    runs: () => engine.pending.map((r) => ({ w: r.devW, h: r.devH, text: r.text })),
   };
 }
 

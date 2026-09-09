@@ -1,12 +1,12 @@
 # Josephine Shen
 
-An identity card and a severely compressed CV, rendered entirely in WebGL.
-There is no DOM text in the render path: the ground, the rules and every glyph
-are drawn by the GPU.
+An index page and a severely compressed CV, rendered entirely in WebGL. There
+is no DOM text in the render path: the ground, the rules and every glyph are
+drawn by the GPU.
 
 ## Stack
 
-Plain HTML, a very small stylesheet, and six vanilla ES modules bundled by
+Plain HTML, a very small stylesheet, and five vanilla ES modules bundled by
 Rollup. No framework, no Three.js, no runtime dependencies at all. Fonts are
 self-hosted and subset. All visible text lives in `src/content/content.json`.
 
@@ -29,14 +29,16 @@ install chromium`).
 canvas, so the usual safety nets do not apply: a unit test cannot see a glyph,
 and a type error is not the failure mode to worry about. It drives the real
 built site in a real browser and asserts on what it does — that the hit layer
-is made of real anchors and buttons, that tab order is reading order, that a
-rapid triple language toggle leaves the state, the mirror and the drawing
-agreeing, and that the page still says who she is with WebGL removed, with
+is made of real anchors and buttons, that tab order is reading order, that the
+language switch lands on the very next frame with nothing left running, that
+the name is set flush to the measure, that a rapid triple toggle leaves the
+state, the mirror and the drawing agreeing, and that it still says who she is
+with WebGL removed, with
 `localStorage` throwing, without `Intl.Segmenter`, under
 `prefers-reduced-motion`, at 320x480, and through a resize storm.
 
 `og` regenerates the link preview by photographing the built site at 1200x630,
-so it can never drift out of date with the card.
+so it can never drift out of date with the page.
 
 Deploys on Vercel as a static build (`outputDirectory: dist`).
 
@@ -50,12 +52,11 @@ src/
     text.js             glyph atlas
     gl.js               the renderer
     layout.js           the box model
-    morph.js            the language morph
     mirror.js           the accessible document, as a pure function
-    main.js             state, transitions, the DOM layers
+    main.js             state, the DOM layers
   styles/main.css       ~190 lines, and none of them style any text
 public/fonts/           subset woff2 + the generated @font-face rules
-public/og.jpg           the link preview: a photograph of the card itself
+public/og.jpg           the link preview: a photograph of the page itself
 ```
 
 **text.js — the glyph atlas.** Nothing here is DOM text, so type has to become
@@ -68,6 +69,10 @@ independently. Font sizes are rounded to whole device pixels and run origins
 snap to the pixel grid, so at rest every texel lands on exactly one screen
 pixel and the type is as sharp as the DOM's.
 
+Only the language on screen is in the atlas. The atlas grows in height before
+it grows in width, because a shelf packer is bounded by the widest run it has
+to hold: 2048x4096 is the same capacity as a 4096 square for half the memory.
+
 **gl.js — the renderer.** Two passes. A full-screen triangle runs the concrete
 shader; then one dynamic vertex buffer holds every glyph, every hairline rule
 and every attention trace, and goes out in a single draw call. The atlas
@@ -76,20 +81,22 @@ texture. WebGL 1 and GLSL ES 1.00 throughout.
 
 **layout.js — the box model.** With no DOM there is no box model, so this file
 is it: `content.json` becomes flat lists of positioned runs and rectangles in
-CSS pixels, plus the regions that respond to a pointer. Four scenes are built
-at once — card and CV, English and Chinese — because both halves of every
-transition have to exist before it can start.
+CSS pixels, plus the regions that respond to a pointer.
 
-**morph.js — the language morph.** Pressing 中 does not swap one block of text
-for another. It computes a soft alignment between the glyphs of the English
-string and the glyphs of the Chinese one, the same shape of object a
-transformer's cross-attention produces when it translates, and plays that
-alignment as motion. One matrix, read row-normalised for where a Chinese glyph
-came from and column-normalised for where an English glyph is going. On the
-name, four hairlines trace the strongest pairs and are gone before you can
-count them. Smaller text gets a decode wipe instead: one soft edge sweeps the
-line, the old language lifts just ahead of it and the new one lands just
-behind, so a narrow band of bare concrete travels between the two.
+The name is the one run whose size is a result rather than a setting: it is
+scaled so the longest line lands exactly on the right margin, which makes the
+type a function of the measure — the oldest idea in letterpress display work,
+and the reason a wood-type poster looks built rather than arranged. Three
+things bound it: a ceiling in viewport heights, because 沈菲菲 is three
+characters and filling 1440px with three of them is a different page; a ceiling
+in atlas pixels, since a run wider than the texture cannot be packed at all;
+and a break to one word a line on portrait viewports, where a single line would
+otherwise set small and leave half the window empty under it.
+
+**Nothing animates except the ground.** Pressing 中 is a cut: the layout runs
+again, the atlas is rebuilt, and the other language is on screen the next
+frame. Changing view is a 170ms cross-fade in place, which is a page turning
+rather than a transition, and `prefers-reduced-motion` removes even that.
 
 **The ground.** Concrete, and one wash: a single soft mass, low and off-axis,
 with an edge that creeps the way ink creeps into damp paper. It moves at about
@@ -123,18 +130,18 @@ anchors, but the canvas itself is an image.
 ## Editing content
 
 Open `src/content/content.json`. Every value has an `en` and a `zh` — keep both
-filled, because the toggle morphs one into the other and a missing value leaves
-a hole on screen. Plain text only: no HTML, no `<br/>`. The layout engine
+filled, because the toggle cuts from one to the other and a missing value
+leaves a hole on screen. Plain text only: no HTML, no `<br/>`. The layout engine
 decides line breaks.
 
-- `card` — the six facts on the face of the card, and the contact block.
+- `index` — the six facts on the face of the page, and the contact block.
 - `cv` — sections, each with entries of `{ year, title, org }`. One line each.
 - An entry marked `"placeholder": true` is a real thing with a fact still
   missing; read its `note`, fill the value in, delete both keys.
 
 **After adding a Chinese character that was not already on the site, run
 `npm run fonts`.** The CJK faces are subset to exactly the characters this file
-uses — 226 of them, which is how several megabytes of Noto becomes 56kB and
+uses — 240 of them, which is how several megabytes of Noto becomes 56kB and
 74kB — so a new character is a missing glyph until they are regenerated.
 English edits never need it; the Latin faces carry full `latin` + `latin-ext`.
 
@@ -146,21 +153,28 @@ the condition of redistribution unmet.
 
 ## Typography
 
-Jost over Bodoni Moda: a geometric sans of Futura lineage set with Swiss
-discipline, over a Didone. Futura-over-Bodoni is the canonical New Typography
-pairing — Tschichold threw out nearly every serif and kept the Modern.
+Archivo over Newsreader, divided by job rather than by hierarchy: the grotesque
+is the structure — the name, the nav, the section heads, every tracked capital
+— and the serif is the voice, the few places where a sentence is being spoken
+rather than a page labelled. Nothing is set in both.
 
-Noto Sans SC and Noto Serif SC are the Chinese companions, and that pairing is
-what settles the Latin choice rather than following from it: every string on
-this site exists twice, so the Latin is never seen alone. Noto Sans SC is 黑体,
-near-monolinear with open counters; Jost is monolinear and circular. The two
-scripts agree in stroke and differ in form, which is what lets the morph read
-as a mapping rather than a dissolve.
+Archivo is cut from the American gothics of nineteenth-century wood type and
+job printing, which is where this page's ancestry actually lies: brutalism in
+print is the jobbing printer's grid, not the Swiss one. Newsreader is a
+newspaper serif in its bones and a contemporary drawing on its surface.
 
-Bodoni's hairlines only survive small sizes if its optical-size axis is
-honoured, and `ctx.font` cannot express one, so the axis is pinned in
-`@font-face` under two family names — `Bodoni Moda Lede` and `Bodoni Moda
-Text`. Choosing an optical size means naming a family.
+Noto Sans SC and Noto Serif SC are the Chinese companions: 黑体 under the
+grotesque, 宋体 under the serif. Every string on this site exists twice, so the
+Latin is never seen alone.
+
+Both Latin faces carry real axes, and pinning one is how they are spent.
+`ctx.font` is the CSS font shorthand and carries no `font-variation-settings`,
+so an axis is unreachable from Canvas2D through a family name alone. Google is
+asked for the axis frozen at one value instead — `wdth,wght@125,400..800` —
+which returns a partial instance with the width fixed and the weight still
+variable. A family name then *is* an axis value, and the file is a third the
+size of the two-axis original: 33kB against 87kB. Two Archivos cost less than
+one.
 
 All four faces are self-hosted (`scripts/fetch-fonts.mjs`, SIL OFL, see
 `public/fonts/OFL.txt`). No request leaves the visitor's browser for a third
@@ -180,15 +194,23 @@ technical one, after LG München I 3 O 17493/20.
 reaches its 1440 maximum exactly, and the type scale tops out. Above it the
 page is frozen and only the void grows.
 
-CV sections are packed into columns whole and in order — contiguous slices
-chosen to minimise the tallest column — so reading order survives and no entry
-is ever orphaned from its heading.
+The index view pins two blocks to the frame — who she is at the top, how to
+reach her at the bottom — and leaves the space between them empty on purpose. A
+block centred in the window would be a card, and a card has edges of its own
+that compete with the ones the browser already has.
+
+A CV section is a full-width band: a rule across the measure, its name hanging
+in the first column, and its entries filling the columns to the right. The
+first column stays empty for the whole height of the section, which is the
+point — it is the vertical the eye tracks down. Below three columns there is no
+column to hang in, so the name goes above its entries and they take the full
+measure.
 
 ## Notes
 
 - Language choice persists in `localStorage`.
-- `prefers-reduced-motion` freezes the ground and replaces the morph with a
-  dissolve in place.
+- `prefers-reduced-motion` freezes the ground and cuts between views instead of
+  cross-fading. The language toggle is already a cut.
 - If the atlas will not fit in the GPU's largest texture, the page re-lays out
   at DPR 1 rather than splitting into several draw calls.
 - A lost WebGL context is caught, cancelled (so the browser will offer it back)

@@ -2,7 +2,7 @@
   "name": "josephine-shen",
   "version": "1.0.0",
   "private": true,
-  "description": "Josephine Shen - identity card and compressed CV, rendered entirely in WebGL. Static, bilingual (EN/\u4e2d).",
+  "description": "Josephine Shen - index page and compressed CV, rendered entirely in WebGL. Static, bilingual (EN/\u4e2d).",
   "type": "module",
   "scripts": {
     "fonts": "node scripts/fetch-fonts.mjs",
