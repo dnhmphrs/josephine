@@ -30,6 +30,31 @@
        cannot reach: the bundle, the fonts, the licence file. -->
   <title></title>
   <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
+
+  <!-- The share card, and ONLY the card. og:title and og:description are the
+       two tags that would put her name back into the served HTML, which is the
+       one thing this whole architecture exists to prevent, so they are absent
+       and npm run check asserts they stay absent. What is left is an image: a
+       link pasted into a message unfurls as the mark and no words, which is
+       the same thing the browser tab shows.
+
+       square.png is 16x16 and that is fine - it is one flat colour, so it
+       upscales to whatever a platform asks for without losing anything. No
+       width/height is declared: the true numbers would read as a thumbnail and
+       false ones are a lie, so the scraper is left to size it.
+
+       summary, not summary_large_image, because the asset is a SQUARE and a
+       large card crops to 1.91:1. Nothing is lost in the crop - it is a solid
+       block either way - but the shape is the mark, so the card that keeps it
+       is the right one. One word to change if the big bar is wanted.
+
+       The path is relative. Open Graph asks for an absolute URL and every
+       scraper worth naming resolves a relative one anyway; if this ever fails
+       to unfurl somewhere, the fix is to put the real origin in front of it. -->
+  <meta property="og:image" content="/square.png" />
+  <meta property="og:image:type" content="image/png" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:image" content="/square.png" />
   <meta name="theme-color" content="#e4e1db" />
 
   <!-- One class carries both degraded paths. It is removed immediately if

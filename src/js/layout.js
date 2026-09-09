@@ -362,7 +362,14 @@ class Scene {
   }
 
   rect(key, x, y, w, h, color, alpha, opts = {}) {
-    this.items.push({ kind: 'rect', key, x, y, w, h, color: color || RULE, alpha, fixed: !!opts.fixed });
+    /* opts.stroke draws the OUTLINE at that weight instead of filling. One
+       caller: the language toggle's box. It stays a rect rather than becoming
+       its own kind because everything about it - the colour, the alpha, the
+       snapping, the exemption from the edge fade - is a rect's. */
+    this.items.push({
+      kind: 'rect', key, x, y, w, h,
+      color: color || RULE, alpha, stroke: opts.stroke || 0, fixed: !!opts.fixed,
+    });
   }
 
   /* Declare a seal: a group of runs that arrive under a bar of ink and are
@@ -452,28 +459,45 @@ function planToggle(scene, content, lang, g) {
   const zh = scene.prepare(content.labels.zh, { ...(lang === 'zh' ? on : off), tracking: 0 });
   const en = scene.prepare(content.labels.en, lang === 'en' ? on : off);
 
+  /* The box. Padding is asymmetric because the ink inside it is: the marks are
+     capitals and 中, which have a cap height and no descender to speak of, so
+     an equal inset would leave the box looking bottom-heavy. */
+  const ink = Math.round(Math.max(en.inkAscent || en.capHeight || 0, zh.inkAscent || zh.capHeight || 0));
+  const padX = Math.round(Math.max(13, g.u * 1.15));
+  const padY = Math.round(Math.max(7, g.u * 0.62));
+  const boxW = en.width + gap + 1 + gap + zh.width + padX * 2;
+  const boxH = ink + padY * 2;
+
   return {
-    width: en.width + gap + 1 + gap + zh.width,
-    /* How far below its own baseline the toggle's ink reaches, so the page can
-       be told where its top edge has to be clear. */
-    descent: Math.max(en.inkDescent || 0, zh.inkDescent || 0),
-    ascent: Math.max(en.inkAscent || en.capHeight || 0, zh.inkAscent || zh.capHeight || 0),
+    /* The box is what the page has to make room for now, not the marks. */
+    width: boxW,
+    ascent: padY + ink,
+    descent: padY,
     draw(y) {
-      scene.place('nav.zh', zh, g.right, y, lang === 'zh' ? INK : INK_3, { align: 'right', fixed: true });
-      const barX = g.right - zh.width - gap;
+      const right = g.right - padX;
+      const boxTop = Math.round(y - ink - padY);
+      /* A hairline rectangle, at the same weight as every rule on the page and
+         a touch more presence, because this one is the only thing on the site
+         a reader is meant to press. It is the border that makes it a control:
+         two words in the corner are a label, two words in a box are a switch,
+         and nothing else had to change to say so. */
+      scene.rect('nav.box', Math.round(g.right - boxW), boxTop, boxW, boxH,
+        RULE, HAIRLINE * 1.6, { fixed: true, stroke: 1 });
+
+      scene.place('nav.zh', zh, right, y, lang === 'zh' ? INK : INK_3, { align: 'right', fixed: true });
+      const barX = right - zh.width - gap;
       /* A hairline, not a slash: a slash is a glyph and would take the colour
          and weight of one side or the other. The rule belongs to neither. It
          is drawn to the INK of the mark beside it, not to the font box, so it
          is exactly as tall as 中 and no taller. */
-      const barH = Math.round(zh.inkAscent || zh.capHeight);
-      scene.rect('nav.bar', barX, Math.round(y - barH), 1, barH, RULE, 0.3, { fixed: true });
+      scene.rect('nav.bar', barX, Math.round(y - ink), 1, ink, RULE, 0.3, { fixed: true });
       scene.place('nav.en', en, barX - gap, y, lang === 'en' ? INK : INK_3, { align: 'right', fixed: true });
 
-      /* ONE hit, spanning both marks and the rule between them, and generous
-         around all of it. Everything in it does the same thing. */
-      const x0 = barX - gap - en.width;
-      const span = { width: g.right - x0, lineHeight: en.lineHeight, ascent: en.ascent };
-      scene.hit('lang:toggle', span, x0, y, {
+      /* ONE hit, and it is the box: everything inside does the same thing, and
+         a border that is not itself pressable is a lie about where the edge
+         of the control is. */
+      const span = { width: boxW, lineHeight: boxH, ascent: ink + padY };
+      scene.hit('lang:toggle', span, g.right - boxW, y, {
         fixed: true,
         key: 'nav.en',
         other: lang === 'en' ? 'zh' : 'en',
@@ -545,18 +569,23 @@ function head(scene, content, lang, g) {
   const top = Math.max(26, Math.round(g.margin)) + g.safeTop;
   const y0 = Math.round(top + (nameRun.inkAscent || nameRun.capHeight));
   scene.place('index.name', nameRun, g.left, y0, INK);
-  /* The toggle rides ABOVE the name's baseline, not on it.
+  /* The toggle hangs from the TOP of the name, not from its baseline.
 
      Sharing a baseline is the obvious alignment and the wrong one: an 11px
      tracked capital and a 54px name have nothing like the same ink, so setting
-     their feet level leaves the toggle sitting at the very bottom of the
-     name's visual block, reading as something that has slipped. What the eye
-     actually pairs is their CENTRES, so that is what is matched - the toggle's
-     ink centre is put on the name's, which lifts it by about a fifth of the
-     name's cap height and costs nothing else on the page. */
-  const navY = Math.round(y0
-    - ((nameRun.inkAscent || nameRun.capHeight) - (nameRun.inkDescent || 0)) / 2
-    + (nav.ascent - nav.descent) / 2);
+     their feet level leaves the toggle at the bottom of the name's visual
+     block, reading as something that has slipped. Matching their centres is
+     better and still not right - it leaves the toggle floating in the middle
+     of a space with no edge to hold it to.
+
+     Now that it is a bordered box the alignment is the BOX's, not the ink's,
+     and what the box is hung on is the frame: its optical centre sits on the
+     name's cap-top line, which is the top margin, which is how the head is
+     placed to begin with. So the line that starts the page passes through the
+     middle of the control - the only alignment in the head that refers to
+     something other than itself. The box stands a little proud of that line,
+     which is what a control should do and a word should not. */
+  const navY = Math.round(top + (nav.ascent - nav.descent) / 2);
   nav.draw(navY);
 
 
@@ -680,7 +709,7 @@ function head(scene, content, lang, g) {
      the page. */
   scene.edge = {
     x0: Math.round(g.right - nav.width - g.gutter * 0.5),
-    clear: Math.round(Math.min(top, navY - nav.ascent)),
+    clear: Math.round(navY - nav.ascent),
     full: Math.round(avY + avValue.inkDescent + 2),
   };
 
@@ -942,6 +971,16 @@ export function buildScene(engine, content, vw, vh, lang = 'en', safeTop = 0, sa
      is never mistaken for the section rules inside the block above it, not so
      much that the page comes apart into three separate documents. */
   let y = Math.round(headEnd + g.u * 17);
+
+  /* Nothing goes in the void, and that is the decision rather than the
+     absence of one. A mark was tried here and taken out: the square already
+     MEANS something on this page - it is what an open-ended year ends with,
+     "still running" - and a second one floating with nothing to refer to makes
+     it an ornament, which retroactively makes the year marks look like
+     ornaments too. The gap is bounded by the tagline above and a ruled
+     threshold below; it reads as deliberate because of what is on either side
+     of it, not because something is in it. */
+
   content.blocks.forEach((blk, bi) => {
     if (bi) y = Math.round(y + g.u * 10);
     y = block(scene, blk, lang, g, y, measureSections(engine, blk.sections, lang, g, S));
