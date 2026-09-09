@@ -92,6 +92,13 @@ try {
 /* seal key -> the moment it starts opening, or -1 for "open, no animation". */
 const revealed = new Map();
 
+/* The diagonal through the approach diagram, 0..1 across its travel, eased.
+   The only thing on the page that answers a pointer. It rests at centre and
+   returns there, so a page nobody is touching still shows the claim rather
+   than an off-screen line - and a phone, which has no pointer at all, gets the
+   same resting state as a desktop. */
+const dia = { at: 0.5, to: 0.5 };
+
 const DPR_CAP = 2;
 /* The ground drifts about 0.005px a frame, so redrawing it sixty times a
    second buys nothing but heat. Five is indistinguishable, and scroll,
@@ -415,6 +422,25 @@ async function boot(stage) {
 
   addEventListener('scroll', () => { state.dirty = true; }, { passive: true });
 
+  /* Page coordinates, not viewport: the diagram is in the document, and the
+     scroll is already in scrollY. Touch is ignored - a finger is not a
+     pointer, and a tap would snap the diagonal somewhere and leave it. */
+  addEventListener('pointermove', (e) => {
+    if (e.pointerType === 'touch' || !state.scene || !state.scene.diagram) return;
+    const d = state.scene.diagram;
+    const px = e.clientX;
+    const py = e.clientY + scrollY;
+    /* Only while the pointer is somewhere near the block, vertically. Beyond
+       that it eases home, so the diagonal is not left pointing at nothing. */
+    const near = py > d.y - d.h && py < d.y + d.h * 2;
+    dia.to = near ? Math.min(1, Math.max(0, (px - d.x) / Math.max(1, d.w))) : 0.5;
+    state.dirty = true;
+  }, { passive: true });
+  addEventListener('pointerout', (e) => {
+    if (!e.relatedTarget) { dia.to = 0.5; state.dirty = true; }
+  }, { passive: true });
+  addEventListener('blur', () => { dia.to = 0.5; state.dirty = true; });
+
   let resizeTimer = 0;
   function onResize() {
     /* Collapsing the iOS URL bar fires resize and changes the live height by
@@ -457,6 +483,15 @@ async function boot(stage) {
 
     let moving = false;
 
+    /* Eased at a tenth per frame - about a fifth of a second - so the diagonal
+       trails the cursor rather than being worn by it. Reduced motion pins it
+       at rest. */
+    if (reduced.matches) { dia.at = 0.5; } else {
+      const dd = dia.to - dia.at;
+      dia.at += dd * 0.10;
+      if (Math.abs(dd) > 0.0015) moving = true;
+    }
+
     marks.clear();
     /* Cubic ease out: fast off the mark and long in the settle, which is how a
        mask drawn back behaves and is the opposite of a fade. A seal still
@@ -472,7 +507,7 @@ async function boot(stage) {
       if (t >= 1) return 1;
       moving = true;
       return 1 - Math.pow(1 - t, 3);
-    }, scrollY);
+    }, scrollY, dia.at);
     if (moving) state.dirty = true;
 
     /* The ring is a mark like any other, so it is drawn in scene coordinates
@@ -515,6 +550,8 @@ async function boot(stage) {
       quads: marks.count, height: Math.round(state.scene.height),
     }),
     grid: () => ({ ...state.grid, colX: undefined }),
+    /* The approach diagram's geometry and the diagonal's current position. */
+    diagram: () => (state.scene.diagram ? { ...state.scene.diagram, dia: dia.at } : null),
     /* Every placed run, for checking that nothing overflows its column. */
     items: () => state.scene.items.filter((i) => i.kind === 'text').map((i) => ({
       key: i.key, text: i.run.text, seal: i.seal || null, fixed: !!i.fixed,

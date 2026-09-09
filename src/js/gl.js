@@ -364,6 +364,19 @@ export class Marks {
     this.quad(x0, y0, x1, y1, u, v, u, v, col, alpha);
   }
 
+  /* A sprite: the whole of one reserved atlas box, drawn at an explicit size.
+     Snapped like a rule is, because a rounded corner resampled off the pixel
+     grid is exactly where the softness would show. */
+  sprite(spr, x, y, w, h, col, alpha) {
+    if (!spr || !spr.rect) return;
+    const d = this.engine.dpr;
+    const uv = spr.uvAll;
+    const x0 = Math.round(x * d) / d;
+    const y0 = Math.round(y * d) / d;
+    this.quad(x0, y0, x0 + Math.round(w * d) / d, y0 + Math.round(h * d) / d,
+      uv[0], uv[1], uv[2], uv[3], col, alpha);
+  }
+
   strokeRect(x, y, w, h, weight, col, alpha) {
     this.rect(x, y, w, weight, col, alpha);
     this.rect(x, y + h - weight, w, weight, col, alpha);
@@ -487,7 +500,38 @@ const edgeFade = (bottom, edge, h) => {
   return t * t * (3 - 2 * t);
 };
 
-export function drawScene(marks, scene, alpha = 1, hoverKey = null, reveal = null, fixedY = 0) {
+/* How lit one diagram cell is, for a diagonal at `dia` (0 at the left of its
+   travel, 1 at the right).
+
+   The line is never drawn. It is defined, cells are asked how far they are
+   from it, and their ink is raised by how close they are - so the diagonal
+   exists only as a brightening across three rows, which is both quieter than a
+   ruled line and truer to the claim: she is not a line drawn over society, she
+   is the levels she is in at once.
+
+   A smooth falloff, not a hit test. Discrete lighting makes the diagonal jump
+   a whole cell at a time as the pointer moves, which reads as a control being
+   operated; a continuous one reads as something being illuminated. */
+const DIA_REST = 0.10;    // a cell nowhere near the diagonal
+const DIA_LIT = 0.62;     // a cell the diagonal passes through
+
+function diaLight(scene, row, col, dia) {
+  const d = scene.diagram;
+  const cx = d.x + col * (d.cellW + d.gap) + d.cellW / 2;
+  const cy = d.y + row * d.rowStep + d.cellH / 2;
+  /* The diagonal travels WHOLE. Its offset is bounded so that the top of the
+     line never leaves the left edge and the bottom never leaves the right, so
+     there is no position at which a row goes dark - which matters, because the
+     three rows being lit AT ONCE is the entire claim. Sweeping it off the ends
+     was the first version and it broke the sentence it is illustrating. */
+  const down = (cy - d.y) / Math.max(1, d.h);
+  const lx = d.x + dia * Math.max(0, d.w - d.span) + down * d.span;
+  const t = Math.min(1, Math.abs(cx - lx) / Math.max(1, d.cellW * 1.35));
+  const fall = 1 - t * t * (3 - 2 * t);
+  return DIA_REST + (DIA_LIT - DIA_REST) * fall;
+}
+
+export function drawScene(marks, scene, alpha = 1, hoverKey = null, reveal = null, fixedY = 0, dia = 0.5) {
   for (const it of scene.items) {
     /* A fixed mark belongs to the window rather than to the document, so the
        scroll the renderer is about to subtract is added back here. One number,
@@ -498,7 +542,7 @@ export function drawScene(marks, scene, alpha = 1, hoverKey = null, reveal = nul
        under the toggle is nothing; a threshold rule dissolving while the word
        that names it stays put is a page coming apart. The frame of the
        document is always drawn - the same rule the seals follow. */
-    if (!it.fixed && it.kind !== 'rect' && scene.edge) {
+    if (!it.fixed && it.kind === 'text' && scene.edge) {
       /* In scope only if the mark reaches into the toggle's column. */
       if (it.edge || it.x + it.run.width > scene.edge.x0) {
         const bottom = it.y - fixedY + (it.run.inkDescent || 0);
@@ -508,6 +552,11 @@ export function drawScene(marks, scene, alpha = 1, hoverKey = null, reveal = nul
     }
     if (it.kind === 'rect') {
       marks.rect(it.x, y, it.w, it.h, it.color, a);
+      continue;
+    }
+    if (it.kind === 'sprite') {
+      const lit = it.cell && scene.diagram ? diaLight(scene, it.cell[0], it.cell[1], dia) : 1;
+      marks.sprite(it.run, it.x, y, it.w, it.h, it.color, a * lit);
       continue;
     }
     const col = it.key === hoverKey ? HOVER_INK : it.color;
