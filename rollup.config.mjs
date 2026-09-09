@@ -80,7 +80,8 @@ const prune = (v) => (Array.isArray(v) ? v.map(prune)
    meet, which is what makes them safe here and unsafe on the canvas: the page
    faces are subset to the content, so the same characters drawn INSIDE the
    viewport would be tofu or would cost another font file. */
-const NIBBLES = '░▗▖▄▝▐▞▟▘▚▌▙▀▜▛█';
+const NIBBLES = "■■                "
+// const NIBBLES = '░▗▖▄▝▐▞▟▘▚▌▙▀▜▛█';
 const titleMark = () => crypto.createHash('sha256')
   .update(JSON.stringify(prune(JSON.parse(fs.readFileSync('src/content/content.json', 'utf8')))))
   .digest('hex').slice(0, 32)
