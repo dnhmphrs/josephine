@@ -76,17 +76,27 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
   const shape = await p.evaluate(() => {
     const items = window.__stage.items();
     const at = (k) => items.find((i) => i.key.startsWith(k));
-    return { head: at('index.name').y, cv: at('cv.0.head').y, foot: at('foot.mail').y, vh: innerHeight };
+    return {
+      head: at('index.name').y,
+      first: at('work.label').y,     // the first block's threshold
+      cv: at('cv.label').y,          // the last block's
+      foot: at('foot.mail').y,
+      vh: innerHeight,
+    };
   });
-  /* Wide and shallow: the opening sits in the top third and the CV's first
-     section head is already on the first screen. The earlier version of this
-     page held the CV down to the fold, which made the head as tall as the
-     window whatever it contained; both bounds here are what stops that
-     returning, from either direction. */
-  ok('the opening is shallow and the CV is on the first screen',
-    shape.head < shape.vh * 0.35 && shape.cv > shape.vh * 0.45 && shape.cv < shape.vh * 0.95,
+  /* Wide and shallow: the opening sits in the top third and the FIRST block's
+     threshold is already on the first screen. The earlier version of this page
+     held the body down to the fold, which made the head as tall as the window
+     whatever it contained; both bounds here are what stops that returning,
+     from either direction. It is the first threshold that is checked, not the
+     CV's - the CV is the last of three blocks now and is legitimately well
+     below the fold. */
+  ok('the opening is shallow and the first block is on the first screen',
+    shape.head < shape.vh * 0.35 && shape.first > shape.vh * 0.45 && shape.first < shape.vh * 0.95,
     JSON.stringify(shape));
-  ok('the CV and the footer are below it', shape.foot > shape.cv && d.height > shape.foot, JSON.stringify(d));
+  /* The blocks are in order and the footer is under all of them. */
+  ok('the blocks and the footer are below it',
+    shape.cv > shape.first && shape.foot > shape.cv && d.height > shape.foot, JSON.stringify(d));
 
   /* Availability belongs to the head, above the first CV section - it used to
      sit in the body, where four flat facts read as an application. */
@@ -96,11 +106,11 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
       const at = (k) => items.find((i) => i.key.startsWith(k));
       return {
         avail: at('index.available') ? at('index.available').y : null,
-        cv: at('cv.0.head').y,
+        cv: at('work.label').y,
         toggleY: (at('nav.') || {}).y,
       };
     });
-    ok('availability is in the head, above the CV',
+    ok('availability is in the head, above the first block',
       head.avail !== null && head.avail < head.cv, JSON.stringify(head));
   }
 
@@ -143,7 +153,7 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
     await q.goto(URL + '?reveal=on');
     await q.waitForTimeout(2200);
     const r = await q.evaluate(() => window.__stage.reveal());
-    const above = Object.entries(r.seals).filter(([k]) => /^head\.|^cv\.0\.head/.test(k));
+    const above = Object.entries(r.seals).filter(([k]) => /^head\.|^work\.0\.head/.test(k));
     ok('?reveal=on un-redacts the first screen on load',
       r.on === true && above.length > 0 && above.every(([, v]) => v === -1 || v > 0.9),
       JSON.stringify(above.slice(0, 4)));

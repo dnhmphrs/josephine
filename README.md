@@ -24,6 +24,12 @@ npm run lint
 npm run check    # drive the built site in a real browser (see below)
 ```
 
+A boot failure is logged to the console before `fallback()` degrades the page
+to bare ground. The degraded path is correct for a device that cannot run this
+and wrong to take silently for a bug, and the two look identical from outside.
+Keep her name out of any such string: `npm run check` greps the bundle for
+content words, and a log prefix is text like any other.
+
 `check` needs Playwright, which is deliberately not a dependency — it pulls a
 browser and this runs rarely (`npm i -D playwright && npx playwright install
 chromium`). Set `CHROMIUM_PATH` if the machine has a browser already and cannot
@@ -275,11 +281,16 @@ decides line breaks.
 - `labels` — the CV heading and the two words in the language toggle. They live
   here rather than in `layout.js` because anything the encoder cannot see is a
   string that ships in plain sight.
-- `areas` — the three things she works on, `{ title, org }`, drawn above the CV
-  one to a column. They are deliberately NOT a CV section: everything in the CV
-  is a post, a thing with a date that happened and is finished, and these have
-  no dates because they are not events.
-- `cv` — sections, each with entries of `{ year, title, org }`. One line each.
+- `blocks` — the body of the page, in order. Each block is `{ key, label,
+  sections }`: `label` is the word that interrupts its threshold rule, `key`
+  prefixes every scene key it draws, and `sections` are `{ section, entries }`
+  with entries of `{ year, title, org }`. One line each.
+
+  There are three — **Research and writing**, a placeholder, and **CV** — and
+  the parallel is the point: the reader is told which body of material they
+  have arrived in by the same device every time. A block with an empty
+  `sections` array still draws its threshold and reserves a band under it,
+  which is what makes it usable as a placeholder.
 - An entry marked `"placeholder": true` is a real thing with a fact still
   missing; read its `note`, fill the value in, delete both keys.
 

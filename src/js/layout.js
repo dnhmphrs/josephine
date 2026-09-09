@@ -139,13 +139,6 @@ function scale(vw) {
        an address is not a heading, and at the serif's body size it was reading
        as one. Small enough to be a footnote, large enough to be a target. */
     link: { family: SERIF, size: f(14, 15.5), lh: 1.35, weight: 400, tracking: 0, zh: { k: 1 } },
-    /* The availability value, in the serif, on the dateline's baseline. Set
-       a notch above the tracked label beside it: a roman and a set of tracked
-       capitals at the same nominal size do not read as the same size, because
-       the capitals have no descenders and twice the letter-spacing. The label
-       is S.role - the dateline's own size, which is what it answers across the
-       measure - and this is what sits level with it. */
-    avail: { family: SERIF, size: f(14, 15.5), lh: 1.2, weight: 400, tracking: 0, zh: { k: 0.94, floor: 13.5 } },
   };
 }
 
@@ -626,9 +619,21 @@ function head(scene, content, lang, g) {
      banner however quietly it is set; the same three words in a roman are a
      note in the margin. That is the whole difference between "looking for
      work" and "settled, and available". */
+  /* ONE REGISTER. The label and the value are both set in the dateline's own
+     tracked capitals, at its size, in its quiet grey - so the top of the page
+     is one band with a matching weight at each end, rather than a line of
+     capitals facing a line of roman.
+
+     Three earlier versions failed on the same fault in different ways. Beside
+     the sentence in micro capitals it was orphaned - the only thing on the
+     page aligned to nothing. On this baseline with the value in the serif, the
+     two halves of one statement were set in two voices at two sizes, so the
+     label read as a small prefix hanging off the front of a serif phrase
+     rather than as its label. What was wrong was never the position. It was
+     that the line kept being made of two different things. */
   const av = c.available;
   const avLabel = scene.prepare(av.label[lang], S.role);
-  const avValue = scene.prepare(av.value[lang], S.avail);
+  const avValue = scene.prepare(av.value[lang], S.role);
   const avGap = Math.round(Math.max(8, u * 0.7));
   const avW = avLabel.width + avGap + avValue.width;
   const avSeal = scene.seal('head.avail', y, 90);
@@ -637,7 +642,7 @@ function head(scene, content, lang, g) {
   const avInline = avW + g.gutter <= g.contentW - used;
   let avY = y;
   if (!avInline) avY = y + lead(S.role) + Math.round(u * 0.5);
-  scene.place('index.available.value', avValue, g.right - avValue.width, avY, INK_2, { seal: avSeal });
+  scene.place('index.available.value', avValue, g.right - avValue.width, avY, INK_3, { seal: avSeal });
   scene.place('index.available', avLabel, g.right - avW, avY, INK_3, { seal: avSeal, edge: true });
 
   /* The toggle's column, in viewport coordinates, handed to the renderer.
@@ -692,85 +697,6 @@ function head(scene, content, lang, g) {
   return y;
 }
 
-/* ---- the areas ------------------------------------------------------------
-   The three things she works on, between the statement and the record, and
-   NOT labelled.
-
-   They were the CV's second section, under the head RESEARCH, which put them
-   in the wrong document. Everything else in the CV is a POST: a role, a paper,
-   a convening, a degree - a thing with a date that happened and is finished.
-   These have no dates because they are not events; they are the subject
-   matter, and reading them as the second row of a chronology asks the reader
-   to date them, which is the wrong question.
-
-   So they come up out of the record and sit above the threshold, one to a
-   column, spanning the measure. Unlabelled, because the position is the label:
-   directly under the sentence about what she does, three columns wide, they
-   can only be a statement of what she does. A word over them would say what
-   the arrangement already says, and would put them back in the register of
-   filed material.
-
-   No new type. Title in the serif and subject in the quiet sans, exactly as a
-   CV entry is set, so the page's vocabulary does not grow by one - what
-   changes is where they are, and that is the whole of the change. */
-function areaTracks(g) {
-  /* Thirds of the measure, never the CV's hanging track: these begin at the
-     left margin, which is what separates them from the record below, where
-     column one is always empty. Two up at two columns, stacked at one. */
-  const across = Math.min(3, g.cols);
-  return { across, trackW: (g.contentW - g.gutter * (across - 1)) / across };
-}
-
-function areas(scene, content, lang, g, y0) {
-  const items = content.areas || [];
-  if (!items.length) return y0;
-  const S = scale(g.vw);
-  const u = g.u;
-  const { across, trackW } = areaTracks(g);
-  const titleLead = lead(S.title);
-  const metaLead = lead(S.meta);
-  const probe = scene.engine.run({ ...adapt(S.title, lang), text: 'H' });
-  const metaProbe = scene.engine.run({ ...adapt(S.meta, lang), text: 'H' });
-
-  /* Measured in full before anything is drawn, because a row is only as tall
-     as its tallest cell and the wrap is not known until it is done. */
-  const cells = items.map((it) => ({
-    titles: wrap(scene.engine, it.title[lang], adapt(S.title, lang), trackW),
-    org: it.org ? wrap(scene.engine, it.org[lang], adapt(S.meta, lang), trackW) : [],
-  }));
-  const cellH = (c) => probe.ascent + (c.titles.length - 1) * titleLead + probe.descent
-    + (c.org.length ? u * 1.4 + metaProbe.ascent + (c.org.length - 1) * metaLead + metaProbe.descent : 0);
-
-  const rows = Math.ceil(cells.length / across);
-  const rowH = [];
-  for (let r = 0; r < rows; r++) {
-    rowH.push(Math.max(...cells.slice(r * across, (r + 1) * across).map(cellH)) + (r < rows - 1 ? u * 3.2 : 0));
-  }
-
-  cells.forEach((c, i) => {
-    const col = i % across;
-    const row = Math.floor(i / across);
-    const x = Math.round(g.left + col * (trackW + g.gutter));
-    let y = y0;
-    for (let r = 0; r < row; r++) y += rowH[r];
-    const seal = scene.seal(`area.${i}`, y, col * 55);
-
-    y += probe.ascent;
-    c.titles.forEach((t, k) => {
-      scene.text(`area.${i}.title.${k}`, t, S.title, x, y + k * titleLead, INK, { seal });
-    });
-    y += (c.titles.length - 1) * titleLead;
-    if (c.org.length) {
-      y += u * 1.4 + metaProbe.ascent;
-      c.org.forEach((t, k) => {
-        scene.text(`area.${i}.org.${k}`, t, S.meta, x, y + k * metaLead, INK_3, { seal });
-      });
-    }
-  });
-
-  return y0 + rowH.reduce((a, b) => a + b, 0);
-}
-
 /* ---- the CV ---------------------------------------------------------------
    A section is a band: a hairline across the measure, its name hanging in the
    first column, and its entries filling the columns to the right. The first
@@ -798,7 +724,7 @@ function cvMetrics(g) {
   return { hang, x0, across, trackW };
 }
 
-function measureSections(engine, content, lang, g, S) {
+function measureSections(engine, sections, lang, g, S) {
   const u = g.u;
   const m = cvMetrics(g);
   const titleRole = adapt(S.title, lang);
@@ -809,7 +735,7 @@ function measureSections(engine, content, lang, g, S) {
   const probe = engine.run({ ...titleRole, text: 'H' });
   const metaProbe = engine.run({ ...metaRole, text: 'H' });
 
-  return content.cv.map((sec, si) => {
+  return sections.map((sec, si) => {
     /* The first band opens under the threshold word, so it is given more air
        above its entries than the others: without it, CV and NOW stack a
        centimetre apart in the same column and read as one two-line label
@@ -847,11 +773,39 @@ function measureSections(engine, content, lang, g, S) {
   });
 }
 
-function cvBlock(scene, content, lang, g, y0, measured) {
+/* The threshold: one hairline across the measure, interrupted at the left by
+   the word that names what is under it.
+
+   It was the CV's alone and is now every block's, which is the point - the
+   page is a sequence of named bodies of material, and the reader is told
+   which one they have arrived in by the same device every time. One rule with
+   a shoulder, no new weight, no new colour, no second grid. Returns the x the
+   rule starts at, so a section rule further down the block can be drawn flush
+   left and read as a lesser division of the same kind. */
+function threshold(scene, blk, lang, g, y, S, u) {
+  const label = scene.prepare(blk.label[lang], S.section);
+  const lift = Math.round((label.inkAscent || label.capHeight) / 2);
+  scene.place(`${blk.key}.label`, label, g.left, Math.round(y) + lift, INK);
+  const ruleX = g.left + Math.round(label.width + Math.max(12, u * 1.4));
+  scene.rect(`${blk.key}.rule`, ruleX, Math.round(y), g.right - ruleX, 1, RULE, HAIRLINE);
+  return ruleX;
+}
+
+function block(scene, blk, lang, g, y0, measured) {
   const S = scale(g.vw);
   const u = g.u;
   const m = cvMetrics(g);
+  const k = blk.key;
   let y = y0;
+
+  /* A block with no sections is still a block: its threshold is drawn and a
+     band of paper is reserved under it. That is what a placeholder IS here -
+     the page shows where the material will go, at the size it will take, so
+     the interval either side is being judged against the real thing. */
+  if (!measured.length) {
+    threshold(scene, blk, lang, g, y, S, u);
+    return y + u * 9;
+  }
 
   measured.forEach((sec, si) => {
     /* The threshold. The CV used to begin with nothing but a gap and then the
@@ -865,18 +819,12 @@ function cvBlock(scene, content, lang, g, y0, measured) {
        threshold and not a fourth kind of divider, and it costs no new weight,
        no new colour and no second grid. The word already existed in
        content.json waiting for it. */
-    let ruleX = g.left;
-    if (si === 0) {
-      const label = scene.prepare(content.labels.cv[lang], S.section);
-      const lift = Math.round((label.inkAscent || label.capHeight) / 2);
-      scene.place('cv.label', label, g.left, Math.round(y) + lift, INK);
-      ruleX = g.left + Math.round(label.width + Math.max(12, u * 1.4));
-    }
-    scene.rect(`cv.${si}.rule`, ruleX, Math.round(y), g.right - ruleX, 1, RULE, HAIRLINE);
+    const ruleX = si === 0 ? threshold(scene, blk, lang, g, y, S, u) : g.left;
+    if (si > 0) scene.rect(`${k}.${si}.rule`, ruleX, Math.round(y), g.right - ruleX, 1, RULE, HAIRLINE);
     let top = y + sec.topPad;
 
-    const headSeal = scene.seal(`cv.${si}.head`, top, 0);
-    scene.text(`cv.${si}.head`, sec.sec.section[lang], S.section, g.left, top + sec.head.ascent, INK_3,
+    const headSeal = scene.seal(`${k}.${si}.head`, top, 0);
+    scene.text(`${k}.${si}.head`, sec.sec.section[lang], S.section, g.left, top + sec.head.ascent, INK_3,
       { seal: headSeal });
     if (!m.hang) top += sec.head.lineHeight + u * 2.6;
 
@@ -890,21 +838,21 @@ function cvBlock(scene, content, lang, g, y0, measured) {
       /* One seal an ENTRY, not a run: a two-line title whose second line
          resolved out of step with its first reads as a fault rather than as a
          mask. The stagger is by COLUMN, so a band opens left to right. */
-      const seal = scene.seal(`cv.${si}.${ei}`, ey, col * 55);
+      const seal = scene.seal(`${k}.${si}.${ei}`, ey, col * 55);
 
       ey += sec.probe.ascent;
-      en.titles.forEach((t, k) => {
-        scene.text(`cv.${si}.${ei}.title.${k}`, t, S.title, x, ey + k * sec.titleLead, INK, { seal });
+      en.titles.forEach((t, j) => {
+        scene.text(`${k}.${si}.${ei}.title.${j}`, t, S.title, x, ey + j * sec.titleLead, INK, { seal });
       });
       ey += (en.titles.length - 1) * sec.titleLead;
 
       if (en.org.length || en.year) {
         ey += u * 1.4 + sec.metaProbe.ascent;
-        en.org.forEach((t, k) => {
-          scene.text(`cv.${si}.${ei}.org.${k}`, t, S.meta, x, ey + k * sec.metaLead, INK_3, { seal });
+        en.org.forEach((t, j) => {
+          scene.text(`${k}.${si}.${ei}.org.${j}`, t, S.meta, x, ey + j * sec.metaLead, INK_3, { seal });
         });
         if (en.year) {
-          scene.text(`cv.${si}.${ei}.year`, en.year, S.year, x + m.trackW, ey, INK_3, { align: 'right', seal });
+          scene.text(`${k}.${si}.${ei}.year`, en.year, S.year, x + m.trackW, ey, INK_3, { align: 'right', seal });
         }
       }
     });
@@ -966,19 +914,26 @@ export function buildScene(engine, content, vw, vh, lang = 'en', safeTop = 0, sa
 
   const headEnd = head(scene, content, lang, g);
 
-  /* Head, then the three areas, then the void, then the record. The areas
-     belong to the head - they finish the sentence above them - so the gap
-     over them is a paragraph break and the gap under them is the division.
+  /* The head, a void, and then the blocks - each one a threshold rule with its
+     name on it and its sections under it.
 
-     That void is the largest interval on the page and the only one not doing
+     The void is the largest interval on the page and the only one not doing
      any work, which is what makes it legible AS a division rather than as
-     leftover paper: the reader has to cross it. That, and the rule with the
-     word on it, is a little blank space AND a line, because either alone was
-     what was there before. */
-  const areasEnd = areas(scene, content, lang, g, Math.round(headEnd + g.u * 6));
-  const cvTop = Math.round(areasEnd + g.u * 11);
-  const measured = measureSections(engine, content, lang, g, S);
-  const cvEnd = cvBlock(scene, content, lang, g, cvTop, measured);
+     leftover paper: the reader has to cross it. It is deliberately deeper than
+     it needs to be. The head is short - a name, a dateline, two lines of
+     sentence - and the first threshold arriving close under it read as a
+     caption to the sentence rather than as the start of a different kind of
+     material.
+
+     Between blocks the gap is a little over half that: enough that a threshold
+     is never mistaken for the section rules inside the block above it, not so
+     much that the page comes apart into three separate documents. */
+  let y = Math.round(headEnd + g.u * 17);
+  content.blocks.forEach((blk, bi) => {
+    if (bi) y = Math.round(y + g.u * 10);
+    y = block(scene, blk, lang, g, y, measureSections(engine, blk.sections, lang, g, S));
+  });
+  const cvEnd = y;
 
   const footEnd = footer(scene, content, lang, g, cvEnd + g.u * 2);
   scene.height = Math.round(footEnd + Math.max(g.margin, g.u * 5));
@@ -1012,10 +967,9 @@ export function fontSpecs(content, vw, lang) {
     content.index.name[lang], content.index.role[lang], content.index.line[lang],
     ...content.index.context.map((v) => v[lang]),
     content.index.available.label[lang], content.index.available.value[lang],
-    content.labels.cv[lang],
-    ...(content.areas || []).map((a) => a.title[lang] + (a.org ? a.org[lang] : '')),
-    ...content.cv.map((s) => s.section[lang]
-      + s.entries.map((e) => (e.year || '') + e.title[lang] + (e.org ? e.org[lang] : '')).join('')),
+    ...content.blocks.map((b) => b.label[lang]
+      + b.sections.map((s) => s.section[lang]
+        + s.entries.map((e) => (e.year || '') + e.title[lang] + (e.org ? e.org[lang] : '')).join('')).join('')),
     content.labels.zh,
   ].join('');
   const exotic = [...new Set([...strings])].filter((c) => c.codePointAt(0) > 0x7f).join('');

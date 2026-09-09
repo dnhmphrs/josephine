@@ -134,15 +134,27 @@ const stage = createStage(canvas);
 if (!stage) fallback();
 else boot(stage).catch(fallback);
 
-/* No WebGL, or a context we could not create. There is nothing to fall back
-   TO any more - the mirror that used to become the page here was the text this
-   build exists not to publish - so this clears the canvas and leaves bare
-   ground. Rare, and the cost of the decision. */
-function fallback() {
+/* A boot failure is REPORTED before it is absorbed. fallback() degrades to
+   bare ground, which is the right thing for a device that genuinely cannot
+   run this - and the wrong thing to do silently for a bug, which looks
+   identical from the outside and cost an afternoon of bisecting exactly once.
+   The console is the only channel left on a page with no text.
+
+   No name in the string: the check suite greps the bundle for content words
+   and a log prefix is text like any other. It caught this one. */
+function fallback(err) {
+  if (err) {
+    try { console.error('boot failed, falling back to bare ground:', err); } catch (e) { /* no console */ }
+  }
   document.documentElement.classList.add('no-js');
   if (canvas) canvas.remove();
   if (proxy) proxy.remove();
 }
+
+/* No WebGL, or a context we could not create. There is nothing to fall back
+   TO any more - the mirror that used to become the page here was the text this
+   build exists not to publish - so this clears the canvas and leaves bare
+   ground. Rare, and the cost of the decision. */
 
 async function boot(stage) {
   const engine = new TextEngine(stage.gl);
