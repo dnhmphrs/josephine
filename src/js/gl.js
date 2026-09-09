@@ -92,6 +92,7 @@ precision mediump float;
 uniform vec2  uRes;      // device px
 uniform float uTime;     // seconds
 uniform float uScroll;   // page scroll, in viewport heights
+uniform vec3  uPointer;  // xy in viewport uv (y up), z = presence
 varying vec2  vUv;       // y up
 varying vec2  vPix;      // device px, at vertex precision
 
@@ -108,6 +109,22 @@ const vec3 LILAC     = vec3(0.561, 0.373, 0.627);   // #8f5fa0
 
 const float POOL_A = 0.048;        // upper pool, from 120% 80% at 50% -10%
 const float POOL_B = 0.038;        // lower pool, from 100% 60% at 100% 110%
+/* A third pool, and the only thing on this page that answers the reader. It
+   follows the pointer at about a twelfth of the distance per frame, which is
+   slow enough that it never feels attached to the cursor and never draws the
+   eye - what you notice is that the sheet is very slightly cooler where you
+   are looking, the way paper is under a hand. Seven percent sounds like a
+   lot and is about four levels out of 255 at the very centre; squared
+   falloff spreads the rest so thin that the pool has no edge anywhere.
+
+   Seven is a ceiling, not a taste: the darkest point this shader can reach is
+   the two static pools at their deepest with this one at full strength on top,
+   and #5B584C - the quietest ink on the page - measures 4.65:1 against exactly
+   that. Nine percent takes it to 4.56 and ten takes it under 4.5. Raising this
+   means lowering INK_3, and it is the ink that should win.
+
+   On a touch screen it does not exist. */
+const float POOL_P = 0.070;
 const float TOOTH  = 0.007;        // paper grain
 const float DITHER = 2.0 / 255.0;  // 1/255 is pure TPDF; 2 also reads as surface
 const float DRIFT  = 0.011;        // one full cycle, about twenty minutes
@@ -175,6 +192,15 @@ void main() {
 
   col = mix(col, LILAC, a * POOL_A);
   col = mix(col, LILAC, b * POOL_B);
+
+  /* Aspect-corrected, so it is a disc rather than an ellipse - the two washes
+     above are ellipses because CSS gradients are, but a pool that tracks a
+     pointer has to be round or it reads as a smear. Squared, so the falloff
+     has no shoulder at all. */
+  float aspect = uRes.x / max(uRes.y, 1.0);
+  vec2 pp = vec2((vUv.x - uPointer.x) * aspect, vUv.y - uPointer.y);
+  float g = 1.0 - smoothstep(0.0, 0.62 * max(1.0, aspect * 0.62), length(pp));
+  col = mix(col, LILAC, g * g * POOL_P * uPointer.z);
 
   /* Grain. Screen-fixed, so it reads as the tooth of the sheet rather than as
      film grain sitting on the page. */
@@ -362,6 +388,59 @@ export class Marks {
       u[0], u[1], u[2], u[3], col, alpha);
   }
 
+  /* ---- redaction -----------------------------------------------------------
+     A run that has not resolved yet, drawn as the type it will be plus the bar
+     it still is. `p` is how much of the run has been released, left to right.
+
+     Everything here happens on ONE plane, which is the reason this page can do
+     it and a page of DOM text cannot: the bar and the letters are the same
+     kind of object in the same buffer, so a bar can end exactly where a letter
+     starts rather than being a div stacked on top of a paragraph.
+
+       - The revealed part is the run's own quad with its right edge and its
+         right UV cut at the same fraction. The atlas holds the bitmap whole,
+         so a partial run is a partial sample of it - no second rasterisation,
+         no per-glyph loop, and the letter at the cut is sliced mid-stroke,
+         which is what a retracting mask does and what a fade does not.
+       - The bar is the remainder, at the hairline's value. Not black: a black
+         censor bar over a name is a joke about classified documents. This is
+         the same ink and very nearly the same alpha as every rule on the page,
+         so the bar reads as the document's own line, thickened, temporarily
+         standing where a line of type will be.
+       - One device pixel at the retracting edge, darker, so the movement has a
+         leading edge and reads as a mask being drawn back rather than as type
+         fading up. It only exists while the seal is opening.
+
+     The split is computed in DEVICE pixels and used for both the type and the
+     bar, so the two always meet exactly and never leave a seam or an overlap
+     of a fraction of a pixel. */
+  redacted(run, penX, baselineY, col, alpha, p) {
+    if (!run.rect) return;
+    const dpr = this.engine.dpr;
+    const pen = Math.round(penX * dpr);
+    const ox = pen - run.pad;
+    const top = Math.round(baselineY * dpr) - run.devBaseline;
+    const adv = Math.max(1, Math.round(run.width * dpr));
+    const split = pen + Math.round(adv * p);
+
+    if (split > ox) {
+      const f = Math.min(1, (split - ox) / run.devW);
+      const u = run.uvAll;
+      this.quad(ox / dpr, top / dpr, split / dpr, (top + run.devH) / dpr,
+        u[0], u[1], u[0] + (u[2] - u[0]) * f, u[3], col, alpha);
+    }
+
+    const x0 = split / dpr;
+    const w = (pen + adv) / dpr - x0;
+    if (w <= 0) return;
+    /* The bar is a shade taller than the capitals and sits a shade below the
+       baseline, which is where a mask laid over a line of type would fall. */
+    const a = run.ascent * 0.80;
+    const d = run.descent * 0.55;
+    this.rect(x0, baselineY - a, w, a + d, BAR_INK, BAR_ALPHA * alpha);
+    if (p > 0.001) this.rect(x0, baselineY - a, 1 / dpr, a + d, BAR_INK, BAR_EDGE * alpha);
+  }
+
   /* The same run, one quad a glyph, at the positions its tracking asks for.
 
      Snapping the ORIGIN to a whole device pixel and then adding integer slice
@@ -389,19 +468,52 @@ export class Marks {
    toggle is a cut and the view change is a cross-fade, so no path here has to
    interpolate one scene into another. `alpha` is the cross-fade; `hoverKey`
    names the one mark under the pointer, which darkens rather than moving. */
-export function drawScene(marks, scene, alpha = 1, hoverKey = null) {
+/* The top edge. The toggle is fixed now, so the document slides underneath it,
+   and a control floating over a half-read line is the thing that would give
+   the whole page away. Rather than mask the type - a rectangle of ground
+   punched out of the page cuts glyphs in half, which looks like a bug - each
+   mark simply loses its ink as it approaches the top: gone by `clear`, whole
+   by `full`, smoothly between. A LINE fades, never part of one, so nothing is
+   ever cut in half and nothing has an edge.
+
+   Both bounds come from the scene, measured off the toggle's own ink in
+   layout.js. */
+export function drawScene(marks, scene, alpha = 1, hoverKey = null, reveal = null, fixedY = 0) {
   for (const it of scene.items) {
-    if (it.kind === 'rect') {
-      marks.rect(it.x, it.y, it.w, it.h, it.color, it.alpha * alpha);
-    } else {
-      marks.run(it.run, it.x, it.y, it.key === hoverKey ? HOVER_INK : it.color, it.alpha * alpha);
+    /* A fixed mark belongs to the window rather than to the document, so the
+       scroll the renderer is about to subtract is added back here. One number,
+       and the toggle stays where it was put. */
+    const y = it.fixed ? it.y + fixedY : it.y;
+    let a = it.alpha * alpha;
+    if (!it.fixed && scene.edge && fixedY > 0) {
+      const vy = it.y - fixedY;
+      if (vy <= scene.edge.clear) continue;
+      if (vy < scene.edge.full) a *= (vy - scene.edge.clear) / (scene.edge.full - scene.edge.clear);
     }
+    if (it.kind === 'rect') {
+      marks.rect(it.x, y, it.w, it.h, it.color, a);
+      continue;
+    }
+    const col = it.key === hoverKey ? HOVER_INK : it.color;
+    const p = it.seal && reveal ? reveal(it.seal) : 1;
+    if (p >= 0.999) marks.run(it.run, it.x, y, col, a);
+    else marks.redacted(it.run, it.x, y, col, a, p);
   }
 }
 
 /* Hover resolves to the primary ink whatever the mark's resting value: the one
    thing a pointer has to say is "this one is live". */
 const HOVER_INK = [0.133, 0.129, 0.118];
+
+/* The redaction bar. One ink and one value for every bar on the page, whatever
+   grey the type under it is set in: a bar that took its mark's colour would
+   read as three different kinds of withholding, where a document has only one.
+   0.17 is a hair over the hairline's 0.16 - the bar IS the page's rule, given
+   a height. */
+const BAR_INK = [0.133, 0.129, 0.118];
+const BAR_ALPHA = 0.17;
+const BAR_EDGE = 0.34;
+
 
 /* ---------------------------------------------------------------------------
    The stage.
@@ -440,6 +552,7 @@ export function createStage(canvas) {
       res: gl.getUniformLocation(ground, 'uRes'),
       time: gl.getUniformLocation(ground, 'uTime'),
       scroll: gl.getUniformLocation(ground, 'uScroll'),
+      pointer: gl.getUniformLocation(ground, 'uPointer'),
     };
     gA = gl.getAttribLocation(ground, 'aPos');
 
@@ -500,7 +613,7 @@ export function createStage(canvas) {
       return { cssW: pw / ratio, cssH: ph / ratio };
     },
 
-    render(marksList, texture, time, scrollY) {
+    render(marksList, texture, time, scrollY, pointer) {
       gl.clearColor(CONCRETE[0], CONCRETE[1], CONCRETE[2], 1);
       gl.clear(gl.COLOR_BUFFER_BIT);
 
@@ -510,6 +623,7 @@ export function createStage(canvas) {
       /* The ground keeps the unsnapped scroll: it is a continuous field and
          wants the smoothness. */
       gl.uniform1f(gU.scroll, scrollY / Math.max(cssH, 1));
+      gl.uniform3f(gU.pointer, pointer ? pointer[0] : 0.5, pointer ? pointer[1] : 0.5, pointer ? pointer[2] : 0);
       gl.bindBuffer(gl.ARRAY_BUFFER, groundBuf);
       gl.enableVertexAttribArray(gA);
       gl.vertexAttribPointer(gA, 2, gl.FLOAT, false, 0, 0);

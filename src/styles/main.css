@@ -65,10 +65,21 @@ body {
   pointer-events: none;
 }
 
+/* The viewport-anchored half of the hit layer. Same idea as #scroll, minus the
+   scrolling: it is the containing block for targets whose marks are drawn
+   fixed. Above the proxy so the toggle stays clickable over any content that
+   scrolls under it, and transparent to the pointer everywhere else. */
+#fixed {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
 /* One transparent target per interactive mark on the canvas. Invisible, but a
    real <a> or <button>: the browser supplies tab order, Enter and Space,
    cursor, touch slop, the status-bar URL preview and the right-click menu. */
-#scroll .hit {
+#scroll .hit, #fixed .hit {
   position: absolute;
   display: block;
   margin: 0; padding: 0; border: 0;
@@ -84,7 +95,7 @@ body {
    screen reader; that span was also readable text in the live DOM, and the
    owner asked for none. What is left is three unlabelled controls. */
 /* The focus ring is drawn on the canvas, where the thing being focused is. */
-#scroll .hit:focus { outline: none; }
+#scroll .hit:focus, #fixed .hit:focus { outline: none; }
 
 /* Viewport probes. Laid out, never painted. #svh measures the small viewport
    height; #safe measures the notch inset. */
