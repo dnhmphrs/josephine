@@ -38,25 +38,27 @@ const content = JSON.parse(new TextDecoder().decode(
   Uint8Array.from(atob(payload), (ch, i) => ch.charCodeAt(0) ^ ((0x5a + (i & 31)) & 255)),
 ));
 
-/* ---- the redaction ---------------------------------------------------------
-   The one thing on this page that moves other than the ground, and the reason
-   it can exist at all: every glyph here is already a graphic on the same plane
-   as the sheet, so a bar of ink and a line of type are the same kind of object
-   and can be cut against each other exactly. In the DOM this is a div stacked
-   over a paragraph; here it is one buffer.
+/* ---- the redaction, OFF by default -----------------------------------------
+   The page ships with nothing redacted. The machinery below is complete, it is
+   audited by the check suite, and it is one query parameter away - but the
+   resting page is a document, not a document being declassified, and the owner
+   chose the document.
+
+   It exists at all because every glyph here is already a graphic on the same
+   plane as the sheet, so a bar of ink and a line of type are the same kind of
+   object and can be cut against each other exactly. In the DOM this is a div
+   stacked over a paragraph; here it is one buffer, and a run that is partway
+   open is a partial-UV quad plus a rectangle.
 
    A SEAL - one CV entry, one section name, the pair of links in the footer -
    arrives under a bar and releases when it is comfortably inside the window.
-   The opening is never sealed: a name coming out from behind a censor bar is a
-   joke about classified documents, and this is a page for someone who works on
-   non-proliferation.
 
    Three parameters, and they are parameters because the behaviour is a matter
-   of taste rather than of correctness. Override any of them from the URL -
-   ?reveal=off | once | repeat, and ?load=0 | 1 - which is how they were
+   of taste rather than of correctness. Set any of them from the URL -
+   ?reveal=on | once | repeat | off, and ?load=0 | 1 - which is how they were
    audited and how they can be audited again.
 
-     on      whether anything is ever redacted at all.
+     on      whether anything is ever redacted at all. FALSE here.
      onLoad  whether the first screen arrives sealed and opens, or is simply
              already open on the first frame. With it off, the page begins
              finished and the redaction is something you meet by going deeper.
@@ -69,7 +71,7 @@ const content = JSON.parse(new TextDecoder().decode(
 
    Reduced motion opens everything on the first layout, everywhere, and nothing
    here ever moves again. */
-const REVEAL = { on: true, onLoad: true, repeat: true, ms: 620, lead: 0.15 };
+const REVEAL = { on: false, onLoad: true, repeat: true, ms: 620, lead: 0.15 };
 try {
   /* The query string is the control. `window.__reveal` is the same string by
      another route, and exists for one reason: the single-file previews open
@@ -79,8 +81,9 @@ try {
   const q = new URLSearchParams(location.search);
   const r = q.get('reveal') || window.__reveal;
   if (r === 'off') REVEAL.on = false;
-  else if (r === 'once') REVEAL.repeat = false;
-  else if (r === 'repeat') REVEAL.repeat = true;
+  else if (r === 'on') REVEAL.on = true;
+  else if (r === 'once') { REVEAL.on = true; REVEAL.repeat = false; }
+  else if (r === 'repeat') { REVEAL.on = true; REVEAL.repeat = true; }
   const l = q.get('load') || window.__load;
   if (l === '0') REVEAL.onLoad = false;
   if (l === '1') REVEAL.onLoad = true;
@@ -88,11 +91,6 @@ try {
 
 /* seal key -> the moment it starts opening, or -1 for "open, no animation". */
 const revealed = new Map();
-
-/* The pointer, eased. `on` is eased like the position is: the bloom is deep
-   enough now to be seen appearing, and a cursor crossing the window edge must
-   not switch it. Touch never sets it, so a phone gets the still ground. */
-const pointer = { x: 0.5, y: 0.5, tx: 0.5, ty: 0.5, on: 0, ton: 0 };
 
 const DPR_CAP = 2;
 /* The ground drifts about 0.005px a frame, so redrawing it sixty times a
@@ -405,18 +403,6 @@ async function boot(stage) {
 
   addEventListener('scroll', () => { state.dirty = true; }, { passive: true });
 
-  addEventListener('pointermove', (e) => {
-    if (e.pointerType === 'touch') return;
-    pointer.tx = e.clientX / Math.max(1, innerWidth);
-    pointer.ty = 1 - e.clientY / Math.max(1, innerHeight);
-    pointer.ton = 1;
-    state.dirty = true;
-  }, { passive: true });
-  addEventListener('pointerout', (e) => {
-    if (!e.relatedTarget) { pointer.ton = 0; state.dirty = true; }
-  }, { passive: true });
-  addEventListener('blur', () => { pointer.ton = 0; state.dirty = true; });
-
   let resizeTimer = 0;
   function onResize() {
     /* Collapsing the iOS URL bar fires resize and changes the live height by
@@ -457,19 +443,7 @@ async function boot(stage) {
 
     arm(false);
 
-    /* The pointer eases toward where it actually is. Twelve percent a frame is
-       a time constant of about a tenth of a second, which is slow enough that
-       the bloom trails the cursor rather than wearing it. */
-    const ease = 0.12;
-    const dx = pointer.tx - pointer.x;
-    const dy = pointer.ty - pointer.y;
-    const dn = pointer.ton - pointer.on;
-    pointer.x += dx * ease;
-    pointer.y += dy * ease;
-    /* Half the position's rate: the bloom should fade up over about a fifth of
-       a second, which is slow enough to read as light arriving. */
-    pointer.on += dn * ease * 0.5;
-    let moving = Math.abs(dx) > 0.0015 || Math.abs(dy) > 0.0015 || Math.abs(dn) > 0.002;
+    let moving = false;
 
     marks.clear();
     /* Cubic ease out: fast off the mark and long in the settle, which is how a
@@ -502,8 +476,9 @@ async function boot(stage) {
     }
 
     const time = reduced.matches ? 0 : (now - t0) / 1000;
-    stage.render(marks, engine.texture, time, scrollY,
-      [pointer.x, pointer.y, reduced.matches ? 0 : pointer.on]);
+    /* The wash is a gradient across the DOCUMENT, so the renderer needs its
+       length as well as the scroll. */
+    stage.render(marks, engine.texture, time, scrollY, state.scene.height);
   }
 
   relayout();

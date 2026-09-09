@@ -19,18 +19,18 @@
 
    The ground is light, which buys back the contrast that lets the secondary
    values be genuinely quiet - #5B584C is a soft warm grey rather than a
-   near-black doing an impression of one, and it still measures 4.65:1 over the
+   near-black doing an impression of one, and it still measures 4.77:1 over the
    deepest point of the wash, which is the constraint that actually sets it.
    Restraint here is a consequence of the ground, not a compromise with it.
 
    The ratios below are measured, not nominal: the shader is evaluated on a
-   grid across scroll, time and both axes, with the pointer pool at full
-   strength directly under the sample, and each ink is checked against the
-   darkest result. That is the number that has to clear 4.5:1, and it is what
-   caps POOL_P - a deeper pointer wash would take the meta line under. */
-export const INK = [0.133, 0.129, 0.118];    // #22211e  primary       10.5:1
-export const INK_2 = [0.310, 0.298, 0.263];  // #4f4c43  prose          5.6:1
-export const INK_3 = [0.357, 0.345, 0.298];  // #5b584c  labels, meta   4.65:1
+   grid across time, both axes of the window and the whole length of the
+   document, and each ink is checked against the darkest result. That is the
+   number that has to clear 4.5:1, and it is what caps the wash - a deeper one
+   would take the meta line under. */
+export const INK = [0.133, 0.129, 0.118];    // #22211e  primary       10.8:1
+export const INK_2 = [0.310, 0.298, 0.263];  // #4f4c43  prose          5.7:1
+export const INK_3 = [0.357, 0.345, 0.298];  // #5b584c  labels, meta   4.77:1
 export const RULE = [0.133, 0.129, 0.118];   // primary, drawn at low alpha
 
 /* ---- the two voices -------------------------------------------------------
@@ -140,10 +140,11 @@ function scale(vw) {
        an address is not a heading, and at the serif's body size it was reading
        as one. Small enough to be a footnote, large enough to be a target. */
     link: { family: SERIF, size: f(14, 15.5), lh: 1.35, weight: 400, tracking: 0, zh: { k: 1 } },
-    /* Availability, in the margin. Tracked wider than any other capital on
-       the page: it is a standing note, not a heading, and the extra space is
-       what keeps it from competing with the sentence beside it. */
-    mark: { family: SANS, size: f(9, 10), lh: 1.2, weight: 500, tracking: f(0.24, 0.20), upper: true, zh: { k: 1 } },
+    /* The availability value, in the serif, on the dateline's baseline. Set
+       BELOW the tracked label beside it rather than level with it: a roman at
+       the label's own size out-weighs it and takes the emphasis, and the
+       label is the part that has to be read first. */
+    avail: { family: SERIF, size: f(12.5, 14), lh: 1.2, weight: 400, tracking: 0, zh: { k: 0.94, floor: 12.5 } },
   };
 }
 
@@ -353,6 +354,10 @@ class Scene {
       color: color || INK, alpha: opts.alpha === undefined ? 1 : opts.alpha,
       seal: opts.seal || null,
       fixed: !!opts.fixed,
+      /* Forces a mark into the toggle column's fade even though its own box
+         does not reach x0. For the half of a two-run line whose other half
+         does: they are one statement and must go out together. */
+      edge: !!opts.edge,
     });
     return run;
   }
@@ -547,18 +552,6 @@ function head(scene, content, lang, g) {
   scene.place('index.name', nameRun, g.left, y0, INK);
   nav.draw(y0);
 
-  /* The window's top edge, in viewport coordinates, handed to the renderer.
-     The toggle is fixed, so the document slides under it, and a control
-     floating over a half-read line is what would give the whole page away.
-     Below CLEAR nothing of the document is drawn at all; between CLEAR and
-     FULL it arrives. Both are measured from the toggle's own ink rather than
-     guessed, so the band tracks the control across every breakpoint and the
-     notch inset. At rest it costs nothing: the credential line, the first
-     thing under the name, already sits below FULL. */
-  scene.edge = {
-    clear: Math.round(y0 + nav.descent + u * 1.2),
-    full: Math.round(y0 + nav.descent + u * 1.2 + lead(S.role) * 2.4),
-  };
 
   /* The credential line. Segments are measured first, then packed into as many
      lines as they need - one at every width this site sees, two on a narrow
@@ -610,7 +603,69 @@ function head(scene, content, lang, g) {
     });
     if (ri < rows.length - 1) y += lead(S.role);
   });
-  y += runs[0].descent;
+
+  /* Availability, at the other end of the dateline's last baseline.
+
+     Two things were wrong with it beside the sentence. It was ORPHANED - the
+     only thing on the page aligned to nothing, floating in the white to the
+     right of the lede with no baseline under it and no edge but the margin.
+     And it was set in the same tracked capitals as the dateline, at the same
+     weight, so it read as a second dateline that had come adrift, which is
+     the one thing it must not be.
+
+     Both are fixed by giving it a baseline that already exists and a form of
+     its own. The rail is the right margin, which the toggle already occupies
+     directly above, so the top of the page closes as a band: what she is on
+     the left, what she is open to on the right, the control above them both.
+
+     The form is a caption, not a banner. AVAILABLE FOR stays in the small
+     tracked capitals - it is a label and should look like one - and the value goes
+     into the SERIF, in sentence case, which is the register of something said
+     rather than something declared. A list of three in tracked capitals is a
+     banner however quietly it is set; the same three words in a roman are a
+     note in the margin. That is the whole difference between "looking for
+     work" and "settled, and available". */
+  const av = c.available;
+  const avLabel = scene.prepare(av.label[lang], S.label);
+  const avValue = scene.prepare(av.value[lang], S.avail);
+  const avGap = Math.round(Math.max(8, u * 0.7));
+  const avW = avLabel.width + avGap + avValue.width;
+  const avSeal = scene.seal('head.avail', y, 90);
+  /* Only if it clears the dateline it shares the line with, by a full gutter.
+     Otherwise it drops to its own baseline underneath, still on the right. */
+  const avInline = avW + g.gutter <= g.contentW - used;
+  let avY = y;
+  if (!avInline) avY = y + lead(S.role) + Math.round(u * 0.5);
+  scene.place('index.available.value', avValue, g.right - avValue.width, avY, INK_2, { seal: avSeal });
+  scene.place('index.available', avLabel, g.right - avW, avY, INK_3, { seal: avSeal, edge: true });
+
+  /* The toggle's column, in viewport coordinates, handed to the renderer.
+
+     The toggle is fixed, so the document slides under it, and a control
+     sitting on a half-read line is what would give the whole page away. The
+     answer is not to fade the top of the page - that was the first attempt and
+     it was wrong in the most obvious way, because the name is AT the toggle's
+     height, so the head went out the instant the page moved a pixel. Nothing
+     is faded except what actually passes beneath the control: a mark is in
+     scope only if its right edge reaches into x0, which is the toggle's own
+     left edge less half a gutter. The name, the dateline, the sentence and
+     every left-hand column are never touched at all.
+
+     Inside that column a mark loses its ink as it rises: whole at FULL, gone
+     at CLEAR. FULL is the availability line's own ink, because that is the
+     topmost thing in this column when the page is at rest - so at rest
+     everything here is at full strength and there is no step the moment
+     scrolling starts. CLEAR is the frame: the same margin the name's ink
+     touches. What passes directly under the toggle lands around a quarter
+     alpha - a ghost the control reads cleanly over, rather than a hole cut in
+     the page. */
+  scene.edge = {
+    x0: Math.round(g.right - nav.width - g.gutter * 0.5),
+    clear: Math.round(top),
+    full: Math.round(avY + avValue.inkDescent + 2),
+  };
+
+  y = avY + runs[0].descent;
 
   /* The sentence. Tied to the grid, but capped at 22em - about fifty
      characters, and short enough that the block reads as a statement rather
@@ -632,41 +687,7 @@ function head(scene, content, lang, g) {
     scene.text(`index.lede.${i}`, t, S.lede, g.left, y + i * ledeLead, INK_2, { seal: ledeSeal });
   });
 
-  /* Availability, opposite the sentence rather than under it. Set as one
-     tracked line in the capitals - AVAILABLE FOR RESEARCH, ADVISORY AND
-     SPEAKING - and not as a labelled field with a value, which is the form
-     that made the old head read as an application. A label and a value is a
-     specification submitted for assessment; a sentence in the margin is a
-     standing note about how she works. Same words, and the difference is
-     entirely in the form.
-
-     It is right-aligned to the measure, which puts it in the same rail as the
-     fingerprint and the toggle: the left of the head is what she says, the
-     right is what the document is. On one column there is no rail, so it falls
-     under the sentence instead. */
-  const av = c.available;
-  const avText = `${av.label[lang]} ${av.value[lang]}`;
-  const avRole = adapt(S.mark, lang);
-  const rail = g.cols >= 3 ? g.contentW - (g.colX(span - 1) + g.colW - g.left) - g.gutter : g.contentW;
-  const avLines = wrap(scene.engine, avText, avRole, Math.max(rail, 120));
-  const avLead = lead(S.mark);
-  const avSeal = scene.seal('head.avail', y, 180);
-  if (g.cols > 1) {
-    avLines.forEach((t, i) => {
-      scene.text(`index.available.${i}`, t, S.mark, g.right, y + i * avLead, INK_3,
-        { align: 'right', seal: avSeal });
-    });
-  }
-
   y += (lines.length - 1) * ledeLead + ledeRun.descent;
-  if (g.cols === 1) {
-    y += u * 3 + scene.engine.run({ ...avRole, text: 'H' }).ascent;
-    avLines.forEach((t, i) => {
-      scene.text(`index.available.${i}`, t, S.mark, g.left, y + i * avLead, INK_3, { seal: avSeal });
-    });
-    y += (avLines.length - 1) * avLead;
-  }
-
   return y;
 }
 

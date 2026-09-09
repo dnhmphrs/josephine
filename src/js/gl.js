@@ -92,7 +92,7 @@ precision mediump float;
 uniform vec2  uRes;      // device px
 uniform float uTime;     // seconds
 uniform float uScroll;   // page scroll, in viewport heights
-uniform vec3  uPointer;  // xy in viewport uv (y up), z = presence
+uniform float uDoc;      // viewport height / document height, 0..1
 varying vec2  vUv;       // y up
 varying vec2  vPix;      // device px, at vertex precision
 
@@ -107,28 +107,29 @@ const vec3 PAPER_BOT = vec3(0.910, 0.898, 0.878);   // #e8e5e0
    ground reads as a surface with light on it. */
 const vec3 LILAC     = vec3(0.561, 0.373, 0.627);   // #8f5fa0
 
-const float POOL_A = 0.048;        // upper pool, from 120% 80% at 50% -10%
-const float POOL_B = 0.038;        // lower pool, from 100% 60% at 100% 110%
-/* A third pool, and the only thing on this page that answers the reader. It
-   follows the pointer at about a twelfth of the distance per frame, which is
-   slow enough that it never feels attached to the cursor and never draws the
-   eye - what you notice is that the sheet is very slightly cooler where you
-   are looking, the way paper is under a hand. Seven percent sounds like a
-   lot and is about four levels out of 255 at the very centre; squared
-   falloff spreads the rest so thin that the pool has no edge anywhere.
+/* The wash, in three terms, and it is a landscape rather than two blobs.
 
-   Seven is a ceiling, not a taste: the darkest point this shader can reach is
-   the two static pools at their deepest with this one at full strength on top,
-   and #5B584C - the quietest ink on the page - measures 4.65:1 against exactly
-   that. Nine percent takes it to 4.56 and ten takes it under 4.5. Raising this
-   means lowering INK_3, and it is the ink that should win.
+   A sansui hand grades ink from the top edge downward, leaves the middle of
+   the sheet BARE - that bare band is the mist, and it is the subject - and
+   then puts a second, lighter density along the bottom. The near ground and
+   the far ground are separated by nothing at all. That is the structure here:
+   SKY over the head of the page, GROUND under its foot, and a middle the wash
+   never touches.
 
-   On a touch screen it does not exist. */
-const float POOL_P = 0.070;
+   Deeper than the archive's four and a half percent, because on this page the
+   old values could not be found: a gradient nobody can see is not restraint,
+   it is an absence. These read as one very quiet violet cast that gathers at
+   the top and again at the foot, and the whole document spans about eighteen
+   percent of luminance end to end.
+
+   The depth is capped by the ink, not by taste: at these values #5B584C - the
+   quietest grey on the page - measures 4.77:1 against the darkest point this
+   shader can reach, and going deeper takes it toward 4.5. */
+const float POOL_A = 0.100;        // sky, above the top edge
+const float POOL_B = 0.085;        // ground, below the foot, off to the right
 const float TOOTH  = 0.007;        // paper grain
 const float DITHER = 2.0 / 255.0;  // 1/255 is pure TPDF; 2 also reads as surface
 const float DRIFT  = 0.011;        // one full cycle, about twenty minutes
-const float LAG    = 0.10;         // how much of the scroll the pools take
 
 float hash21(vec2 p) {
   vec3 p3 = fract(vec3(p.x, p.y, p.x) * 0.1031);
@@ -164,20 +165,29 @@ float pool(vec2 uv, vec2 c, vec2 r, float stop) {
 
 void main() {
   float t = uTime * DRIFT;
-  /* The pools lag the page. Not parallax for its own sake: a background
-     pinned to the viewport is a vignette, and the eye finds the seam the
-     moment the document moves under it. */
-  vec2 uv = vec2(vUv.x, vUv.y + clamp(uScroll, 0.0, 6.0) * LAG);
+  /* PAGE space, not viewport space, and this is the whole of the landscape.
+     A fragment's distance from the top of the DOCUMENT is scroll plus its own
+     offset in the window, and uDoc scales that to the document's own length -
+     so uv.y is 1 at the first line of the page and 0 at the last, whatever
+     the page's length or the window's. The wash is therefore one gradient
+     across the whole document, revealed by scrolling rather than moved by it.
+
+     A wash pinned to the WINDOW is a vignette: it announces itself the moment
+     the document slides under it, and the eye goes straight to the seam. This
+     one has no seam because there is nothing for it to move against. */
+  vec2 uv = vec2(vUv.x, 1.0 - uDoc * (uScroll + 1.0 - vUv.y));
 
   /* The sheet. One mix on a shallow diagonal, and nothing else - no mottle, no
      vignette. The grain and the dither below are what give it a surface. */
   vec3 col = mix(PAPER_BOT, PAPER_TOP,
     clamp(0.5 + 0.58 * (vUv.y - 0.5) - 0.30 * (vUv.x - 0.5), 0.0, 1.0));
 
-  /* Two pools, drifting on periods that never coincide. The displacement is
-     about one percent of the viewport over twenty minutes: still, at any span
+  /* Sky and ground, drifting on periods that never coincide. The displacement
+     is about one percent of the page over twenty minutes: still, at any span
      of attention, which is what lets the reduced-motion path freeze a frame
-     and lose nothing. */
+     and lose nothing. Both centres are OUTSIDE the sheet - above its top edge
+     and below its foot - so what is on the page is only ever the outer, near
+     flat part of each, and neither has a visible middle to find. */
   float a = pool(uv, vec2(0.50 + sin(t * 0.37) * 0.012, 1.10 + sin(t * 0.23 + 1.7) * 0.010),
     vec2(1.20, 0.80), 0.60);
   float b = pool(uv, vec2(1.00 + sin(t * 0.29 + 2.4) * 0.010, -0.10 - sin(t * 0.19) * 0.012),
@@ -192,15 +202,6 @@ void main() {
 
   col = mix(col, LILAC, a * POOL_A);
   col = mix(col, LILAC, b * POOL_B);
-
-  /* Aspect-corrected, so it is a disc rather than an ellipse - the two washes
-     above are ellipses because CSS gradients are, but a pool that tracks a
-     pointer has to be round or it reads as a smear. Squared, so the falloff
-     has no shoulder at all. */
-  float aspect = uRes.x / max(uRes.y, 1.0);
-  vec2 pp = vec2((vUv.x - uPointer.x) * aspect, vUv.y - uPointer.y);
-  float g = 1.0 - smoothstep(0.0, 0.62 * max(1.0, aspect * 0.62), length(pp));
-  col = mix(col, LILAC, g * g * POOL_P * uPointer.z);
 
   /* Grain. Screen-fixed, so it reads as the tooth of the sheet rather than as
      film grain sitting on the page. */
@@ -468,16 +469,24 @@ export class Marks {
    toggle is a cut and the view change is a cross-fade, so no path here has to
    interpolate one scene into another. `alpha` is the cross-fade; `hoverKey`
    names the one mark under the pointer, which darkens rather than moving. */
-/* The top edge. The toggle is fixed now, so the document slides underneath it,
-   and a control floating over a half-read line is the thing that would give
-   the whole page away. Rather than mask the type - a rectangle of ground
-   punched out of the page cuts glyphs in half, which looks like a bug - each
-   mark simply loses its ink as it approaches the top: gone by `clear`, whole
-   by `full`, smoothly between. A LINE fades, never part of one, so nothing is
-   ever cut in half and nothing has an edge.
+/* How much ink a mark keeps as it rises through the toggle's column. See
+   scene.edge in layout.js for which marks are in scope and why.
 
-   Both bounds come from the scene, measured off the toggle's own ink in
-   layout.js. */
+   Measured on the mark's INK BOTTOM, not on its baseline, and that is the
+   difference between a fade and a disappearance: on the baseline, a tall line
+   is extinguished while its capitals are still well below the edge and plainly
+   on screen - it does not fade out, it goes out. On the ink bottom, a mark is
+   only fully gone once its lowest ink has actually crossed the line, which is
+   when there is nothing left to see anyway.
+
+   The ramp is as long as the mark is tall, plus the band, so a heading crosses
+   at the same apparent speed as a caption instead of snapping. Smoothstep, so
+   neither end has an onset. */
+const edgeFade = (bottom, edge, h) => {
+  const t = Math.min(1, Math.max(0, (bottom - edge.clear) / (edge.full - edge.clear + h)));
+  return t * t * (3 - 2 * t);
+};
+
 export function drawScene(marks, scene, alpha = 1, hoverKey = null, reveal = null, fixedY = 0) {
   for (const it of scene.items) {
     /* A fixed mark belongs to the window rather than to the document, so the
@@ -485,10 +494,15 @@ export function drawScene(marks, scene, alpha = 1, hoverKey = null, reveal = nul
        and the toggle stays where it was put. */
     const y = it.fixed ? it.y + fixedY : it.y;
     let a = it.alpha * alpha;
-    if (!it.fixed && scene.edge && fixedY > 0) {
-      const vy = it.y - fixedY;
-      if (vy <= scene.edge.clear) continue;
-      if (vy < scene.edge.full) a *= (vy - scene.edge.clear) / (scene.edge.full - scene.edge.clear);
+    if (!it.fixed && scene.edge) {
+      const rect = it.kind === 'rect';
+      /* In scope only if the mark reaches into the toggle's column. */
+      if (it.edge || it.x + (rect ? it.w : it.run.width) > scene.edge.x0) {
+        const h = rect ? it.h : (it.run.inkAscent || it.run.ascent || 0);
+        const bottom = it.y - fixedY + (rect ? it.h : (it.run.inkDescent || 0));
+        a *= edgeFade(bottom, scene.edge, h);
+        if (a <= 0.002) continue;
+      }
     }
     if (it.kind === 'rect') {
       marks.rect(it.x, y, it.w, it.h, it.color, a);
@@ -552,7 +566,7 @@ export function createStage(canvas) {
       res: gl.getUniformLocation(ground, 'uRes'),
       time: gl.getUniformLocation(ground, 'uTime'),
       scroll: gl.getUniformLocation(ground, 'uScroll'),
-      pointer: gl.getUniformLocation(ground, 'uPointer'),
+      doc: gl.getUniformLocation(ground, 'uDoc'),
     };
     gA = gl.getAttribLocation(ground, 'aPos');
 
@@ -613,7 +627,7 @@ export function createStage(canvas) {
       return { cssW: pw / ratio, cssH: ph / ratio };
     },
 
-    render(marksList, texture, time, scrollY, pointer) {
+    render(marksList, texture, time, scrollY, docH) {
       gl.clearColor(CONCRETE[0], CONCRETE[1], CONCRETE[2], 1);
       gl.clear(gl.COLOR_BUFFER_BIT);
 
@@ -623,7 +637,9 @@ export function createStage(canvas) {
       /* The ground keeps the unsnapped scroll: it is a continuous field and
          wants the smoothness. */
       gl.uniform1f(gU.scroll, scrollY / Math.max(cssH, 1));
-      gl.uniform3f(gU.pointer, pointer ? pointer[0] : 0.5, pointer ? pointer[1] : 0.5, pointer ? pointer[2] : 0);
+      /* Never above 1: a document shorter than the window is one screen of
+         wash, not a compressed one. */
+      gl.uniform1f(gU.doc, cssH / Math.max(docH || cssH, cssH));
       gl.bindBuffer(gl.ARRAY_BUFFER, groundBuf);
       gl.enableVertexAttribArray(gA);
       gl.vertexAttribPointer(gA, 2, gl.FLOAT, false, 0, 0);

@@ -40,7 +40,8 @@ shallow and the CV is already on the first screen, that nothing overflows the
 measure, that no content word survives into the served HTML or the bundle, that
 `noindex` is present and `robots.txt` is not, that the tab mark is block
 glyphs end to end, that the language control is sticky and its target moves
-with it — and that it still fails quietly
+with it, that the page ships with nothing redacted and that `?reveal=on` still
+works — and that it still fails quietly
 with WebGL removed, with
 `localStorage` throwing, without `Intl.Segmenter`, under
 `prefers-reduced-motion`, at 320x480, and through a resize storm.
@@ -100,34 +101,43 @@ does, inside the click. Nothing eases, nothing crossfades, and `npm run check`
 asserts that what is on screen one frame after the click is what is there when
 it settles, quad for quad.
 
-**The redaction.** Everything else on the page arrives from under a bar. A run
-that is partway open is drawn as one partial-UV quad for the revealed part plus
-a rectangle for the rest, so a seal is a single pass and never two copies of
-the same line. Seals are declared in `layout.js` — three across the head, one
-per CV section head, one per entry, one for the footer — and open on a cubic
-ease over 620ms, staggered by column so a row resolves left to right.
+**The redaction ships OFF.** The machinery is complete and audited, and it is
+one query parameter away, but the resting page is a document rather than a
+document being declassified. With it on, a run that is partway open is drawn as
+one partial-UV quad for the revealed part plus a rectangle for the rest, so a
+seal is a single pass and never two copies of the same line. Seals are declared
+in `layout.js` — three across the head, one per CV section head, one per entry,
+one for the footer — and open on a cubic ease over 620ms, staggered by column.
 
 `REVEAL` at the top of `main.js` is the whole control surface, and every field
 is reachable from the URL:
 
 | | | |
 |---|---|---|
-| `?reveal=repeat` | default | a seal re-closes well outside the window, so every arrival is a reveal |
-| `?reveal=once` | | each seal opens once and stays open |
-| `?reveal=off` | | nothing is ever barred |
+| — | default | nothing is ever barred |
+| `?reveal=on` | | seals arrive barred and open; a seal re-closes well outside the window, so every arrival is a reveal |
+| `?reveal=once` | | as above, but each seal opens once and stays open |
+| `?reveal=off` | | back to the default |
 | `?load=0` / `?load=1` | | whether the *first screen* arrives sealed and opens, or begins finished |
 
 A seal only ever closes far outside the window, so there is no scroll position
 at which something visible stays hidden — and `prefers-reduced-motion` opens
 everything on the first layout and never moves again.
 
-**The top edge.** The language toggle is fixed to the viewport, which means the
-document slides underneath it. Rather than punch a rectangle of ground out of
-the page — which cuts glyphs in half and looks like a bug — every mark loses
-its ink as it nears the top: gone by `scene.edge.clear`, whole by
-`scene.edge.full`, both measured off the toggle's own ink so the band tracks the
-control across breakpoints and the notch inset. A whole line fades, never part
-of one. At rest it does nothing: the credential line already sits below `full`.
+**The toggle's column.** The language toggle is fixed to the viewport, which
+means the document slides underneath it. Only what actually passes *beneath the
+control* is faded — a mark is in scope when its right edge reaches into
+`scene.edge.x0`, the toggle's own left edge less half a gutter — so the name,
+the dateline, the sentence and every left-hand column scroll untouched.
+
+Two details make it a fade rather than a disappearance. The ramp is measured on
+the mark's **ink bottom**, not its baseline: measured on the baseline a tall
+line goes out while its capitals are still well below the edge. And the ramp is
+as long as the mark is tall plus the band, so a heading crosses at the same
+apparent speed as a caption. `full` is the availability line's own ink, which is
+the topmost thing in that column at rest, so there is no step the moment
+scrolling starts. What passes directly under the toggle lands around a quarter
+alpha — a ghost the control reads cleanly over, not a hole cut in the page.
 
 **The ground.** A port of the washi ground from the archived builds
 (`_archive/rebuilds/file2.html`), not of the silk shader beside it. The silk is
@@ -139,32 +149,35 @@ radial-gradient(120% 80% at  50% -10%, rgba(143,95,160,.045), transparent 60%)
 radial-gradient(100% 60% at 100% 110%, rgba(143,95,160,.035), transparent 55%)
 ```
 
-Two enormous, very soft, off-centre pools at four and a half and three and a
-half percent, over a warm broadsheet white, with a faint grain on top. So
-shallow that on most displays you cannot point at where one begins — the whole
-sheet spans about ten percent of luminance. That is a better gesture than the
-brushed wash it replaces, which had a defined upper edge and was therefore a
-*thing on* the page rather than a property *of* it.
+Two enormous, very soft, off-centre pools over a warm broadsheet white, with a
+faint grain on top. That is a better gesture than the brushed wash it replaces,
+which had a defined upper edge and was therefore a *thing on* the page rather
+than a property *of* it.
+
+What it is *arranged* as is a landscape. A sansui hand grades ink down from the
+top edge, leaves the middle of the sheet bare — that bare band is the mist, and
+it is the subject — and puts a second, lighter density along the bottom. So:
+**sky** over the head of the document, **ground** under its foot, and a middle
+the wash never touches. Both centres sit outside the sheet, so what is on the
+page is only ever the outer, near-flat part of each and neither has a visible
+middle to find.
+
+The coordinate is the **document**, not the window. A fragment's distance from
+the top of the page is the scroll plus its own offset in the viewport, scaled by
+`uDoc` to the page's own length, so the wash is one gradient across the whole
+document revealed by scrolling rather than moved by it — and a wash pinned to
+the window is a vignette, which announces itself the instant the document slides
+under it. Depth is capped by the ink: `#5B584C` measures 4.77:1 against the
+darkest point the shader can reach, and the page spans about eighteen percent of
+luminance end to end.
 
 The pools are lilac, from the archive and ultimately from the WebGPU silk, and
 they are the only hue anywhere. A neutral pool of the same depth reads as a
 smudge; a violet one reads as light, because a warm ground with a cool shadow
-is how a surface under a real sky behaves. They are anchored to the page at a
-tenth of the scroll rather than to the viewport: a gradient pinned to the
-window is a vignette and announces itself the moment you scroll. And the dither
-is the most important term in the file — ten percent of luminance is about
-eight of the 256 available levels, which bands into visible contours without
-it.
+is how a surface under a real sky behaves. And the dither is the most important
+term in the file — the whole ramp is a couple of dozen of the 256 available
+levels, which bands into visible contours without it.
 
-A **third pool follows the pointer**, aspect-corrected so it is a disc rather
-than an ellipse, with a squared falloff so it has no edge anywhere. It eases at
-a twelfth of the distance per frame and its presence eases too, so a cursor
-crossing the window edge does not switch it. Seven percent is about four levels
-out of 255 at the very centre, and it is a ceiling rather than a taste: the
-darkest point this shader can reach is the two static pools at their deepest
-with this one at full strength on top, and `#5B584C` — the quietest ink on the
-page — measures 4.65:1 against exactly that. Raising it means lowering the ink.
-Touch never sets a pointer, so a phone gets the still ground.
 
 ## Zero text
 

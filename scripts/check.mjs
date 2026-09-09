@@ -127,16 +127,30 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
     await p.waitForTimeout(300);
   }
 
-  /* Redaction. Two facts, and they are the two the parameters switch between:
-     a fresh load opens every seal above the fold on its own, and a seal below
-     it is still barred until it is scrolled to. */
+  /* Redaction. It SHIPS OFF - the resting page is a document, not a document
+     being declassified - and the parameter that turns it on has to keep
+     working, because the machinery is what makes the choice a choice. So:
+     nothing is barred by default at any scroll position, and ?reveal=on bars
+     what is below the fold and nothing above it. */
   {
     const r = await p.evaluate(() => window.__stage.reveal());
-    const above = Object.entries(r.seals).filter(([k]) => /^index\.|^cv\.0\.head/.test(k));
-    ok('the load un-redacts what is on the first screen',
-      above.length > 0 && above.every(([, v]) => v === -1 || v > 0.9), JSON.stringify(above.slice(0, 4)));
-    ok('and a seal below the fold is still sealed',
-      Object.values(r.seals).some((v) => v === 0), JSON.stringify(Object.values(r.seals).filter(v => v === 0).length));
+    ok('the page ships with nothing redacted',
+      r.on === false && Object.values(r.seals).every((v) => v === -1),
+      JSON.stringify({ on: r.on, sealed: Object.values(r.seals).filter((v) => v !== -1).length }));
+  }
+  {
+    const q = await ctx.newPage();
+    await q.goto(URL + '?reveal=on');
+    await q.waitForTimeout(2200);
+    const r = await q.evaluate(() => window.__stage.reveal());
+    const above = Object.entries(r.seals).filter(([k]) => /^head\.|^cv\.0\.head/.test(k));
+    ok('?reveal=on un-redacts the first screen on load',
+      r.on === true && above.length > 0 && above.every(([, v]) => v === -1 || v > 0.9),
+      JSON.stringify(above.slice(0, 4)));
+    ok('?reveal=on leaves a seal below the fold sealed',
+      Object.values(r.seals).some((v) => v === 0),
+      String(Object.values(r.seals).filter((v) => v === 0).length));
+    await q.close();
   }
 
   /* A cut, not a transition: read the state on the very next frame, with no
