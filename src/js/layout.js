@@ -728,9 +728,9 @@ function head(scene, content, lang, g) {
 
      It applies only when the answer is close to the size the scale already
      wanted. Below 0.85 or above 1.45 the fit is refused and the base size
-     stands, which is what happens on a phone and in Chinese - 沈菲菲 is three
-     characters and its dateline is sixteen, so matching them would set the
-     dateline at half its legible size. The rule is "share the edge where the
+     stands, which is what happens on a phone and in Chinese - the name is
+     three characters there and its dateline is sixteen, so matching them
+     would set the dateline at half its legible size. The rule is "share the edge where the
      edge can be shared", not "share it at any cost". */
   const roleFit = (() => {
     const fixed = (sep * 2 + 1) * (creds.length - 1);

@@ -1,4 +1,4 @@
-# Josephine Shen
+# fmsb
 
 One page — an opening, a severely compressed CV, a footer — rendered entirely
 in WebGL. The ground, the rules and every glyph are drawn by the GPU.

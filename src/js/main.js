@@ -1,5 +1,5 @@
 /* ===========================================================================
-   Josephine Shen - entry point.
+   Entry point.
 
    Wires the three pieces together and owns the one piece of state the whole
    site has: which language you are reading.

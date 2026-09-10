@@ -1,5 +1,5 @@
 /* ===========================================================================
-   Josephine Shen — the whole stylesheet.
+   The whole stylesheet.
 
    There is almost nothing here on purpose. The page is one WebGL canvas: the
    ground, the rules and every glyph are drawn by the GPU from src/js/. CSS is
