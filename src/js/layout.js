@@ -695,11 +695,17 @@ function head(scene, content, lang, g) {
 
   /* DISPLAY SIZE IS A FIT, NOT A SCALE VALUE.
 
-     The ceiling is the decision - a little under a sixth of the screen, which
-     is 60px on a 390 phone and 66 on the widest one - and the fit under it is
-     a GUARD rather than the driver. The guard is what stops the ceiling
-     breaking a word: at 320 the measure is 272px and "Josephine" stops fitting
-     somewhere around 62, so the name comes down to meet the measure instead of
+     The ceiling is a fifth of the screen, which is 78px on a 390 phone and 86
+     on the widest one, and at every phone width that is within a pixel or two
+     of the size at which "Josephine" exactly spans the measure - so the name
+     touches both margins and the head is framed on three edges rather than
+     one. The 88 at the top of the clamp is for the one-column widths past a
+     phone, where filling a 660px measure would set a name taller than the
+     landscape screen it is on.
+
+     The fit under the ceiling is a GUARD, not the driver. It is what stops the
+     ceiling breaking a word: at 320 the measure is 272px and "Josephine" stops
+     fitting around 62, so the name comes down to meet the measure instead of
      hard-breaking mid-word, which is the one failure a masthead cannot
      survive.
 
@@ -713,7 +719,7 @@ function head(scene, content, lang, g) {
 
      Leading closes to 0.90 and tracking to -0.03, and both are the size doing
      the talking. The scale's 1.05 and -0.018 are set for a name that occupies
-     one line among others; at 60px over two lines that leading opens a channel
+     one line among others; at 78px over two lines that leading opens a channel
      between "Josephine" and "Shen" wide enough that they read as two marks
      rather than one name. Tightened, the two lock into a block. */
   const ceiling = clamp(g.vw * 0.2, 52, 88);
@@ -782,8 +788,8 @@ function head(scene, content, lang, g) {
 
   /* THE GAP UNDER THE SWITCH IS THE HEAD'S FIRST BREATH.
 
-     Five units - 40px - from the bottom of the control to the top of the
-     name's ink, which makes it the second deepest interval in the head. It is
+     Six units - 48px - from the bottom of the control to the top of the
+     name's ink, which makes it the deepest interval in the head. It is
      doing what the top padding did on the page this one replaces: that opened
      on clamp(28px, 5vw, 64px) of paper, then a small mark, then the name, and
      the name was the better for arriving late. A masthead that starts at the
@@ -920,9 +926,13 @@ function head(scene, content, lang, g) {
   /* Under a display name the interval has to grow with it. The dateline still
      belongs to the name - it is the line under a masthead, not the first line
      of the body - but 1.1 units struck under a 32px name is a different
-     proportion from 1.1 units struck under a 60px one, and under the larger it
-     reads as the dateline having been shoved up against it. Three units keeps
-     the pair one object and lets the name finish. */
+     proportion from 1.1 units struck under a 78px one, and under the larger it
+     reads as the dateline having been shoved up against the descender. Four
+     units keeps the pair one object and still lets the name finish.
+
+     The availability line under it takes two units rather than 1.4 for the
+     same reason: at the fitted size both lines run the full measure, and two
+     rows of tracked capitals set that close weld into one grey band. */
   let y = nameBase + nameRun.inkDescent + u * (display ? 4 : 1.1) + runs[0].ascent;
 
   /* The fingerprint, on the credential line's baseline at the other end of the
