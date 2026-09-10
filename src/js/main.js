@@ -14,11 +14,13 @@
    Everything visible is on the canvas, and this build ships NO readable text
    anywhere else - no title, no description, no accessible mirror. That is a
    deliberate decision by the owner and it has a real cost, set out in the
-   README. What remains in the DOM is one invisible layer: real anchors and
-   buttons positioned over the marks they stand for, so that Tab order, Enter,
-   the pointer cursor, mailto: context menus and cmd-click all work because the
-   browser is doing them and not because we reimplemented them. They carry no
-   labels, which is part of the same decision.
+   README. What remains in the DOM is one invisible layer: unlabelled
+   buttons positioned over the marks they stand for, so that Tab order, Enter
+   and the pointer cursor work because the browser is doing them and not
+   because we reimplemented them. Buttons and not anchors: an anchor carries
+   its destination as an attribute, and the two destinations here are an email
+   address and a profile URL - readable text, in the live DOM, which is the
+   one thing none of this is willing to ship.
    =========================================================================== */
 
 /* content.json does not arrive as an object. The build XORs and base64s it
@@ -302,10 +304,29 @@ async function boot(stage) {
   /* One control, one action. The scene records which language the toggle would
      switch TO, so nothing here has to know how many languages there are or
      which half of the mark was pressed. */
+  /* Every target does its work HERE rather than through an attribute, and
+     that is the whole reason the hit layer has no anchors in it.
+
+     An <a href="mailto:..."> would have put the address into the document as
+     readable text - the exact string this page draws as glyphs precisely so
+     that it is never published as text - and a crawler that runs scripts
+     reads the live DOM, not the served HTML. So the destination stays in the
+     scene, which is memory, and is only ever read at the moment of a click.
+
+     What that costs is real and worth naming: no cmd-click, no middle-click,
+     no "copy link address", no context menu, and no address in the status bar
+     on hover. A button cannot offer any of those, because offering them means
+     telling the browser where it goes before it is asked. */
   function act(id) {
-    if (id !== 'lang:toggle') return;
-    const el = document.querySelector('.hit[data-id="lang:toggle"]');
-    setLang((el && el.dataset.other) || (state.lang === 'en' ? 'zh' : 'en'));
+    if (id === 'lang:toggle') {
+      const el = document.querySelector('.hit[data-id="lang:toggle"]');
+      setLang((el && el.dataset.other) || (state.lang === 'en' ? 'zh' : 'en'));
+      return;
+    }
+    const hit = state.scene && state.scene.hits.find((h) => h.id === id);
+    if (!hit || !hit.go) return;
+    if (hit.external) window.open(hit.go, '_blank', 'noopener,noreferrer');
+    else window.location.href = hit.go;
   }
 
   /* --- the hit layer ------------------------------------------------------
@@ -339,13 +360,12 @@ async function boot(stage) {
     while (root.children.length > hits.length) root.removeChild(root.lastChild);
     hits.forEach((h, i) => {
       let el = root.children[i];
-      const tag = h.href ? 'a' : 'button';
-      if (!el || el.tagName.toLowerCase() !== tag) {
-        const next = document.createElement(tag);
-        next.className = 'hit';
-        if (el) root.replaceChild(next, el);
-        else root.appendChild(next);
-        el = next;
+      /* Buttons, all of them, with nothing on them but a position. */
+      if (!el) {
+        el = document.createElement('button');
+        el.className = 'hit';
+        el.type = 'button';
+        root.appendChild(el);
       }
       el.dataset.id = h.id;
       el.dataset.key = h.key || '';
@@ -354,13 +374,7 @@ async function boot(stage) {
       el.style.top = `${h.y}px`;
       el.style.width = `${h.w}px`;
       el.style.height = `${h.h}px`;
-      if (h.href) {
-        el.setAttribute('href', h.href);
-        if (h.href.startsWith('http')) { el.target = '_blank'; el.rel = 'me noopener'; }
-      } else {
-        el.type = 'button';
-        if (h.pressed !== undefined) el.setAttribute('aria-pressed', String(h.pressed));
-      }
+      if (h.pressed !== undefined) el.setAttribute('aria-pressed', String(h.pressed));
       if (h.lang) el.setAttribute('lang', h.lang);
     });
   }
@@ -370,7 +384,7 @@ async function boot(stage) {
   function bindHits(root) {
     root.addEventListener('click', (e) => {
       const el = e.target.closest('.hit');
-      if (el && el.tagName === 'BUTTON') act(el.dataset.id);
+      if (el) act(el.dataset.id);
     });
     root.addEventListener('pointerover', (e) => {
       const el = e.target.closest('.hit');

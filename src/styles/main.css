@@ -77,8 +77,9 @@ body {
 }
 
 /* One transparent target per interactive mark on the canvas. Invisible, but a
-   real <a> or <button>: the browser supplies tab order, Enter and Space,
-   cursor, touch slop, the status-bar URL preview and the right-click menu. */
+   real <button>: the browser supplies tab order, Enter and Space, cursor and
+   touch slop. Never an <a>, because an anchor has to be told where it goes,
+   and telling it means writing the address into the document. */
 #scroll .hit, #fixed .hit {
   position: absolute;
   display: block;

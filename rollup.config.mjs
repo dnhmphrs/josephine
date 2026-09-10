@@ -75,6 +75,26 @@ const prune = (v) => (Array.isArray(v) ? v.map(prune)
 
    TITLE_MARK is the tab, literally. Write what you want to see.
 
+   It reads "AI Policy Researcher" now, and that is a deliberate loosening of
+   the rule this file otherwise enforces absolutely. Everything else here
+   exists so that no string from content.json survives into anything a machine
+   can read - and this is a string from content.json, index.role, sitting in
+   the head in plain text.
+
+   It is allowed because of WHAT it says. The guarantee that matters is that
+   she is not findable, and it is her NAME that makes her findable: a job
+   category shared with some tens of thousands of people identifies nobody,
+   returns nothing useful to anyone searching for her, and cannot be joined
+   back to her by an index. What it buys is a tab that a person can find among
+   thirty others, which three block squares could not do. noindex is still the
+   load-bearing half and is unchanged.
+
+   check.mjs enforces the narrower rule rather than being relaxed: the title
+   is now exempted from the content sweep by name, and separately asserted to
+   contain nothing that identifies a person. Everything outside the title - the
+   rest of the head, the body, the 404 and the bundle - is checked exactly as
+   strictly as before.
+
    It used to be derived: a sixteen-glyph ALPHABET, indexed by hex digit, run
    over the first 32 digits of a SHA-256 of the content, so the tab was the
    hash drawn as a two-row bitmap. That is the `titleFromHash` below, and it is
@@ -88,7 +108,7 @@ const prune = (v) => (Array.isArray(v) ? v.map(prune)
    To get the derived mark back, set TITLE_MARK to '' - the empty string falls
    through to it. Its one real property is that it changes exactly when the CV
    does, which is either an identity or a nuisance depending on the day. */
-const TITLE_MARK = '\u25A0\u25A0\u25A0';   // two black squares; '' derives one instead
+const TITLE_MARK = 'AI Policy Researcher';   // '' derives the hash mark instead
 
 /* The alphabet must be exactly sixteen glyphs, one per hex value. Anything
    else silently emits "undefined" thirty times, so it is checked here. */

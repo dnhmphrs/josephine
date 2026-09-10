@@ -1236,10 +1236,14 @@ function footer(scene, content, lang, g, y0) {
   const seal = scene.seal('foot.links', y - mailRun.ascent, 0);
 
   const mail = scene.place('foot.mail', mailRun, g.left, y, INK, { seal });
-  scene.hit('mail', mail, g.left, y, { key: 'foot.mail', href: `mailto:${c.contact.email}`, label: c.contact.email });
+  /* `go`, not `href`. The destination is handed to the interaction layer as a
+     property of the scene and never reaches an attribute: putting it in the
+     DOM would publish the address in readable text, which is the one thing
+     this page is built not to do. See sync() in main.js. */
+  scene.hit('mail', mail, g.left, y, { key: 'foot.mail', go: `mailto:${c.contact.email}` });
 
   scene.place('foot.linkedin', liRun, liX, liY, INK, { seal });
-  scene.hit('linkedin', liRun, liX, liY, { key: 'foot.linkedin', href: c.contact.linkedin.url, label: c.contact.linkedin.label });
+  scene.hit('linkedin', liRun, liX, liY, { key: 'foot.linkedin', go: c.contact.linkedin.url, external: true });
 
   /* The end mark, and it is the GLYPH rather than a rectangle shaped like it.
 

@@ -84,10 +84,16 @@
 
   <!-- Native scrolling is preserved by sizing this proxy to the content height
        and translating the canvas scene by scrollY. It also carries the hit
-       layer: one transparent <a> or <button> per interactive mark, positioned
-       in content coordinates, so tab order, Enter, the pointer cursor, mailto:
-       context menus and cmd-click are the browser's job and not ours. Filled
-       by main.js. -->
+       layer: one transparent <button> per interactive mark, positioned in
+       content coordinates, so tab order, Enter and the pointer cursor are the
+       browser's job and not ours. Filled by main.js.
+
+       Buttons and never anchors. An <a> would carry its destination as an
+       attribute, which would put the address into the live DOM in readable
+       text - and a crawler that runs scripts reads the DOM, not this file.
+       The destination lives in the scene instead and is read at the moment of
+       a click. The cost is cmd-click, the context menu and the status-bar
+       preview, which is the price of the guarantee. -->
   <div id="scroll"></div>
 
   <!-- The second half of the hit layer. Most targets live in the scroll proxy
