@@ -8,15 +8,37 @@
    =========================================================================== */
 
 :root {
-  /* The concrete. Kept in sync with GROUND in js/gl.js so the page never
-     flashes a different colour before the first frame. */
-  --concrete: #e4e1db;
+  /* The concrete, at its two ends. The shader is a gradient, so ONE colour
+     cannot match it - and the one that was here matched neither: #E4E1DB is
+     the mean, which is six levels lighter than the top of the wash and one
+     level off the bottom.
+
+     Six levels is invisible until iOS shows it to you. Rubber-band past the
+     top of the document and the strip that opens above the page is painted
+     with the root background, right next to the top of the canvas, and the
+     seam is plain. Same at the foot.
+
+     Measured rather than derived: the shader ported to Node and evaluated at
+     the viewport edges, averaged across the phone and the desktop and both
+     scroll positions, because the pools drift with time and the gradient has
+     an x term as well as a y one. */
+  --concrete-top: #dedad6;
+  --concrete-bot: #e5e2dd;
+  --concrete: #e2ded9;
 }
 
 * { box-sizing: border-box; }
 
 html {
-  background: var(--concrete);
+  /* Sized to the VIEWPORT, not the document, because the shader's gradient is
+     too - it does not travel with the scroll. So the two ends line up at any
+     scroll position rather than only at the top. no-repeat, or the tile above
+     the viewport would put the foot of the wash directly above its head; what
+     the rubber band gets instead is the flat fallback under it. */
+  background-color: var(--concrete);
+  background-image: linear-gradient(to bottom, var(--concrete-top), var(--concrete-bot));
+  background-attachment: fixed;
+  background-repeat: no-repeat;
   -webkit-text-size-adjust: 100%;
   scrollbar-width: thin;
   scrollbar-color: #c9c6bd transparent;
@@ -30,7 +52,7 @@ html {
 
 body {
   margin: 0;
-  background: var(--concrete);
+  background: transparent;
   /* Nothing in the DOM is selectable, so kill the highlight the drag would
      otherwise leave on the canvas. */
   -webkit-tap-highlight-color: transparent;

@@ -19,7 +19,7 @@
       "zh": "人工智能政策研究者"
     },
     "line": {
-      "en": "Geopolitics and technology governance, across China, the European Union and the multilateral system.",
+      "en": "Geopolitics and technology governance, across China, the European Union, and the multilateral system.",
       "zh": "地缘政治与技术治理研究，横跨中国、欧盟与多边体系。"
     },
     "context": [
@@ -69,18 +69,18 @@
           },
           "entries": [
             {
-              "year": "2025-■",
+              "year": "2025–■",
               "title": {
                 "en": "Fellow",
                 "zh": "研究员"
               },
               "org": {
-                "en": "AIxist - geopolitics, labour and national security",
-                "zh": "AIxist - 地缘政治、劳动与国家安全"
+                "en": "AIxist – geopolitics, labour and national security",
+                "zh": "AIxist – 地缘政治、劳动与国家安全"
               }
             },
             {
-              "year": "2024-■",
+              "year": "2024–■",
               "title": {
                 "en": "Labour movements and public-interest technology",
                 "zh": "劳工运动与公共利益技术"
@@ -133,8 +133,8 @@
                 "zh": "本体性不安全：主权、民族主义，以及欧盟如何在中美争夺人工智能市场主导权的竞争中寻路"
               },
               "org": {
-                "en": "Working paper - sovereignty narratives and the China–US bind",
-                "zh": "工作论文 - 主权叙事与中美竞争格局"
+                "en": "Working paper – sovereignty narratives and the China–US bind",
+                "zh": "工作论文 – 主权叙事与中美竞争格局"
               },
               "placeholder": true,
               "note": "Add the year, and the venue if it is published. Title is verbatim - do not shorten it."
@@ -146,8 +146,8 @@
                 "zh": "核监管框架中的人工智能：安全叙事与监管变革的趋势"
               },
               "org": {
-                "en": "Briefing - AI as a rising subject in international security",
-                "zh": "简报 - 人工智能作为国际安全的新兴议题"
+                "en": "Briefing – AI as a rising subject in international security",
+                "zh": "简报 – 人工智能作为国际安全的新兴议题"
               },
               "placeholder": true,
               "note": "Add the year, and the venue if it is published. Title is verbatim - do not shorten it."
@@ -161,7 +161,7 @@
           },
           "entries": [
             {
-              "year": "2023-■",
+              "year": "2023–■",
               "title": {
                 "en": "Workshops and convenings",
                 "zh": "工作坊与召集"
@@ -172,7 +172,7 @@
               }
             },
             {
-              "year": "2023-■",
+              "year": "2023–■",
               "title": {
                 "en": "Political organising",
                 "zh": "政治组织工作"
@@ -204,7 +204,7 @@
               "note": "Add the year of the NPT Conference attended."
             },
             {
-              "year": "2020-22",
+              "year": "2020–22",
               "title": {
                 "en": "Machine learning",
                 "zh": "机器学习"
