@@ -483,11 +483,18 @@ const HAIRLINE = 0.16;
    Chinese reader arriving on the English page can see that 中 exists without
    reading a word of English, and the reverse.
 
-   Opposite it is the NAME, on the same baseline. It used to sit a hundred
-   pixels lower with nothing beside the toggle, and the page opened on a strip
-   of empty paper with one small control floating in it - which is the least
-   confident thing a page can do. The two now share a line: the largest thing
-   here and the smallest, on one baseline, at the two edges of the measure.
+   Opposite it is the NAME, on the same baseline - wherever there is a line to
+   share. It used to sit a hundred pixels lower with nothing beside the toggle,
+   and the page opened on a strip of empty paper with one small control
+   floating in it - which is the least confident thing a page can do. The two
+   now share a line: the largest thing here and the smallest, on one baseline,
+   at the two edges of the measure.
+
+   At one column they do not share it. The name needs the whole measure there
+   and the toggle takes the frame's own line above it, which is a different
+   arrangement and not the old fault returning: the control is a corner mark
+   two units clear of the name's ink, not a mark adrift in a hundred pixels of
+   paper with the page starting somewhere below it. See head().
 
    Sharing a BASELINE and not a box is the whole point. Boxes of 54px and 11px
    have nothing in common; baselines are the line a compositor actually sets
@@ -565,6 +572,12 @@ function planToggle(scene, content, lang, g) {
     ascent: padY + ink,
     descent: padY,
     pinned,
+    /* At one column the control does not share the name's line: it takes the
+       frame's own line above it. Sharing was never a virtue in itself - what
+       made it right at two columns and up is that there is a whole track of
+       paper beside the name doing nothing. On a phone that track is the name's
+       measure, and the toggle was spending a fifth of it. See head(). */
+    stacked: !pinned,
     draw(y) {
       const dpr = scene.engine.dpr;
       const x0 = Math.round(g.right - boxW);
@@ -673,14 +686,45 @@ function head(scene, content, lang, g) {
 
   const nav = planToggle(scene, content, lang, g);
 
-  /* The name may not run into the toggle and may not wrap on a phone into
-     something ragged, so it is measured against the space actually left beside
-     the toggle and taken down if it would not fit. No floor: nothing
-     downstream clips, and a name that overflows simply runs off the page. */
+  /* AT ONE COLUMN THE NAME IS GIVEN THE WHOLE MEASURE.
+
+     Everywhere else the name shares its line with the toggle and is measured
+     against what the toggle leaves - which is the right rule for a page that
+     has a column to spare, and the reason the phone was setting a masthead at
+     32px in a 342px measure. The toggle takes about a fifth of that line and
+     four more units of clearance beside it, so the largest thing on the page
+     was being sized by the smallest.
+
+     Below 720 the toggle no longer needs that line: it is unpinned there
+     already (see planToggle) and can be set above the name instead of beside
+     it. So the name is fitted to the MEASURE, edge to edge, and the page opens
+     on a name that touches both margins rather than one.
+
+     Fitted by correction rather than by one division, for the same reason
+     roleFit is: a run is rasterised at whole device pixels, so width is a
+     staircase in size and a single division lands several pixels out - which
+     at this size is a visible step away from the margin.
+
+     Two ceilings. 1.6 of the scale's own size is as far as proportion is
+     allowed to be overruled by a measure; 56 is a hard stop just above the
+     largest size this site sets anywhere. They bind on a wide phone in
+     landscape, and always in Chinese, where 沈菲菲 is three characters and
+     filling 342px with them would set a name at 119px. */
   const clear = Math.max(g.gutter, u * 4);
   const avail = g.contentW - nav.width - clear;
   const natural = scene.engine.measure(scene.spec(c.name[lang], S.name));
-  const name = natural > avail ? { ...S.name, size: S.name.size * (avail / natural) } : S.name;
+  const fitName = () => {
+    let size = S.name.size;
+    for (let i = 0; i < 4; i++) {
+      const w = scene.engine.measure(scene.spec(c.name[lang], { ...S.name, size }));
+      if (Math.abs(w - g.contentW) < 0.5) break;
+      size *= g.contentW / Math.max(1, w);
+    }
+    return { ...S.name, size: Math.min(size, S.name.size * 1.6, 56) };
+  };
+  const name = nav.stacked
+    ? fitName()
+    : (natural > avail ? { ...S.name, size: S.name.size * (avail / natural) } : S.name);
   const nameRun = scene.prepare(c.name[lang], name);
 
   /* Placed by INK, not by the font box: a Latin cap height is about 0.73em
@@ -694,7 +738,16 @@ function head(scene, content, lang, g) {
      the whole of note (a): the head is now as high as the frame allows, and
      the toggle came down to meet it. */
   const top = Math.max(26, Math.round(g.margin)) + g.safeTop;
-  const y0 = Math.round(top + (nameRun.inkAscent || nameRun.capHeight));
+  /* Stacked, the toggle takes the frame line for itself and the name starts
+     under it. The gap is small - two units - because the control is not a line
+     of the document and must not read as one: it is the mark in the corner of
+     the frame, and the name is the first thing on the page. */
+  const navY = nav.stacked
+    ? Math.round(top + nav.ascent)
+    : Math.round(top + (nav.ascent - nav.descent) / 2);
+  const y0 = nav.stacked
+    ? Math.round(navY + nav.descent + u * 2 + (nameRun.inkAscent || nameRun.capHeight))
+    : Math.round(top + (nameRun.inkAscent || nameRun.capHeight));
   scene.place('index.name', nameRun, g.left, y0, INK);
   /* The toggle hangs from the TOP of the name, not from its baseline.
 
@@ -712,7 +765,6 @@ function head(scene, content, lang, g) {
      middle of the control - the only alignment in the head that refers to
      something other than itself. The box stands a little proud of that line,
      which is what a control should do and a word should not. */
-  const navY = Math.round(top + (nav.ascent - nav.descent) / 2);
   nav.draw(navY);
 
 
@@ -740,10 +792,27 @@ function head(scene, content, lang, g) {
 
      It applies only when the answer is close to the size the scale already
      wanted. Below 0.85 or above 1.45 the fit is refused and the base size
-     stands, which is what happens on a phone and in Chinese - the name is
-     three characters there and its dateline is sixteen, so matching them
-     would set the dateline at half its legible size. The rule is "share the edge where the
-     edge can be shared", not "share it at any cost". */
+     stands, which is what happens in Chinese - the name is three characters
+     there and its dateline is sixteen, so matching them would set the dateline
+     at half its legible size. The rule is "share the edge where the
+     edge can be shared", not "share it at any cost".
+
+     An English phone used to refuse it too, for the opposite reason: the name
+     was small because the toggle was beside it, so the dateline would have had
+     to come down a quarter to match. Now the name has the measure and the fit
+     is taken there - the same mechanism, given a target worth matching. */
+  /* The target stays the NAME'S WIDTH at every column count, including the
+     one where the name has just been fitted to the measure - which is the
+     same number, and is the point. The measure was tried directly and is
+     wrong in the band between about 400 and 445, where the name meets its
+     ceiling and the dateline does not: fitted to the measure it then runs
+     twenty-three pixels PAST the name it underwrites, and an underline longer
+     than the word is a mistake anywhere. Held to the name, the pair share an
+     edge at every width, and where that edge is not the margin the margin is
+     held by the availability line under them, the section names in the CV and
+     the mark at the end. */
+  const fitTo = nameRun.width;
+
   const roleFit = (() => {
     const fixed = (sep * 2 + 1) * (creds.length - 1);
     const total = (role) => creds.reduce((a, x) => a + scene.engine.measure(scene.spec(x.text, role)), 0);
@@ -755,8 +824,8 @@ function head(scene, content, lang, g) {
     let size = S.role.size;
     for (let i = 0; i < 4; i++) {
       const w = total({ ...S.role, size });
-      if (Math.abs(w + fixed - nameRun.width) < 0.5) break;
-      size *= (nameRun.width - fixed) / Math.max(1, w);
+      if (Math.abs(w + fixed - fitTo) < 0.5) break;
+      size *= (fitTo - fixed) / Math.max(1, w);
     }
     const k = size / S.role.size;
     return k >= 0.85 && k <= 1.45 ? { ...S.role, size } : S.role;
@@ -773,7 +842,7 @@ function head(scene, content, lang, g) {
      gap that still reads as one. */
   const gaps = creds.length - 1;
   const sepFit = roleFit !== S.role && gaps > 0
-    ? Math.max(sep * 0.7, (nameRun.width - runs.reduce((a, r) => a + r.width, 0) - gaps) / (2 * gaps))
+    ? Math.max(sep * 0.7, (fitTo - runs.reduce((a, r) => a + r.width, 0) - gaps) / (2 * gaps))
     : sep;
 
   const rows = [[]];
@@ -788,7 +857,12 @@ function head(scene, content, lang, g) {
   /* Closer to the name than it was. The dateline belongs to the name - it is
      the line under a masthead, not the first line of the body - and a gap wide
      enough to be read as a paragraph break was saying otherwise. */
-  let y = y0 + nameRun.inkDescent + u * 1.1 + runs[0].ascent;
+  /* Struck against the name's DESCENDER, so the interval is the paper you can
+     see and not a number that happens to be right at one size. At one column
+     the name is half as large again as it was and its descender reaches
+     further, so the same 1.1 units left the capitals sitting in the tail of
+     the p - close enough to read as a collision rather than as attachment. */
+  let y = y0 + nameRun.inkDescent + u * (nav.stacked ? 1.7 : 1.1) + runs[0].ascent;
 
   /* The fingerprint, on the credential line's baseline at the other end of the
      measure. It is the first 32 hex digits of a hash of the content (see
@@ -851,18 +925,82 @@ function head(scene, content, lang, g) {
      label read as a small prefix hanging off the front of a serif phrase
      rather than as its label. What was wrong was never the position. It was
      that the line kept being made of two different things. */
+  /* The availability line is NOT part of the fit. Where the dateline is held
+     to the name it can be, because that target is a width the type was going
+     to be near anyway; held to the measure it cannot, because the fit then
+     carries the whole of the difference between a phone and a name - at 430 it
+     sets these two runs 385px wide in a 382px measure, and the line runs off
+     the page. It keeps the dateline's role, its weight and its ink; it is
+     simply set at the size the scale asked for. Which turns out to be the
+     right reading as well as the safe one: a masthead line spanning the
+     measure, and a smaller note held to one end of it. */
   const av = c.available;
-  const avLabel = scene.prepare(av.label[lang], roleFit);
-  const avValue = scene.prepare(av.value[lang], roleFit);
-  const avGap = Math.round(Math.max(8, u * 0.7));
-  const avW = avLabel.width + avGap + avValue.width;
-  const avSeal = scene.seal('head.avail', y, 90);
+  /* Stacked, the gap is the DATELINE'S gap and not one of its own - the same
+     span of paper either side of the same hairline, so the two lines are
+     measurably one band rather than two lines that resemble each other. */
+  const avGap = nav.stacked
+    ? Math.round(sepFit * 2 + 1)
+    : Math.round(Math.max(8, u * 0.7));
+  /* A right-aligned line has to leave paper on its left or it is not aligned
+     to anything - a line that reaches both margins is a line, and this one is
+     a note held to one end of the band. So it is given a room to sit in, the
+     measure less a gutter, and three ways of taking it, in order:
+
+       it fits                    - set at the size the scale asked for;
+       it is within a twelfth     - taken down to fit, which is a correction
+                                    nobody can see at this size;
+       it is further out than that - the label goes above the value and both
+                                    hold the right margin.
+
+     The third is what a 320px screen gets, and it is the reason the second is
+     capped rather than allowed to run: the alternative at that width is 8px
+     capitals, and a line that has been shrunk until it is illegible is not a
+     line that fits. Two right-aligned lines are an arrangement; a squint is
+     a failure. Chinese never reaches either - 可洽 and thirteen characters
+     are 190px of a 342px measure. */
+  const avFit = (() => {
+    if (!nav.stacked) return { role: roleFit, stack: false };
+    const w = (role) => scene.engine.measure(scene.spec(av.label[lang], role))
+      + avGap + scene.engine.measure(scene.spec(av.value[lang], role));
+    const room = g.contentW - g.gutter;
+    const nat = w(S.role);
+    if (nat <= room) return { role: S.role, stack: false };
+    const k = room / nat;
+    return k >= 0.92
+      ? { role: { ...S.role, size: S.role.size * k }, stack: false }
+      : { role: S.role, stack: true };
+  })();
+  const avRole = avFit.role;
+  const avLabel = scene.prepare(av.label[lang], avRole);
+  const avValue = scene.prepare(av.value[lang], avRole);
+  const avW = avFit.stack
+    ? Math.max(avLabel.width, avValue.width)
+    : avLabel.width + avGap + avValue.width;
   /* Only if it clears the dateline it shares the line with, by a full gutter.
      Otherwise it drops to its own baseline underneath, still on the right. */
   const avInline = avW + g.gutter <= g.contentW - used;
   let avY = y;
   let avX = g.right - avW;
-  if (!avInline) {
+  if (!avInline && nav.stacked) {
+    /* Dropped, and holding the RIGHT MARGIN.
+
+       The note under this one is the argument against exactly this, and it was
+       right about the page it was written for: a line set flush right under a
+       flush-left line, with nothing else on the page holding that edge, is not
+       an alignment - its left edge lands wherever the string ends and the head
+       finishes on a step nobody chose.
+
+       What has changed is that the edge now exists. The toggle takes it at the
+       top of the page, every section name in the CV is set on the right end of
+       its own rule, and the end mark closes the document on it. The
+       availability line is the fourth mark on a rail, not the first, and a
+       rail is what makes flush right mean something. It is also the only
+       arrangement that gives the head band two ends at one column: the role in
+       the primary ink at the left margin on one line, the three things she is
+       open to in the primary ink at the right margin on the next. */
+    avY = y + lead(roleFit) + Math.round(u * 2.2);
+    avX = g.right - avW;
+  } else if (!avInline) {
     /* Dropped, and therefore no longer opposite anything.
 
        It used to keep the right margin when it fell - which is the instinct,
@@ -906,9 +1044,26 @@ function head(scene, content, lang, g) {
      then qualifiers on the left, qualifier then list on the right. Everything
      between the two dark ends is now one tier, so the band has exactly two
      weights in it rather than three. */
-  scene.place('index.available', avLabel, avX, avY, INK_2, { seal: avSeal, edge: true });
+  /* Label over value, they are one statement and are led as one - closer than
+     two lines of the same size would be set, so the pair reads as a block held
+     to the margin rather than as two more lines of the band. */
+  const avValueY = avFit.stack ? avY + Math.round(lead(avRole) * 1.3) : avY;
+  const avSeal = scene.seal('head.avail', avY - avLabel.ascent, 90);
+  scene.place('index.available', avLabel,
+    avFit.stack ? g.right - avLabel.width : avX, avY, INK_2, { seal: avSeal, edge: true });
+  /* The separator the dateline uses between its segments, used once more
+     between the label and the value. One device, and it is what carries the
+     right-aligned line back to the line above it: without it the pair reads as
+     a phrase that happens to end at the margin, with it as one more segmented
+     line of the same band, set to the other end. */
+  if (nav.stacked && !avInline && !avFit.stack) {
+    scene.rect('index.available.sep', Math.round(avX + avLabel.width + avGap / 2 - 0.5),
+      Math.round(avY - (avLabel.inkAscent || avLabel.capHeight)), 1,
+      Math.round(avLabel.inkAscent || avLabel.capHeight), RULE, 0.3);
+  }
   scene.place('index.available.value', avValue,
-    avInline ? g.right - avValue.width : avX + avLabel.width + avGap, avY, INK, { seal: avSeal });
+    avInline || avFit.stack ? g.right - avValue.width : avX + avLabel.width + avGap,
+    avValueY, INK, { seal: avSeal });
 
   /* The toggle's column, in viewport coordinates, handed to the renderer.
 
@@ -940,10 +1095,10 @@ function head(scene, content, lang, g) {
   scene.edge = nav.pinned ? {
     x0: Math.round(g.right - nav.width - g.gutter * 0.5),
     clear: Math.round(navY - nav.ascent),
-    full: Math.round(avY + avValue.inkDescent + 2),
+    full: Math.round(avValueY + avValue.inkDescent + 2),
   } : null;
 
-  y = avY + runs[0].descent;
+  y = avValueY + (avFit.stack ? avValue.descent : runs[0].descent);
 
   /* The sentence. Tied to the grid, but capped at 22em - about fifty
      characters, and short enough that the block reads as a statement rather
@@ -962,7 +1117,11 @@ function head(scene, content, lang, g) {
   /* Closer, now that the dateline has been pulled up and tightened. The gap
      was struck against a looser, larger line sitting further down; against
      this one it read as a hole. */
-  y += u * 3.1 + ledeRun.ascent;
+  /* Deeper at one column, where the band above is three lines of capitals
+     rather than one or two and the sentence has to be plainly a different
+     kind of material - and where the head is the one part of the page with
+     room to spare, the CV having given a line back to every section. */
+  y += u * (g.cols === 1 ? 4.2 : 3.1) + ledeRun.ascent;
   const ledeSeal = scene.seal('head.lede', y, 90);
   lines.forEach((t, i) => {
     scene.text(`index.lede.${i}`, t, S.lede, g.left, y + i * ledeLead, INK_2, { seal: ledeSeal });
@@ -995,6 +1154,11 @@ function cvMetrics(g) {
      cap below is part of the track, and a caller that forgot to hand it over
      would measure one width and draw another. */
   const hang = g.cols >= 3;
+  /* One column: the section name is set on the right end of its own rule
+     rather than stacked under it. See railName(). Two columns keeps the stack
+     - there the bands are already half the width of the window and the rules
+     are short enough to read as lines with two ends without help. */
+  const onRule = g.cols === 1;
   const x0 = hang ? g.colX(1) : g.left;
   const across = hang ? g.cols - 1 : g.cols;
   const width = g.right - x0;
@@ -1017,7 +1181,7 @@ function cvMetrics(g) {
      the same relation the wide layout has, with the empty band on the other
      side. */
   if (across === 1) trackW = Math.min(trackW, 27 * scale(g.vw).title.size);
-  return { hang, x0, across, trackW };
+  return { hang, onRule, x0, across, trackW };
 }
 
 function measureSections(engine, sections, lang, g, S) {
@@ -1039,7 +1203,13 @@ function measureSections(engine, sections, lang, g, S) {
     /* Above the section name. Deeper where the name sits ABOVE its entries
        rather than beside them, because there it needs to be plainly nearer to
        what it names than to the rule it hangs under - see block(). */
-    const topPad = u * (m.hang ? 2.4 : 4) + (si === 0 ? u * 2.6 : 0);
+    /* On the rule the name costs no line, so the interval under the rule is
+       the hanging layout's - the rule opens the band and the first title is
+       the next thing in it. The extra opening pad for the first band goes too:
+       what it was buying was clearance between the threshold word and a
+       section name a centimetre under it in the same column, and they are now
+       at opposite ends of one line. */
+    const topPad = u * (m.hang || m.onRule ? 2.4 : 4) + (si === 0 && !m.onRule ? u * 2.6 : 0);
     const head = engine.run({ ...adapt(S.section, lang), text: sec.section[lang].toUpperCase() });
     const entries = sec.entries.map((e) => {
       const year = e.year || '';
@@ -1075,7 +1245,7 @@ function measureSections(engine, sections, lang, g, S) {
        air is what levels a short entry against a tall one beside it. */
     const body = rowH.reduce((a, b) => a + b, 0) - (m.across === 1 ? u * 3.4 : 0);
     const height = topPad
-      + (m.hang ? 0 : head.lineHeight + u * 1.4)
+      + (m.hang || m.onRule ? 0 : head.lineHeight + u * 1.4)
       + Math.max(body, m.hang ? head.lineHeight + u * 2 : 0);
     return { sec, head, entries, rowH, height, topPad, probe, metaProbe, titleLead, metaLead };
   });
@@ -1090,13 +1260,41 @@ function measureSections(engine, sections, lang, g, S) {
    a shoulder, no new weight, no new colour, no second grid. Returns the x the
    rule starts at, so a section rule further down the block can be drawn flush
    left and read as a lesser division of the same kind. */
-function threshold(scene, blk, lang, g, y, S, u) {
+function threshold(scene, blk, lang, g, y, S, u, ruleEnd) {
   const label = scene.prepare(blk.label[lang], S.section);
   const lift = Math.round((label.inkAscent || label.capHeight) / 2);
   scene.place(`${blk.key}.label`, label, g.left, Math.round(y) + lift, INK);
   const ruleX = g.left + Math.round(label.width + Math.max(12, u * 1.4));
-  scene.rect(`${blk.key}.rule`, ruleX, Math.round(y), g.right - ruleX, 1, RULE, HAIRLINE);
+  const end = ruleEnd === undefined ? g.right : ruleEnd;
+  scene.rect(`${blk.key}.rule`, ruleX, Math.round(y), end - ruleX, 1, RULE, HAIRLINE);
   return ruleX;
+}
+
+/* THE SECTION NAME, SET ON THE RIGHT END OF ITS OWN RULE.
+
+   At one column the name used to be stacked under the rule and flush left with
+   everything else, which is where the page's whole trouble on a phone showed
+   most plainly: five bands, each opening with a rule that ran to the right
+   margin and then a small word back at the left, under it. Nothing on the
+   page held the other edge, so a full-width rule was a line with one end.
+
+   The device is the CV's own. "CV" straddles the first rule at the left and
+   the rule starts after it - one hairline given a shoulder - and this is that
+   move read from the other end. It costs no new weight, no new colour and no
+   second grid, it is the same interruption in the same line, and it puts a
+   mark on the right margin five times down the CV at the interval the bands
+   already have. The first band gets both at once: the block's name at one end
+   of the rule and the first section's at the other.
+
+   It buys back a line as well. Stacked, the name needed its own leading and a
+   deliberate asymmetry of air above and below to bind it to the entries it
+   names; on the rule it is IN the band's opening line, so what follows the
+   rule is the material. Returns the x the rule must stop at. */
+function railName(scene, key, str, lang, g, y, S, u, seal) {
+  const run = scene.prepare(str, S.section);
+  const lift = Math.round((run.inkAscent || run.capHeight) / 2);
+  scene.place(key, run, g.right - run.width, Math.round(y) + lift, INK_3, { seal });
+  return g.right - Math.round(run.width + Math.max(12, u * 1.4));
 }
 
 function block(scene, blk, lang, g, y0, measured) {
@@ -1127,13 +1325,20 @@ function block(scene, blk, lang, g, y0, measured) {
        threshold and not a fourth kind of divider, and it costs no new weight,
        no new colour and no second grid. The word already existed in
        content.json waiting for it. */
-    const ruleX = si === 0 ? threshold(scene, blk, lang, g, y, S, u) : g.left;
-    if (si > 0) scene.rect(`${k}.${si}.rule`, ruleX, Math.round(y), g.right - ruleX, 1, RULE, HAIRLINE);
+    /* The rule is sealed with the name that sits on it: they are one line and
+       must arrive as one. */
+    const headSeal = scene.seal(`${k}.${si}.head`, y, 0);
+    const ruleEnd = m.onRule
+      ? railName(scene, `${k}.${si}.head`, sec.sec.section[lang], lang, g, y, S, u, headSeal)
+      : g.right;
+    const ruleX = si === 0 ? threshold(scene, blk, lang, g, y, S, u, ruleEnd) : g.left;
+    if (si > 0) scene.rect(`${k}.${si}.rule`, ruleX, Math.round(y), ruleEnd - ruleX, 1, RULE, HAIRLINE);
     let top = y + sec.topPad;
 
-    const headSeal = scene.seal(`${k}.${si}.head`, top, 0);
-    scene.text(`${k}.${si}.head`, sec.sec.section[lang], S.section, g.left, top + sec.head.ascent, INK_3,
-      { seal: headSeal });
+    if (!m.onRule) {
+      scene.text(`${k}.${si}.head`, sec.sec.section[lang], S.section, g.left, top + sec.head.ascent, INK_3,
+        { seal: headSeal });
+    }
     /* The name binds DOWN, to the entries it names.
 
        It was given the same air above and below - nineteen pixels and twenty-
@@ -1147,7 +1352,7 @@ function block(scene, blk, lang, g, y0, measured) {
        belongs to the body under it. Paid for out of the section's trailing
        air, which at one column is the only interval in the CV doing no work -
        a row of one entry can never be ragged, so nothing is being levelled. */
-    if (!m.hang) top += sec.head.lineHeight + u * 1.4;
+    if (!m.hang && !m.onRule) top += sec.head.lineHeight + u * 1.4;
 
     sec.entries.forEach((en, ei) => {
       const col = ei % m.across;
@@ -1169,8 +1374,14 @@ function block(scene, blk, lang, g, y0, measured) {
 
       if (en.org.length || en.year) {
         ey += u * 1.4 + sec.metaProbe.ascent;
+        const rail = m.onRule;
+        const yearGap = en.year && en.org.length ? u * 2 : 0;
+        const yearW = en.year ? scene.engine.measure(scene.spec(en.year, S.year)) : 0;
         en.org.forEach((t, j) => {
-          scene.text(`${k}.${si}.${ei}.org.${j}`, t, S.meta, x, ey + j * sec.metaLead, INK_3, { seal });
+          const last = j === en.org.length - 1;
+          scene.text(`${k}.${si}.${ei}.org.${j}`, t, S.meta,
+            rail ? g.right - (last ? yearW + yearGap : 0) : x,
+            ey + j * sec.metaLead, INK_3, { seal, align: rail ? 'right' : undefined });
         });
         if (en.year) {
           /* At more than one track the year holds the right edge of its own
@@ -1201,8 +1412,8 @@ function block(scene, blk, lang, g, y0, measured) {
           const endW = last ? scene.engine.measure(scene.spec(last, S.meta)) : 0;
           const yearY = inline ? ey + Math.max(0, en.org.length - 1) * sec.metaLead : ey;
           scene.text(`${k}.${si}.${ei}.year`, en.year, S.year,
-            inline ? x + endW + (last ? u * 2 : 0) : x + m.trackW, yearY, INK_3,
-            { align: inline ? 'left' : 'right', seal });
+            m.onRule ? g.right : inline ? x + endW + (last ? u * 2 : 0) : x + m.trackW, yearY, INK_3,
+            { align: inline && !m.onRule ? 'left' : 'right', seal });
         }
       }
     });
@@ -1265,8 +1476,26 @@ function footer(scene, content, lang, g, y0) {
      The interline here is therefore the TARGET's measure and not the type's,
      and u*6 is the smallest multiple of the page's own baseline unit that
      clears it across the whole one-column band. */
-  const liY = m.hang ? y : Math.round(y + Math.max(u * 6, lead(S.link) * 1.15));
-  const liX = m.hang ? m.x0 : g.left;
+  /* ONE COLUMN, ONE LINE, TWO ENDS.
+
+     The stack below is what a footer does when it has run out of width, and
+     the phone had not: the address is 156px and the link 53 in a 342px
+     measure, so the two of them on one line at the two margins fit with a
+     third of the measure to spare. That is the arrangement the wide layout
+     has - how to reach her, at the two edges of the measure - and it turns out
+     to be available at every width the site sees, not only the ones with a
+     middle column to sit in.
+
+     The overlapping targets that forced the stack apart are not a risk here:
+     the two 44px boxes are separated horizontally by a hundred and twenty
+     pixels of paper, so nothing needs the six units of leading that were
+     buying vertical clearance.
+
+     Two columns keeps the stack. There the measure is wider but so is the
+     material either side, and the change is not needed to say anything. */
+  const oneLine = g.cols === 1;
+  const liY = m.hang || oneLine ? y : Math.round(y + Math.max(u * 6, lead(S.link) * 1.15));
+  const liX = m.hang ? m.x0 : oneLine ? g.right - liRun.width : g.left;
   const seal = scene.seal('foot.links', y - mailRun.ascent, 0);
 
   const mail = scene.place('foot.mail', mailRun, g.left, y, INK, { seal });
@@ -1301,9 +1530,15 @@ function footer(scene, content, lang, g, y0) {
      and the mark at the foot of it is the only thing that ever holds that
      edge. Which is what it was for. */
   const end = scene.prepare(content.labels.end, S.year);
-  scene.place('foot.end', end, g.right - end.width, liY, INK_3, { seal });
+  /* With the link holding the right margin, the mark drops to a line of its
+     own under it - which is what it wanted anyway. It is not a third item in
+     the row; it is what comes after the last of them, and a document's closing
+     mark set level with the last thing said is a mark that has not closed
+     anything. Alone on the rail, a full step below, it reads as the end. */
+  const endY = oneLine ? Math.round(liY + Math.max(u * 5, lead(S.link) * 1.6)) : liY;
+  scene.place('foot.end', end, g.right - end.width, endY, INK_3, { seal });
 
-  return Math.max(y, liY) + mailRun.descent;
+  return Math.max(y, liY, endY) + mailRun.descent;
 }
 
 /* ---- entry point ----------------------------------------------------------
