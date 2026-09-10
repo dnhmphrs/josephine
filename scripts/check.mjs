@@ -188,16 +188,16 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
   ok('the switch is finished on that frame',
     settled.quads===d.quads && settled.height===d.height, JSON.stringify({d, settled}));
   ok('<html lang> follows', (await p.evaluate(()=>document.documentElement.lang))==='zh-Hans');
-  /* The tab carries a CATEGORY, not a name. What it says is the author's
-     business - it is a literal in rollup.config.mjs - so what is asserted here
-     is the property that has to hold however it is written: nothing in it
-     identifies a person, and it does not change with the toggle, because it is
-     the document's mark rather than the page's current language. */
+  /* The tab carries a mark, not a name: block glyphs and nothing a reader of
+     any language could pronounce. Length is the author's business - it is a
+     literal string in rollup.config.mjs - so what is asserted is that it is
+     non-empty and that every character is a Block Element or a Geometric
+     Shape. It must also not change with the toggle: it is the document's
+     mark, not the page's current language. */
   {
     const t = await p.title();
-    const bad = ['Josephine', 'Shen', '\u6c88', 'proton', '@'].filter(w => t.toLowerCase().includes(w.toLowerCase()));
-    ok('the tab identifies no one, in either language',
-      t.length > 0 && t.length <= 64 && bad.length === 0, JSON.stringify(t));
+    ok('the tab is a block mark in either language',
+      t.length > 0 && t.length <= 64 && /^[\u2580-\u25FF]+$/.test(t), JSON.stringify(t));
   }
 
   /* Nothing may exceed the measure except Chinese punctuation, which hangs
@@ -376,31 +376,20 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
   const leaks = (src, where) => CONTENT.filter((w) => src.toLowerCase().includes(w.toLowerCase()))
     .map((w) => `${where}:${w}`);
 
-  /* The <title> is exempted BY NAME rather than by weakening the word list,
-     and only for these two documents. It carries index.role deliberately (see
-     TITLE_MARK in rollup.config.mjs); everything else in the head, the whole
-     body, and the bundle are swept exactly as strictly as before. */
-  const body = (src) => src.replace(/<title>[^<]*<\/title>/, '<title></title>');
-  ok('the served HTML carries no content outside the title',
-    leaks(body(html), 'index').length === 0, leaks(body(html), 'index').join(' '));
-  ok('the 404 page carries no content outside the title',
-    leaks(body(notfound), '404').length === 0, leaks(body(notfound), '404').join(' '));
+  ok('the served HTML carries no content', leaks(html, 'index').length === 0, leaks(html, 'index').join(' '));
+  ok('the 404 page carries no content', leaks(notfound, '404').length === 0, leaks(notfound, '404').join(' '));
   /* The bundle is the one that regressed silently: @rollup/plugin-json used to
      inline content.json verbatim, so dist/js/main.js opened with her name. */
   ok('the bundle carries no content literals', leaks(js, 'bundle').length === 0, leaks(js, 'bundle').join(' '));
-  /* The title is the one head element that carries language, and the rule it
-     has to satisfy is not "no words" but "nothing that identifies a person".
-     A job category is shared with tens of thousands of people and joins back
-     to nobody; a name is the whole of what makes someone findable. So this
-     asserts the narrower thing, which is the thing that actually matters, and
-     asserts it on both documents. */
+  /* The title is the one head element that survived, and it survived only
+     because it is not made of words: it must be block glyphs end to end, with
+     no Latin, no Han and no punctuation an index could tokenise. Asserted on
+     both documents, because a wrong URL is the same document. */
   {
-    const IDENTIFYING = ['Josephine', 'Shen', '\u6c88', 'proton', 'linkedin', '@'];
-    for (const [t, where] of [[html, 'index'], [notfound, '404']]) {
-      const title = (t.match(/<title>([^<]*)<\/title>/) || ['', ''])[1];
-      const bad = IDENTIFYING.filter((w) => title.toLowerCase().includes(w.toLowerCase()));
-      ok(`the ${where} title identifies no one`,
-        title.length > 0 && title.length <= 64 && bad.length === 0, JSON.stringify(title));
+    for (const [src, where] of [[html, 'index'], [notfound, '404']]) {
+      const t = (src.match(/<title>([^<]*)<\/title>/) || ['', ''])[1];
+      ok(`the ${where} title is glyphs only, no language`,
+        t.length > 0 && t.length <= 64 && /^[\u2580-\u25FF]+$/.test(t), JSON.stringify(t));
     }
   }
   ok('robots noindex is in the served head', /name="robots"[^>]*noindex/.test(html));
