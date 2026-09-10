@@ -673,14 +673,55 @@ function head(scene, content, lang, g) {
 
   const nav = planToggle(scene, content, lang, g);
 
+  /* AT ONE COLUMN THE TOGGLE COMES OFF THE NAME'S LINE.
+
+     Sharing a baseline with the control is the wide layout's best idea and the
+     phone's worst one, and the arithmetic is the whole argument: at 390 the
+     box is 62px and the clearance beside it another 32, so the name is
+     measured against 248 of a 342 measure. The largest mark on the page was
+     being sized by the smallest, and the answer came out at 32px - a name set
+     smaller than the sentence under it is set, which is not a masthead, it is
+     a caption.
+
+     The control is already unpinned here (see planToggle: below 720 it scrolls
+     with the page), so it is not holding a column open for the length of the
+     document and nothing but its own line is at stake. Given that line it
+     costs 22px of height once, and it hands back 94px of measure on every line
+     the name could use.
+
+     It goes ABOVE rather than below. Below the lede it would be a control
+     floating in the void with no edge to hold it to, which is the fault this
+     file spent three passes taking out of the availability line; above, it
+     sits in the corner of the frame with the top margin under it, and the name
+     hangs off the line it makes. The head reads as a masthead with a rule of
+     small type over it, which is what a masthead usually has. */
+  const stacked = g.cols === 1;
+
   /* The name may not run into the toggle and may not wrap on a phone into
      something ragged, so it is measured against the space actually left beside
      the toggle and taken down if it would not fit. No floor: nothing
      downstream clips, and a name that overflows simply runs off the page. */
   const clear = Math.max(g.gutter, u * 4);
-  const avail = g.contentW - nav.width - clear;
+  const avail = stacked ? g.contentW : g.contentW - nav.width - clear;
   const natural = scene.engine.measure(scene.spec(c.name[lang], S.name));
-  const name = natural > avail ? { ...S.name, size: S.name.size * (avail / natural) } : S.name;
+  /* Beside the toggle the fit is a CEILING - the name is only ever taken down.
+     With the measure to itself it becomes a fit in both directions: the name
+     is set to the width it is given, which is what "masthead" means and what
+     every version of this page before the rewrite did (50px at 390, against
+     the 32 this one had settled for).
+
+     Two bounds on it. It never goes BELOW the scale's own size, so the rule
+     can only ever add; and it never passes 54, which is the ceiling for the
+     whole site - a phone is not the place to break the one limit the type
+     scale states. The 54 binds from about 430 up, and across the 400-719 band
+     where this layout is a small window rather than a phone it is the only
+     thing binding, so the name stops growing where the window stops being one.
+     The 1.5% held back is optical: a name set to the last pixel of its measure
+     reads as having been pushed against the frame rather than placed in it. */
+  const nameSize = stacked
+    ? clamp(S.name.size * ((avail * 0.985) / natural), S.name.size, 54)
+    : (natural > avail ? S.name.size * (avail / natural) : S.name.size);
+  const name = nameSize === S.name.size ? S.name : { ...S.name, size: nameSize };
   const nameRun = scene.prepare(c.name[lang], name);
 
   /* Placed by INK, not by the font box: a Latin cap height is about 0.73em
@@ -694,7 +735,13 @@ function head(scene, content, lang, g) {
      the whole of note (a): the head is now as high as the frame allows, and
      the toggle came down to meet it. */
   const top = Math.max(26, Math.round(g.margin)) + g.safeTop;
-  const y0 = Math.round(top + (nameRun.inkAscent || nameRun.capHeight));
+  /* Stacked, the frame line belongs to the CONTROL - its box top sits on the
+     margin, exactly where the name's ink sits when the two share a line - and
+     the name starts three units under it. Three, not two: the gap has to read
+     as the space between a header and a title rather than as leading, and the
+     thing above it is 22px tall against a name of nearly fifty. */
+  const nameTop = stacked ? Math.round(top + nav.ascent + nav.descent + u * 3) : top;
+  const y0 = Math.round(nameTop + (nameRun.inkAscent || nameRun.capHeight));
   scene.place('index.name', nameRun, g.left, y0, INK);
   /* The toggle hangs from the TOP of the name, not from its baseline.
 
@@ -712,7 +759,9 @@ function head(scene, content, lang, g) {
      middle of the control - the only alignment in the head that refers to
      something other than itself. The box stands a little proud of that line,
      which is what a control should do and a word should not. */
-  const navY = Math.round(top + (nav.ascent - nav.descent) / 2);
+  const navY = stacked
+    ? Math.round(top + nav.ascent)
+    : Math.round(top + (nav.ascent - nav.descent) / 2);
   nav.draw(navY);
 
 
@@ -988,6 +1037,44 @@ function head(scene, content, lang, g) {
    blanks reads as missing data. The year goes to the right edge of its own
    entry, on the line with the organisation, where its absence is silence.
    --------------------------------------------------------------------------- */
+/* ---- the index rail -------------------------------------------------------
+   AT ONE COLUMN THE ENTRIES ARE NUMBERED, IN A RAIL AT THE MARGIN.
+
+   Wide, the CV is a hanging arrangement: the section name holds the first
+   column for the whole height of its band and the entries fill the columns
+   beside it, so the record has a vertical the eye tracks down and the eye can
+   see where one band ends. Collapsed to one column all of that goes: ten
+   entries, every one of them a serif title at the margin with two lines of
+   small grey under it, every one the same shape, separated by intervals that
+   differ by a few pixels. Scrolled at speed it is texture, not a document -
+   there is nothing in it to count and nothing to count from.
+
+   So the arrangement is not abandoned at one column, it is NARROWED. A rail of
+   four units at the left margin carries an index - 01 through 10, in the
+   page's own tracked capitals - and everything an entry says is set past it.
+   The reader gets two verticals instead of one: the margin, which is now a
+   column of marks that ascend, and the indent, which is where every word of
+   the record begins. That is the same relation as the wide layout's empty
+   first column, read through a window a quarter as wide.
+
+   It is the arrangement the page had before the rewrite, too: the old HTML
+   masthead carried an index-mark above the name and set the sections as
+   ordered lists, and what the WebGL layout dropped in collapsing to one column
+   was exactly the numbering.
+
+   The count runs THROUGH the block rather than restarting at each section.
+   Restarted, every section reads 01, 02 and the numbers are decoration -
+   there is nothing to learn from a pair of digits that is always the same
+   pair. Run through, the rail says how much material there is and how it is
+   apportioned: two entries here, two there, ten in all, which is a shape a
+   reader takes off the page at a glance without reading a word of it.
+
+   Four units is what it costs. At 390 that is 32px against a 342 measure - a
+   tenth of the line, which the titles pay for in the odd extra line - and it
+   is the smallest rail that holds two tracked digits with a gap after them
+   wide enough that the number reads as beside the entry rather than as part of
+   its first word. It is spent once and it buys the only structure the phone
+   layout has. */
 function cvMetrics(g) {
   /* The hanging arrangement and the track it produces, in one place, so that
      measuring and drawing cannot disagree about it. The type scale is taken
@@ -995,7 +1082,8 @@ function cvMetrics(g) {
      cap below is part of the track, and a caller that forgot to hand it over
      would measure one width and draw another. */
   const hang = g.cols >= 3;
-  const x0 = hang ? g.colX(1) : g.left;
+  const rail = g.cols === 1 ? g.u * 4 : 0;
+  const x0 = hang ? g.colX(1) : g.left + rail;
   const across = hang ? g.cols - 1 : g.cols;
   const width = g.right - x0;
   let trackW = (width - g.gutter * (across - 1)) / across;
@@ -1017,8 +1105,59 @@ function cvMetrics(g) {
      the same relation the wide layout has, with the empty band on the other
      side. */
   if (across === 1) trackW = Math.min(trackW, 27 * scale(g.vw).title.size);
-  return { hang, x0, across, trackW };
+  return { hang, rail, x0, across, trackW };
 }
+
+/* The two roles the one-column record needs, derived rather than added: the
+   scale gains no entries and the page gains no family, no weight and no
+   colour it did not already have.
+
+   THE SECTION NAME, at 1.45x. It is the strongest thing in the body now, and
+   at one column it has to be: it is the only mark that says a new kind of
+   material has started, and set at 10.5px in the tertiary grey it was smaller
+   and fainter than the organisation line of the entry above it. A reader
+   scrolling could not tell a section name from a subtitle. So it goes up a
+   step and takes the PRIMARY ink - which puts five dark tracked words down the
+   page at even intervals, and those five marks are the shape of the record.
+
+   Size is the instrument rather than a new weight or a new grey, because the
+   ladder is already spent: 600 is the top of this scale and the primary ink is
+   the top of the palette. It is still only 15px - under the 16px of the serif
+   titles it introduces, which is deliberate. A label that outgrows the
+   material it labels stops being a label.
+
+   Tracking comes DOWN as it goes up, to 0.115. +0.17em is the correction a
+   grotesque needs at 10px and a mannerism at 15; the scale already narrows
+   every tracked role as it grows (nav and section both run 0.17 to 0.15 across
+   the viewport), so this is that same slope carried one step further.
+
+   Chinese takes a further 12%, which is the one place this file lets a Han
+   correction go UP rather than down. Everywhere else the correction shrinks,
+   because Han fills its em box and carries more apparent mass at equal size -
+   but the thing being corrected for here is not mass, it is DISTINCTION. In
+   English the section name is set apart from the titles under it by three
+   things at once: capitals, tracking and a grotesque against a serif. 论述 has
+   no capitals to be set in and takes almost no tracking (adapt caps it at
+   0.08), so two of the three are gone and the head was left leaning on weight
+   alone against a title only a fifth of a pixel smaller. The scale's own note
+   on this role says exactly that. Rendered side by side at real size, the
+   corrected one reads as the head of a band and the uncorrected one as a line
+   that happens to be bolder.
+
+   THE INDEX, at the section's own size and a gentler track. Tertiary ink: the
+   rail is a texture the eye counts, not a thing it reads, and a number set as
+   darkly as the title beside it would be a two-column table. */
+const sectionRole = (S, g) => (g.cols === 1
+  ? { ...S.section, size: S.section.size * 1.45, tracking: 0.115, zh: { ...S.section.zh, k: 1.12 } }
+  : S.section);
+const indexRole = (S) => ({ ...S.section, tracking: 0.1 });
+
+/* The gap between a stacked section name and the first entry under it. In one
+   place because measureSections reserves it and block() steps over it, and a
+   layout whose measuring and drawing disagree by four pixels is a layout that
+   drifts. Wider where the name is larger, so that the ratio holding it to its
+   entries rather than to the rule above it survives the size change. */
+const headGap = (m, u) => u * (m.rail ? 1.8 : 1.4);
 
 function measureSections(engine, sections, lang, g, S) {
   const u = g.u;
@@ -1039,8 +1178,14 @@ function measureSections(engine, sections, lang, g, S) {
     /* Above the section name. Deeper where the name sits ABOVE its entries
        rather than beside them, because there it needs to be plainly nearer to
        what it names than to the rule it hangs under - see block(). */
-    const topPad = u * (m.hang ? 2.4 : 4) + (si === 0 ? u * 2.6 : 0);
-    const head = engine.run({ ...adapt(S.section, lang), text: sec.section[lang].toUpperCase() });
+    /* Deeper again at one column, where the name is set a step larger and in
+       the primary ink: a bigger, darker mark needs more paper above it to keep
+       reading as the head of a band rather than as a line of the band before
+       it, and this is the interval that says how far apart the five sections
+       are. It comes out of the entry gaps, not out of the page - see the
+       trailing air below. */
+    const topPad = u * (m.hang ? 2.4 : m.rail ? 5 : 4) + (si === 0 ? u * 2.6 : 0);
+    const head = engine.run({ ...adapt(sectionRole(S, g), lang), text: sec.section[lang].toUpperCase() });
     const entries = sec.entries.map((e) => {
       const year = e.year || '';
       const yearW = year ? engine.measure({ ...yearRole, text: year }) : 0;
@@ -1048,8 +1193,30 @@ function measureSections(engine, sections, lang, g, S) {
          not only the first: nothing downstream clips, and a second line
          running under the year would collide with it. */
       const orgW = m.trackW - (yearW ? yearW + u * 2 : 0);
-      const org = e.org && e.org[lang] ? wrap(engine, e.org[lang], metaRole, orgW) : [];
-      const titles = wrap(engine, e.title[lang], titleRole, m.trackW);
+      /* Balanced rather than greedily broken, but only where the rail has
+         taken the measure down. A greedy break fills each line and drops the
+         remainder on the last one, which on a 310px measure leaves "bind"
+         alone under a full line of grey - and a one-word line under an entry
+         is exactly the accident the whole redesign is trying to remove. The
+         lede has been balanced since the first pass for the same reason; this
+         is that instrument applied to the only other place on the phone where
+         a run of small text wraps. Two tracks and up nothing changes: those
+         measures are set by the column grid and the orgs rarely reach them. */
+      const org = e.org && e.org[lang]
+        ? (m.rail ? balance : wrap)(engine, e.org[lang], metaRole, orgW)
+        : [];
+      /* Balanced at one column, for the same reason as the organisation above
+         and one worse case: greedy, the longest title here sets four full
+         lines and then "of Artificial Intelligence", and in Chinese it sets
+         two full lines and then 路 - a single character alone under
+         twenty-two. A title is the loudest thing in its entry and the shape of
+         its last line is the shape the entry has.
+
+         It costs the right edge some of its flush: balanced lines stop short
+         of the track rather than filling it. On a phone that is a gain, not a
+         loss - ten entries each running the full measure is the slab this
+         layout is being taken out of, and a block with a rag has an outline. */
+      const titles = (m.rail ? balance : wrap)(engine, e.title[lang], titleRole, m.trackW);
       const metaH = (org.length || year)
         ? u * 1.4 + metaProbe.ascent + (Math.max(org.length, 1) - 1) * metaLead + metaProbe.descent
         : 0;
@@ -1075,7 +1242,7 @@ function measureSections(engine, sections, lang, g, S) {
        air is what levels a short entry against a tall one beside it. */
     const body = rowH.reduce((a, b) => a + b, 0) - (m.across === 1 ? u * 3.4 : 0);
     const height = topPad
-      + (m.hang ? 0 : head.lineHeight + u * 1.4)
+      + (m.hang ? 0 : head.lineHeight + headGap(m, u))
       + Math.max(body, m.hang ? head.lineHeight + u * 2 : 0);
     return { sec, head, entries, rowH, height, topPad, probe, metaProbe, titleLead, metaLead };
   });
@@ -1091,7 +1258,13 @@ function measureSections(engine, sections, lang, g, S) {
    rule starts at, so a section rule further down the block can be drawn flush
    left and read as a lesser division of the same kind. */
 function threshold(scene, blk, lang, g, y, S, u) {
-  const label = scene.prepare(blk.label[lang], S.section);
+  /* The word on the rule takes whatever size the section names take, which at
+     one column is a step up. It has to: it names the whole block and they name
+     its parts, and a title set smaller than its own headings is a hierarchy
+     upside down. What keeps the threshold distinct from the five names under
+     it is not size - it is that its rule is interrupted and theirs are not,
+     which is the only place on the page that happens. */
+  const label = scene.prepare(blk.label[lang], sectionRole(S, g));
   const lift = Math.round((label.inkAscent || label.capHeight) / 2);
   scene.place(`${blk.key}.label`, label, g.left, Math.round(y) + lift, INK);
   const ruleX = g.left + Math.round(label.width + Math.max(12, u * 1.4));
@@ -1105,6 +1278,9 @@ function block(scene, blk, lang, g, y0, measured) {
   const m = cvMetrics(g);
   const k = blk.key;
   let y = y0;
+  /* The index runs through the block, not through the section. See the rail
+     comment above cvMetrics. */
+  let n = 0;
 
   /* A block with no sections is still a block: its threshold is drawn and a
      band of paper is reserved under it. That is what a placeholder IS here -
@@ -1132,8 +1308,14 @@ function block(scene, blk, lang, g, y0, measured) {
     let top = y + sec.topPad;
 
     const headSeal = scene.seal(`${k}.${si}.head`, top, 0);
-    scene.text(`${k}.${si}.head`, sec.sec.section[lang], S.section, g.left, top + sec.head.ascent, INK_3,
-      { seal: headSeal });
+    /* At one column the name keeps the MARGIN while its entries move in past
+       the rail, which is the hanging arrangement again: the name is the only
+       thing in the band that reaches the frame, so it hangs off the left of
+       the material it names instead of sitting on top of it. It overruns the
+       rail - BACKGROUND is four rail-widths long - and that is what a hanging
+       head does; what matters is where it starts. */
+    scene.text(`${k}.${si}.head`, sec.sec.section[lang], sectionRole(S, g), g.left, top + sec.head.ascent,
+      m.rail ? INK : INK_3, { seal: headSeal });
     /* The name binds DOWN, to the entries it names.
 
        It was given the same air above and below - nineteen pixels and twenty-
@@ -1147,7 +1329,7 @@ function block(scene, blk, lang, g, y0, measured) {
        belongs to the body under it. Paid for out of the section's trailing
        air, which at one column is the only interval in the CV doing no work -
        a row of one entry can never be ragged, so nothing is being levelled. */
-    if (!m.hang) top += sec.head.lineHeight + u * 1.4;
+    if (!m.hang) top += sec.head.lineHeight + headGap(m, u);
 
     sec.entries.forEach((en, ei) => {
       const col = ei % m.across;
@@ -1162,6 +1344,22 @@ function block(scene, blk, lang, g, y0, measured) {
       const seal = scene.seal(`${k}.${si}.${ei}`, ey, col * 55);
 
       ey += sec.probe.ascent;
+      /* The index, on the title's own baseline at the margin.
+
+         Baseline, not cap-top and not centre. The two marks are 10.5px of
+         tracked capital and 16px of serif roman, which is close enough that
+         the line a compositor would actually set them to is the right one -
+         this is not the name-and-toggle case, where 54px against 11 made the
+         shared baseline read as something that had slipped. Set level, the
+         number reads as the first thing on the entry's first line, which is
+         what it is.
+
+         It is drawn before the title, so the rail comes first in the item
+         list and reads as the column it is. */
+      if (m.rail) {
+        scene.text(`${k}.${si}.${ei}.index`, String(++n).padStart(2, '0'), indexRole(S),
+          g.left, ey, INK_3, { seal });
+      }
       en.titles.forEach((t, j) => {
         scene.text(`${k}.${si}.${ei}.title.${j}`, t, S.title, x, ey + j * sec.titleLead, INK, { seal });
       });
