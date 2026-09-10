@@ -364,6 +364,11 @@ class Scene {
        head() measures it; gl.js reads it. Null until then, and drawScene
        treats null as "no edge", which is what a scene without a toggle wants. */
     this.edge = null;
+    /* Where the first threshold rule wants to start, in document pixels, or
+       null for "wherever the void puts it". Only the one-column head sets it:
+       it composes against the viewport and therefore knows something about
+       the fold that buildScene cannot work out from a stack of heights. */
+    this.firstRule = null;
     this.height = 0;
   }
 
@@ -634,6 +639,290 @@ function planToggle(scene, content, lang, g) {
   };
 }
 
+/* ---- the head, at one column ----------------------------------------------
+   ONE COLUMN IS NOT THE WIDE HEAD NARROWED. It is composed against the
+   VIEWPORT, and that is the whole of the difference.
+
+   Collapsed from the desktop it was a list: a name shrunk to whatever was left
+   beside the toggle, three flush-left rows of small capitals under it, a
+   sentence, then a void. Every interval was correct and the screen was still a
+   sad column, because nothing was placed against the one measurement a phone
+   actually hands you, which is the HEIGHT of the thing being held.
+
+   So the first screen is composed as a screen. The name high and at display
+   size; the sentence at the optical middle; the dateline and the availability
+   line settling into a colophon at the foot; the switch in the bottom corner,
+   which on a phone is also the only corner a thumb reaches; and the CV's first
+   rule just under the fold, so that the first scroll is an event rather than a
+   continuation.
+
+   THE TOGGLE IS WHY THE NAME WAS SMALL. head() measures the name against the
+   space left beside a control that shares its baseline, and at 390 that is
+   248px of a 342px measure - which is what takes a 54px name down to 32. But
+   below 720 the control is not pinned (see planToggle): it scrolls with the
+   page, so it does not have to sit on that line at all. Moved to the corner it
+   hands the whole measure back, and the name is set TO the measure.
+
+   Height is read from the SMALL viewport height - the window with the browser
+   chrome at its largest, measured by #svh in main.js - so the composition is
+   struck against the worst case and cannot jitter as iOS animates its bars in
+   and out. The cost is that a browser showing less chrome than that puts the
+   first rule a little way inside the window instead of just under it. That is
+   the right side to be wrong on: a composition that always fits is worth more
+   than one that fits exactly and sometimes overflows.
+
+   AND IT DEGRADES CONTINUOUSLY, which is what makes it safe on a window that
+   is not a phone held upright. The distributed air is the SLACK left over
+   after the natural stack - name, sentence, colophon, each at its own interval
+   - so a window with no slack is exactly the natural stack and there is
+   nothing to fall off. It engages only where there are six units of slack to
+   spend: at 390 the natural stack is 480px, so the threshold is a window 528px
+   tall. A phone in landscape with a keyboard up, or a desktop window dragged
+   into a letterbox, falls under it and is stacked.
+   --------------------------------------------------------------------------- */
+function headOne(scene, content, lang, g, vh) {
+  const S = scale(g.vw);
+  const c = content.index;
+  const u = g.u;
+  const top = Math.max(26, Math.round(g.margin)) + g.safeTop;
+
+  /* Not pinned at one column, so it is a mark in the document like any other
+     and it can be put where the composition wants it. See the foot below. */
+  const nav = planToggle(scene, content, lang, g);
+
+  /* --- the name, at display size ------------------------------------------
+     A share of the VIEWPORT WIDTH, taken down only if a word would not fit the
+     measure at that size - so the name is as large as the page is wide, and
+     the fallback is the same shrink-to-fit head() already does.
+
+     At 0.21 the ceiling is above the measure at every phone width, so what the
+     rule actually says on a phone is SET THE NAME TO THE MEASURE: "Josephine"
+     spans it exactly and "Shen" hangs under it. That is the same instruction
+     the wide head gives its dateline - share the edge where the edge can be
+     shared - and the ladder is why it is 0.21 and not less. Rendered at real
+     size, 0.13 (50px at 390, which is what the pre-WebGL masthead set) sets
+     the whole name on one line and reads as a heading; 0.155 is a masthead
+     that stops short of the frame for no reason a reader can see; 0.185 leaves
+     28px of unexplained paper at the right end. Only the setting that touches
+     both margins looks decided.
+
+     The ceiling is not decoration. One column runs to 719, where the measure
+     would take a 148px name, and a screen that wide is not a phone.
+
+     Two lines, and deliberately: the break is where the measure puts it, and a
+     name broken across two lines is the oldest masthead there is. Chinese does
+     not break - 沈菲菲 is three characters and sets on one line at any size
+     this allows - which is why the height below is measured rather than
+     assumed.
+
+     The leading is 0.96, not the 1.05 of the wide head. Display sizes want to
+     be set tighter than text; what stops it going tighter still is that the
+     descender of "Josephine" and the cap of "Shen" have to clear each other,
+     and at 0.96 they clear by about a pixel. Tracking follows the same logic
+     one step further out than the scale's own -0.018, and the Han correction
+     one step further in: adapt()'s 0.94 is struck for a name at 32-54px, and
+     the mass it is correcting grows with the size. */
+  const disp = { ...S.name, lh: 0.96, tracking: -0.03, zh: { ...S.name.zh, k: 0.86 } };
+  const units = c.name[lang].split(' ');
+  const widest = (px) => Math.max(...units.map((t) => scene.engine.measure(scene.spec(t, { ...disp, size: px }))));
+  let size = clamp(g.vw * 0.21, S.name.size, 132);
+  /* Proportional first, then by halves - a run is rasterised at whole device
+     pixels, so the width of a size is a staircase and one division lands a few
+     pixels out. Overrunning by one pixel is not cosmetic here: wrap() would
+     take the overrun as a line that does not fit and hard-break the name
+     mid-word. */
+  for (let i = 0; i < 4 && widest(size) > g.contentW; i++) {
+    size = Math.max(S.name.size, size * (g.contentW / widest(size)));
+  }
+  while (size > S.name.size && widest(size) > g.contentW) size -= 0.5;
+
+  const nameRole = { ...disp, size };
+  const nameLines = wrap(scene.engine, c.name[lang],
+    adapt(nameRole, HAN.test(c.name[lang]) ? lang : 'en'), g.contentW);
+  const nameRuns = nameLines.map((t) => scene.prepare(t, nameRole));
+  const nameLead = lead(nameRole);
+  const last = nameRuns[nameRuns.length - 1];
+  /* By INK on both edges, for the reason head() gives: a cap height is 0.73 of
+     the em box and 沈 reaches 0.88, so a display name placed by its box floats
+     in English and drops in Chinese. */
+  const nameAsc = Math.round(nameRuns[0].inkAscent || nameRuns[0].capHeight || 0);
+  const nameH = nameAsc + (nameRuns.length - 1) * nameLead + Math.round(last.inkDescent || 0);
+
+  /* --- the sentence -------------------------------------------------------
+     A NOTCH UP FROM THE SCALE, and only here. The scale's own step is struck
+     for a sentence sitting under a 32px name; under a 76px one, at the middle
+     of a composed screen with the width of the page to itself, 19px reads as a
+     caption to the masthead rather than as the thing the page is about. The
+     wide layout sets the name at twice the sentence; this sets it at three and
+     a half, which is already the widest interval in the type on this site, and
+     the ladder at 1.0, 1.12 and 1.24 was rendered at real size before the
+     middle one was taken. It also sets the sentence in four lines rather than
+     three, which is a better shape on a measure this narrow.
+
+     A notch, not a tier: it is still the serif, still the same leading
+     multiple, and it steps only where the head does. */
+  const ledeBase = { ...S.lede, size: S.lede.size * 1.12 };
+  const ledeRole = adapt(ledeBase, lang);
+  const ledeW = Math.min(g.contentW, 22 * ledeRole.size);
+  const ledeLead = lead(ledeBase);
+  const ledeLines = balance(scene.engine, c.line[lang], ledeRole, ledeW);
+  const ledeProbe = scene.engine.run({ ...ledeRole, text: 'H' });
+  const ledeH = ledeProbe.ascent + (ledeLines.length - 1) * ledeLead + ledeProbe.descent;
+
+  /* --- the colophon: what she is, what she is open to, and the switch ------
+     Both lines in the dateline's own tracked capitals at their own size. The
+     wide head fits the dateline to the NAME'S WIDTH, and that rule is dropped
+     here rather than obeyed: it exists because the two are stacked one on the
+     other, and in this composition they are a screen apart. Fitted to a name
+     that now spans the measure it would set the dateline at 12px and the
+     availability line at exactly the measure, which is a line that overflows
+     the moment a string changes. Small and quiet is also what a colophon is. */
+  const creds = [{ key: 'index.role', text: c.role[lang], color: INK }]
+    .concat(c.context.map((v, i) => ({ key: `index.context.${i}`, text: v[lang], color: INK_2 })));
+  const sep = Math.round(Math.max(10, u * 1.1));
+  const credRuns = creds.map((x) => scene.prepare(x.text, S.role));
+  const barH = Math.round(Math.max(...credRuns.map((r) => r.inkAscent || r.capHeight)));
+  const credLead = lead(S.role);
+
+  const rows = [[]];
+  let used = 0;
+  credRuns.forEach((r, i) => {
+    const first = rows[rows.length - 1].length === 0;
+    const add = r.width + (first ? 0 : sep * 2 + 1);
+    if (!first && used + add > g.contentW) { rows.push([]); used = r.width; } else { used += add; }
+    rows[rows.length - 1].push(i);
+  });
+
+  const av = c.available;
+  const avLabel = scene.prepare(av.label[lang], S.role);
+  const avValue = scene.prepare(av.value[lang], S.role);
+  const avGap = Math.round(Math.max(8, u * 0.7));
+  const avW = avLabel.width + avGap + avValue.width;
+  /* It never does fit beside the dateline at a phone's measure, in either
+     language, but the test is kept rather than assumed away: 719 is also one
+     column, and there it does. */
+  const avInline = avW + g.gutter <= g.contentW - used;
+
+  /* The band, measured from its own ink top before it is placed anywhere. */
+  const avOff = (rows.length - 1) * credLead + (avInline ? 0 : credLead + Math.round(u * 1.4));
+  const navOff = barH + avOff + Math.round(avValue.inkDescent || 0) + u * 3;
+  const navH = nav.ascent + nav.descent;
+  const bandH = navOff + navH;
+
+  /* --- the composition -----------------------------------------------------
+     The two natural intervals are EQUAL - six units above the sentence and six
+     below it - and everything that makes them unequal is the slack. That is
+     the honest way round: a window with nothing to spare gets a plain stack
+     with no opinion in it, and the opinion appears only where there is room to
+     hold one.
+
+     The opinion is 40/60. The name binds DOWN to the sentence - they are one
+     statement, and the sentence is what the name means - so the smaller share
+     goes above and the larger below, which is also what lands the sentence on
+     the OPTICAL middle rather than the geometric one: at 390x844 its block
+     centres at 48% of the screen, where an even split would put it at 44% and
+     read as high. Both shares are quantised to the baseline unit and the
+     remainder, always under one unit, falls into the inset beneath the
+     colophon - so every interval is still a multiple of u and the band lands
+     within eight pixels of the foot it was aimed at.
+
+     Six units is the least slack worth distributing: under that the
+     composition would move the sentence a few pixels and mean nothing. */
+  const natural = top + nameH + u * 6 + ledeH + u * 6 + bandH + u * 4;
+  const slack = vh > 0 ? Math.max(0, vh - natural) : 0;
+  const compose = slack >= u * 6;
+  const above = compose ? u * Math.round((slack * 0.4) / u) : 0;
+  const below = compose ? u * Math.floor((slack - above) / u) : 0;
+
+  const y0 = Math.round(top + nameAsc);
+  nameRuns.forEach((r, i) => {
+    scene.place(i ? `index.name.${i}` : 'index.name', r, g.left, y0 + i * nameLead, INK);
+  });
+
+  let y = y0 + (nameRuns.length - 1) * nameLead + Math.round(last.inkDescent || 0)
+    + u * 6 + above + ledeProbe.ascent;
+  const ledeSeal = scene.seal('head.lede', y - ledeProbe.ascent, 0);
+  ledeLines.forEach((t, i) => {
+    scene.text(`index.lede.${i}`, t, ledeBase, g.left, y + i * ledeLead, INK_2, { seal: ledeSeal });
+  });
+  y += (ledeLines.length - 1) * ledeLead + ledeProbe.descent;
+
+  const bandTop = Math.round(y + u * 6 + below);
+  let cy = bandTop + barH;
+  const credSeal = scene.seal('head.cred', cy, 90);
+  rows.forEach((row, ri) => {
+    let x = g.left;
+    row.forEach((i, k) => {
+      if (k) {
+        scene.rect(`index.cred.${ri}.${k}`, Math.round(x + sep), Math.round(cy - barH), 1, barH, RULE, 0.3);
+        x += sep * 2 + 1;
+      }
+      scene.place(creds[i].key, credRuns[i], x, cy, creds[i].color, { seal: credSeal });
+      x += credRuns[i].width;
+    });
+    if (ri < rows.length - 1) cy += credLead;
+  });
+
+  const avY = avInline ? cy : cy + credLead + Math.round(u * 1.4);
+  const avX = avInline ? g.right - avW : g.left;
+  const avSeal = scene.seal('head.avail', avY, 180);
+  /* The same two values head() gives this line, read the same way round: the
+     label is a preposition and the three words after it are the information,
+     so the VALUE takes the primary ink and the label steps back to the tier
+     everything quiet on this page sits in. Stacked, that leaves the colophon
+     with exactly two dark statements - what she is, and what she is open to -
+     with the city, the languages and the preposition inboard of them. Two
+     weights in the block, not three. */
+  scene.place('index.available', avLabel, avX, avY, INK_2, { seal: avSeal });
+  scene.place('index.available.value', avValue, avX + avLabel.width + avGap, avY, INK, { seal: avSeal });
+
+  /* The switch, in the corner. It holds the right margin, which nothing else
+     on the first screen does now that the dateline has come off the name's
+     line - so the colophon is a block flush left with one mark opposite it,
+     which is the same shape the footer makes at the other end of the page.
+
+     Under the thumb, too, and that is not an accident either. The control was
+     in the top right because the desktop head put it there; on a phone the top
+     right is the one part of the screen a hand holding the phone cannot reach.
+     It is unpinned here anyway, so it was always going to scroll away - it may
+     as well scroll away from somewhere a finger can start. */
+  const navY = Math.round(bandTop + navOff + nav.ascent);
+  /* And a rule to stand it on. Parked in the corner with nothing under it the
+     switch was a chip that had drifted there - the one mark on the screen
+     aligned to nothing. On a hairline that runs from the left margin and stops
+     short of it, it is the END OF A LINE, which is a position rather than a
+     place.
+
+     It is the threshold's own device, mirrored: one rule, interrupted by a
+     mark, the mark carrying the meaning and the rule carrying it to the frame.
+     Under the CV the mark is a word at the left and the rule runs right; here
+     the rule runs first and the mark closes it. That mirroring is also what
+     stops it being read as a section divider on the way past - a rule that
+     stops is not one of the five that cross the measure - and it gives the
+     first screen the closing edge it was missing.
+
+     Struck at the switch's optical centre, not at its foot: the box has a
+     border, and a line meeting a box at the bottom edge looks like a box
+     resting on a shelf. Through the middle it reads as one object. */
+  const navMid = Math.round(bandTop + navOff + navH / 2);
+  scene.rect('index.close', g.left, navMid,
+    g.right - nav.width - Math.max(g.gutter, u * 2) - g.left, 1, RULE, HAIRLINE);
+  nav.draw(navY);
+
+  /* Nothing is faded: the toggle scrolls with the page at one column, so there
+     is no column to protect. Stated rather than left to the default, because
+     the default is what was wrong before - see head(). */
+  scene.edge = null;
+
+  const bandBottom = bandTop + bandH;
+  /* Just under the fold. At a composed height the two arguments are the same
+     number by construction - the colophon's inset is four units and the void
+     under it is ten - and where the window is too short to compose, the second
+     wins and the CV gets the ordinary void instead. */
+  scene.firstRule = Math.round(Math.max(vh + u * 6, bandBottom + u * 10));
+  return bandBottom;
+}
+
 /* ---- the head -------------------------------------------------------------
    Name, one credential line, one sentence. Three things, at the top of the
    page, and then a great deal of nothing.
@@ -666,7 +955,11 @@ function planToggle(scene, content, lang, g) {
    quiet grey: the role is what she is, the two facts after it are the
    circumstances. Hierarchy inside one line, at one size.
    --------------------------------------------------------------------------- */
-function head(scene, content, lang, g) {
+function head(scene, content, lang, g, vh) {
+  /* One column is its own composition, not this one with the columns taken
+     out. Everything below this line is the wide head and is reached only at
+     two columns and up, which is what guarantees the desktop is untouched. */
+  if (g.cols === 1) return headOne(scene, content, lang, g, vh);
   const S = scale(g.vw);
   const c = content.index;
   const u = g.u;
@@ -1315,7 +1608,7 @@ export function buildScene(engine, content, vw, vh, lang = 'en', safeTop = 0, sa
   const S = scale(vw);
   const scene = new Scene(engine, lang, g);
 
-  const headEnd = head(scene, content, lang, g);
+  const headEnd = head(scene, content, lang, g, vh);
 
   /* The head, a void, and then the blocks - each one a threshold rule with its
      name on it and its sections under it.
@@ -1332,16 +1625,18 @@ export function buildScene(engine, content, vw, vh, lang = 'en', safeTop = 0, sa
      is never mistaken for the section rules inside the block above it, not so
      much that the page comes apart into three separate documents.
 
-     The multiple is smaller at one column, and the reason is that u is the
-     wrong instrument for this one interval. u falls by a quarter between a
-     phone and a laptop while the measure falls by three quarters, so a gap
-     stated in u is proportionally three times deeper on a phone: seventeen of
-     them is 40% of the measure there against 14% here, and the reader spends
-     a quarter of the first screen crossing it to reach a hairline and two
-     seven-pixel words. Twelve keeps it comfortably the deepest interval on
-     the page - which is the property that makes it read as a division rather
-     than as leftover paper - without spending a screen on it. */
-  let y = Math.round(headEnd + g.u * (g.cols === 1 ? 12 : 17));
+     AT ONE COLUMN THE VOID IS NOT AN INTERVAL, IT IS THE FOLD. u is the wrong
+     instrument for it there - u falls by a quarter between a phone and a
+     laptop while the measure falls by three quarters, so a gap stated in u is
+     proportionally three times deeper on a phone - and a division that has to
+     be crossed is exactly what a screen edge already is. So headOne composes
+     its own first screen against the window and hands back the y its first
+     rule wants, which is a few units under the fold: the reader crosses a
+     screen edge instead of a field of paper, and the paper is spent on the
+     opening instead. Everywhere else the void is what it was. */
+  let y = scene.firstRule !== null
+    ? scene.firstRule
+    : Math.round(headEnd + g.u * 17);
 
   /* Nothing goes in the void, and that is the decision rather than the
      absence of one. A mark was tried here and taken out: the square already
