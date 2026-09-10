@@ -754,6 +754,7 @@ function head(scene, content, lang, g) {
      rectangle. adapt()'s Han correction still steps it back a further 6%,
      because a character that fills its box does not need the same nominal
      size to carry the same weight. */
+  const NAME_CAP = 58;
   const dispRole = { ...S.name, tracking: -0.03 };
   const dispSize = (() => {
     const w = (size) => scene.engine.measure(scene.spec(c.name.en, { ...dispRole, size }));
@@ -764,8 +765,36 @@ function head(scene, content, lang, g) {
       size = clamp(size * (g.contentW / got), 12, 160);
     }
     while (size > 12 && w(size) > g.contentW) size -= 0.5;
-    return size;
+    /* AND A CEILING, WHICH IS THE ONE PLACE THE MEASURE STOPS DECIDING.
+
+       The rule is "as wide as the measure", and past a phone that rule turns
+       on itself: at a 660px window it sets the name at 97px, and the two lines
+       under it are 10px capitals that would have to be blown to 21px to reach
+       the same edge - which is not a dateline any more, it is a second
+       headline, and the fit refuses it for exactly that reason. So the head
+       came apart above about 450: a name across the whole frame with a
+       dateline stopping halfway.
+
+       58 is what the fit reaches at 430, the widest phone there is. Below it
+       nothing is capped and the three lines span together, which is the design
+       and the thing that was asked for. Above it the name holds still, the
+       dateline sits at its own size, and the head is an ordinary left-aligned
+       one - which is the right thing for a narrow desktop window, and is what
+       every width from 720 up already gets. */
+    return Math.min(size, NAME_CAP);
   })();
+
+  /* THE MEASURE DECIDES ALL THREE LINES, OR NONE OF THEM.
+
+     The head shares both edges only while the name is being set BY the
+     measure. Once the ceiling binds, the name stops at 58px and stops
+     reaching the frame - and a dateline and an availability line still
+     stretched to that frame under a name that no longer touches it is worse
+     than none of them doing it, because two lines out of three agreeing looks
+     like the third has failed rather than like a different arrangement. So
+     the rule travels together: below the ceiling all three span, above it all
+     three sit at their natural widths. */
+  const spans = display && dispSize < NAME_CAP;
 
   const natural = scene.engine.measure(scene.spec(c.name[lang], S.name));
   const name = display
@@ -880,7 +909,7 @@ function head(scene, content, lang, g) {
      and it is the LONGER of the two - so the fit has to answer to it as well
      or the head would gain the exact overflow it was reaching for. Whichever
      of the two runs out of measure first sets the size for both. */
-  const fitTo = display ? g.contentW - 1 : nameRun.width;
+  const fitTo = spans ? g.contentW - 1 : nameRun.width;
   const roleFit = (() => {
     const fixed = (sep * 2 + 1) * (creds.length - 1);
     const total = (role) => creds.reduce((a, x) => a + scene.engine.measure(scene.spec(x.text, role)), 0);
@@ -895,16 +924,20 @@ function head(scene, content, lang, g) {
       if (Math.abs(w + fixed - fitTo) < 0.5) break;
       size *= (fitTo - fixed) / Math.max(1, w);
     }
-    if (display) {
-      /* The availability line, measured at the same size, against the same
-         measure. It has no separators in it, one gap of its own, and it is
-         longer than the dateline in both languages. */
+    if (spans) {
+      /* The availability line shares this size - one register, two rows - so
+         it has to be checked against the same measure. But it is only taken
+         DOWN, and only when its two words plus the smallest gap that can sit
+         between them would overrun. Where it is SHORT the size is left alone
+         and the gap does the work; see avGap below. Shrinking for that case
+         was the bug: the availability is the shorter line at most widths, so
+         the size came down to suit it and dragged the dateline short with it,
+         and the head ended on three different right edges. */
       const avc = c.available;
-      const avAt = (sz) => scene.engine.measure(scene.spec(avc.label[lang], { ...S.role, size: sz }))
-        + Math.round(Math.max(8, u * 0.7))
-        + scene.engine.measure(scene.spec(avc.value[lang], { ...S.role, size: sz }));
-      const w = avAt(size);
-      if (w > fitTo) size *= fitTo / w;
+      const at = (str, sz) => scene.engine.measure(scene.spec(str, { ...S.role, size: sz }));
+      const solid = (sz) => at(avc.label[lang], sz) + at(avc.value[lang], sz);
+      const floor = Math.round(Math.max(8, u * 0.7));
+      if (solid(size) + floor > fitTo) size *= (fitTo - floor) / solid(size);
     }
     const k = size / S.role.size;
     return k >= 0.85 && k <= 1.45 ? { ...S.role, size } : S.role;
@@ -1012,7 +1045,20 @@ function head(scene, content, lang, g) {
   const av = c.available;
   const avLabel = scene.prepare(av.label[lang], roleFit);
   const avValue = scene.prepare(av.value[lang], roleFit);
-  const avGap = Math.round(Math.max(8, u * 0.7));
+  /* The gap is the elastic, exactly as the dateline's separators are.
+
+     Both rows are set at one size, so their two strings will not span the same
+     measure by themselves - one is thirteen pixels short here and three over
+     there, which is what made the head end on three different edges. The
+     dateline already solves this by absorbing its slack into the hairlines
+     between its segments; this line has one gap and puts all of it there. Its
+     floor is the size the gap would have taken anyway, and roleFit above
+     guarantees the two words fit inside the measure with that floor to spare,
+     so the clamp can never be the thing that overruns. */
+  const avFloor = Math.round(Math.max(8, u * 0.7));
+  const avGap = spans
+    ? Math.max(avFloor, Math.round(g.contentW - avLabel.width - avValue.width))
+    : avFloor;
   const avW = avLabel.width + avGap + avValue.width;
   const avSeal = scene.seal('head.avail', y, 90);
   /* Only if it clears the dateline it shares the line with, by a full gutter.

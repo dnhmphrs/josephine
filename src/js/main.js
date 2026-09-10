@@ -114,6 +114,9 @@ const state = {
   lost: false,
   dirty: true,
   lastDraw: 0,
+  /* The scroll offset the canvas was last drawn at. NaN so the first frame
+     always counts as movement. */
+  lastScroll: NaN,
   hover: null,
   focus: null,
   vw: 0,
@@ -433,6 +436,9 @@ async function boot(stage) {
     relayout(true);
   }, false);
 
+  /* The scroll event is a HINT that the page moved, never the authority on
+     whether it did. See the frame loop: what actually decides is a comparison
+     against the position last drawn. */
   addEventListener('scroll', () => { state.dirty = true; }, { passive: true });
 
   let resizeTimer = 0;
@@ -468,6 +474,30 @@ async function boot(stage) {
     requestAnimationFrame(frame);
     if (document.hidden || state.lost || !state.scene) return;
 
+    /* ASK THE PAGE WHERE IT IS, DO NOT WAIT TO BE TOLD.
+
+       The scroll listener sets `dirty`, and for a long time that was the only
+       thing that did during a scroll - so a frame that arrived before its
+       scroll event had been dispatched failed the test below and was skipped
+       outright, leaving the canvas on a stale offset for up to IDLE_FRAME_MS.
+       A fifth of a second is four to twenty-four dropped frames.
+
+       On a desktop that almost never shows, because a wheel or a trackpad
+       dispatches an event per gesture step and the two stay roughly in step.
+       On a phone it is the normal case: momentum scrolling is run by the
+       compositor and its scroll events are coalesced and delivered on the main
+       thread at whatever rate it can manage, which is not the display's. The
+       page moved every frame, the event said so only some of the time, and the
+       document appeared to stutter and then catch up.
+
+       So the position last DRAWN is compared against the position now, every
+       frame, and any difference is movement whether or not an event has
+       arrived to confirm it. The idle throttle is untouched and still does its
+       job: when nothing moves, `sy` matches and the loop drops back to one
+       frame in five. */
+    const sy = scrollY;
+    if (sy !== state.lastScroll) { state.lastScroll = sy; state.dirty = true; }
+
     if (!state.dirty && now - state.lastDraw < IDLE_FRAME_MS) return;
     if (reduced.matches && !state.dirty) return;
     state.lastDraw = now;
@@ -492,7 +522,7 @@ async function boot(stage) {
       if (t >= 1) return 1;
       moving = true;
       return 1 - Math.pow(1 - t, 3);
-    }, scrollY);
+    }, sy);
     if (moving) state.dirty = true;
 
     /* The ring is a mark like any other, so it is drawn in scene coordinates
@@ -502,7 +532,7 @@ async function boot(stage) {
     if (state.focus) {
       const h = state.scene.hits.find((x) => x.id === state.focus);
       if (h) {
-        const fy = h.fixed ? h.y + scrollY : h.y;
+        const fy = h.fixed ? h.y + sy : h.y;
         marks.strokeRect(h.x - 4, fy - 4, h.w + 8, h.h + 8, 2, INK, 0.85);
       }
     }
@@ -510,7 +540,7 @@ async function boot(stage) {
     const time = reduced.matches ? 0 : (now - t0) / 1000;
     /* The wash is a gradient across the DOCUMENT, so the renderer needs its
        length as well as the scroll. */
-    stage.render(marks, engine.texture, time, scrollY, state.scene.height);
+    stage.render(marks, engine.texture, time, sy, state.scene.height);
   }
 
   relayout();
