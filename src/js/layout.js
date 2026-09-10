@@ -661,15 +661,107 @@ function head(scene, content, lang, g) {
 
   const nav = planToggle(scene, content, lang, g);
 
+  /* ONE COLUMN: THE NAME IS THE PAGE.
+
+     What follows forks, and the fork is the toggle. From two columns up the
+     control is PINNED in a column nothing else uses, so it can share the
+     name's line at the far edge of the measure and the head opens as one band.
+     At one column there is no such column: the switch sits in the flow, at the
+     right margin, on the name's line - and so the name has to be MEASURED
+     AGAINST IT and taken down to fit. On a 390 screen that leaves 248px of a
+     342px measure and sets the name at 32px. The name was small because the
+     switch was standing next to it.
+
+     So on a phone the switch takes its own line above the name, still at the
+     right margin, and the whole measure comes back. What the name can then be
+     is not a value off the scale but a FITTING: as large as the measure
+     allows, one word to a line. That is the difference between a name at the
+     top of a page and a name that IS the top of the page, and it is the one
+     thing the wide layout has that the narrow one had lost.
+
+     Nothing in this branch runs above one column. */
+  const display = g.cols === 1;
+
+  const top = Math.max(26, Math.round(g.margin)) + g.safeTop;
+
   /* The name may not run into the toggle and may not wrap on a phone into
      something ragged, so it is measured against the space actually left beside
      the toggle and taken down if it would not fit. No floor: nothing
-     downstream clips, and a name that overflows simply runs off the page. */
+     downstream clips, and a name that overflows simply runs off the page.
+
+     Only where the two share a line. At one column they no longer do. */
   const clear = Math.max(g.gutter, u * 4);
   const avail = g.contentW - nav.width - clear;
+
+  /* DISPLAY SIZE IS A FIT, NOT A SCALE VALUE.
+
+     The ceiling is the decision - a little under a sixth of the screen, which
+     is 60px on a 390 phone and 66 on the widest one - and the fit under it is
+     a GUARD rather than the driver. The guard is what stops the ceiling
+     breaking a word: at 320 the measure is 272px and "Josephine" stops fitting
+     somewhere around 62, so the name comes down to meet the measure instead of
+     hard-breaking mid-word, which is the one failure a masthead cannot
+     survive.
+
+     ONE WORD TO A LINE is the whole rule, and it is what lets the two
+     languages agree without a special case. English is two words, so it sets
+     two lines and the fit asks how large the longer of them can be. 沈菲菲 is one
+     word of three characters, so it sets one line and the fit asks how large
+     THAT can be - past 110px, far above the ceiling, so the ceiling stands and
+     both languages open at the same size. Stated in characters or in lines the
+     rule would need a branch per script; stated in words it does not.
+
+     Leading closes to 0.90 and tracking to -0.03, and both are the size doing
+     the talking. The scale's 1.05 and -0.018 are set for a name that occupies
+     one line among others; at 60px over two lines that leading opens a channel
+     between "Josephine" and "Shen" wide enough that they read as two marks
+     rather than one name. Tightened, the two lock into a block. */
+  const ceiling = clamp(g.vw * 0.2, 52, 88);
+  const dispRole = { ...S.name, lh: 0.9, tracking: -0.03 };
+  const spelt = c.name[lang].trim();
+  const setAt = (size) => wrap(scene.engine, spelt,
+    scene.spec(spelt, { ...dispRole, size }), g.contentW);
+  /* THE TEST IS THAT THE NAME STILL SPELLS ITSELF.
+
+     Counting lines is not enough, and the way it fails is the whole reason
+     this is written out. wrap() will not hand back a line wider than the
+     measure: asked for a word that does not fit, it cuts the word. At 320 the
+     measure is 272px and "Josephine" at the ceiling is 279, so the count test
+     is satisfied - two lines, two words - by "Josephin" and "eShen".
+
+     Joining the lines back with the space that separated them and comparing
+     against the name catches it in one line of arithmetic, in any script: a
+     break that fell where the writer put a space rebuilds the string exactly,
+     and a break anywhere else does not. It is also the constraint stated
+     properly. The rule was never "at most N lines"; it was "break only where a
+     name is allowed to break", and 沈菲菲 - which has no such place - is held to
+     one line by the same sentence that gives English two. */
+  const spells = (ls) => ls.join(' ') === spelt;
+  const dispSize = (() => {
+    if (spells(setAt(ceiling))) return ceiling;
+    let lo = 12;
+    let hi = ceiling;
+    for (let i = 0; i < 16; i++) {
+      const mid = (lo + hi) / 2;
+      if (spells(setAt(mid))) lo = mid; else hi = mid;
+    }
+    return lo;
+  })();
+
   const natural = scene.engine.measure(scene.spec(c.name[lang], S.name));
-  const name = natural > avail ? { ...S.name, size: S.name.size * (avail / natural) } : S.name;
-  const nameRun = scene.prepare(c.name[lang], name);
+  const name = display
+    ? { ...dispRole, size: dispSize }
+    : (natural > avail ? { ...S.name, size: S.name.size * (avail / natural) } : S.name);
+  const nameLines = display ? setAt(dispSize) : [c.name[lang]];
+  const nameRuns = nameLines.map((t) => scene.prepare(t, name));
+  /* What the rest of the head measures itself against is the name's WIDEST
+     line and its LAST descender - which for a one-line name is the run itself.
+     Standing in for it here keeps the dateline's fit, the availability line
+     and the sentence written once for both layouts. */
+  const nameRun = {
+    width: Math.max(...nameRuns.map((r) => r.width)),
+    inkDescent: nameRuns[nameRuns.length - 1].inkDescent,
+  };
 
   /* Placed by INK, not by the font box: a Latin cap height is about 0.73em
      against a box of 1.0, while the Han glyphs falling back into the same run
@@ -681,9 +773,30 @@ function head(scene, content, lang, g) {
      so the page has one frame and the name touches it on two edges. This is
      the whole of note (a): the head is now as high as the frame allows, and
      the toggle came down to meet it. */
-  const top = Math.max(26, Math.round(g.margin)) + g.safeTop;
-  const y0 = Math.round(top + (nameRun.inkAscent || nameRun.capHeight));
-  scene.place('index.name', nameRun, g.left, y0, INK);
+  /* On a phone the frame holds the SWITCH instead, and the name starts a
+     measured distance below it - see the interval below. */
+  const navY = display
+    ? Math.round(top + nav.ascent)
+    : Math.round(top + (nav.ascent - nav.descent) / 2);
+  if (display) nav.draw(navY);
+
+  /* THE GAP UNDER THE SWITCH IS THE HEAD'S FIRST BREATH.
+
+     Five units - 40px - from the bottom of the control to the top of the
+     name's ink, which makes it the second deepest interval in the head. It is
+     doing what the top padding did on the page this one replaces: that opened
+     on clamp(28px, 5vw, 64px) of paper, then a small mark, then the name, and
+     the name was the better for arriving late. A masthead that starts at the
+     margin is a header; one that starts a little way down the page is a
+     masthead. */
+  const y0 = display
+    ? Math.round(navY + nav.descent + u * 6 + (nameRuns[0].inkAscent || nameRuns[0].capHeight))
+    : Math.round(top + (nameRuns[0].inkAscent || nameRuns[0].capHeight));
+  const nameLead = Math.round(name.size * name.lh);
+  nameRuns.forEach((r, i) => {
+    scene.place(i ? `index.name.${i}` : 'index.name', r, g.left, y0 + i * nameLead, INK);
+  });
+  const nameBase = y0 + (nameRuns.length - 1) * nameLead;
   /* The toggle hangs from the TOP of the name, not from its baseline.
 
      Sharing a baseline is the obvious alignment and the wrong one: an 11px
@@ -700,8 +813,7 @@ function head(scene, content, lang, g) {
      middle of the control - the only alignment in the head that refers to
      something other than itself. The box stands a little proud of that line,
      which is what a control should do and a word should not. */
-  const navY = Math.round(top + (nav.ascent - nav.descent) / 2);
-  nav.draw(navY);
+  if (!display) nav.draw(navY);
 
 
   /* The credential line. Segments are measured first, then packed into as many
@@ -731,7 +843,25 @@ function head(scene, content, lang, g) {
      stands, which is what happens on a phone and in Chinese - the name is
      three characters there and its dateline is sixteen, so matching them
      would set the dateline at half its legible size. The rule is "share the edge where the
-     edge can be shared", not "share it at any cost". */
+     edge can be shared", not "share it at any cost".
+
+     UNDER A DISPLAY NAME THE EDGE TO SHARE IS THE MEASURE, not the name.
+
+     A name set to a ceiling reaches most of the measure and not all of it -
+     "Josephine" at 60px is 264 of 342 - and fitting the dateline to that 264
+     drops it to 8.8px, which is smaller than the scale wanted and sets the
+     head's own bottom edge at a width nothing else on the page uses. Fitted to
+     the measure instead it comes UP, to a shade under 12px, and the head
+     closes on two full-width lines of tracked capitals under a two-line name:
+     a masthead with a rule under it, which is what the border-bottom on the
+     page this replaces was for. Nothing else here draws a line across the
+     measure, so the type is the line.
+
+     The second of those two lines is the availability, set from the same fit,
+     and it is the LONGER of the two - so the fit has to answer to it as well
+     or the head would gain the exact overflow it was reaching for. Whichever
+     of the two runs out of measure first sets the size for both. */
+  const fitTo = display ? g.contentW - 1 : nameRun.width;
   const roleFit = (() => {
     const fixed = (sep * 2 + 1) * (creds.length - 1);
     const total = (role) => creds.reduce((a, x) => a + scene.engine.measure(scene.spec(x.text, role)), 0);
@@ -743,8 +873,19 @@ function head(scene, content, lang, g) {
     let size = S.role.size;
     for (let i = 0; i < 4; i++) {
       const w = total({ ...S.role, size });
-      if (Math.abs(w + fixed - nameRun.width) < 0.5) break;
-      size *= (nameRun.width - fixed) / Math.max(1, w);
+      if (Math.abs(w + fixed - fitTo) < 0.5) break;
+      size *= (fitTo - fixed) / Math.max(1, w);
+    }
+    if (display) {
+      /* The availability line, measured at the same size, against the same
+         measure. It has no separators in it, one gap of its own, and it is
+         longer than the dateline in both languages. */
+      const avc = c.available;
+      const avAt = (sz) => scene.engine.measure(scene.spec(avc.label[lang], { ...S.role, size: sz }))
+        + Math.round(Math.max(8, u * 0.7))
+        + scene.engine.measure(scene.spec(avc.value[lang], { ...S.role, size: sz }));
+      const w = avAt(size);
+      if (w > fitTo) size *= fitTo / w;
     }
     const k = size / S.role.size;
     return k >= 0.85 && k <= 1.45 ? { ...S.role, size } : S.role;
@@ -761,7 +902,7 @@ function head(scene, content, lang, g) {
      gap that still reads as one. */
   const gaps = creds.length - 1;
   const sepFit = roleFit !== S.role && gaps > 0
-    ? Math.max(sep * 0.7, (nameRun.width - runs.reduce((a, r) => a + r.width, 0) - gaps) / (2 * gaps))
+    ? Math.max(sep * 0.7, (fitTo - runs.reduce((a, r) => a + r.width, 0) - gaps) / (2 * gaps))
     : sep;
 
   const rows = [[]];
@@ -776,7 +917,13 @@ function head(scene, content, lang, g) {
   /* Closer to the name than it was. The dateline belongs to the name - it is
      the line under a masthead, not the first line of the body - and a gap wide
      enough to be read as a paragraph break was saying otherwise. */
-  let y = y0 + nameRun.inkDescent + u * 1.1 + runs[0].ascent;
+  /* Under a display name the interval has to grow with it. The dateline still
+     belongs to the name - it is the line under a masthead, not the first line
+     of the body - but 1.1 units struck under a 32px name is a different
+     proportion from 1.1 units struck under a 60px one, and under the larger it
+     reads as the dateline having been shoved up against it. Three units keeps
+     the pair one object and lets the name finish. */
+  let y = nameBase + nameRun.inkDescent + u * (display ? 4 : 1.1) + runs[0].ascent;
 
   /* The fingerprint, on the credential line's baseline at the other end of the
      measure. It is the first 32 hex digits of a hash of the content (see
@@ -869,7 +1016,7 @@ function head(scene, content, lang, g) {
        one stepped block of identical capitals. Now the head is three flush-
        left lines - name, what she is, what she is open to - which is the same
        masthead the wide layout sets, read in a narrower window. */
-    avY = y + lead(roleFit) + Math.round(u * 1.4);
+    avY = y + lead(roleFit) + Math.round(u * (display ? 2 : 1.4));
     avX = g.left;
   }
   scene.place('index.available', avLabel, avX, avY, INK_3, { seal: avSeal, edge: true });
@@ -928,7 +1075,10 @@ function head(scene, content, lang, g) {
   /* Closer, now that the dateline has been pulled up and tightened. The gap
      was struck against a looser, larger line sitting further down; against
      this one it read as a hole. */
-  y += u * 3.1 + ledeRun.ascent;
+  /* Deeper below a masthead, for the same reason the gap above the dateline
+     is: the three flush-left lines above are now a caption to something large,
+     and the sentence is the next voice rather than the next line. */
+  y += u * (display ? 5 : 3.1) + ledeRun.ascent;
   const ledeSeal = scene.seal('head.lede', y, 90);
   lines.forEach((t, i) => {
     scene.text(`index.lede.${i}`, t, S.lede, g.left, y + i * ledeLead, INK_2, { seal: ledeSeal });
