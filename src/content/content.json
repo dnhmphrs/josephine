@@ -19,27 +19,27 @@
       "zh": "人工智能政策研究者"
     },
     "line": {
-      "en": "A practice for the institutions, communities and companies shaping how advanced AI meets the public good.",
-      "zh": "为塑造先进人工智能如何服务公共利益的机构、社区与企业而工作。"
+      "en": "Research, Speaker, Strategy Design across Society, Security & States.",
+      "zh": "横跨人工智能、安全与国家的研究、协调与战略。"
     },
     "context": [
       {
-        "en": "Berlin",
-        "zh": "柏林"
+        "en": "Berlin, DE",
+        "zh": "德国 · 柏林"
       },
       {
-        "en": "English, 中文",
-        "zh": "中文、英文"
+        "en": "English · 中文",
+        "zh": "English · 中文"
       }
     ],
     "available": {
       "label": {
         "en": "Available for",
-        "zh": "可洽"
+        "zh": "开放合作"
       },
       "value": {
         "en": "Research, advisory, speaking",
-        "zh": "研究合作、政策咨询、公开演讲"
+        "zh": "研究、政策咨询、公开演讲"
       }
     },
     "contact": {
@@ -63,8 +63,12 @@
       },
       "prose": [
         {
-          "en": "I focus on systemic analysis and political strategy, particularly geopolitics and technology governance across China and the EU. I bridge across civil society, industry and institutions to centre the critical risks of technology at the forefront of political design. With industry experience in machine learning, and as a visiting researcher to the United Nations Nuclear Non-Proliferation Treaty Conference, I specialise in multilateral and systemic framing of technology and its impacts.",
-          "zh": "聚焦于系统性分析与政治战略，尤其关注地缘政治与技术治理（中国与欧盟）。跨越公民社会、产业与机构，致力于将技术的关键风险置于政治设计的核心。凭借在机器学习领域的产业经验，以及作为联合国核不扩散条约大会访问研究员的经历，专长于以多边与系统性的视角审视技术及其影响。"
+          "en": "Research, facilitation and strategy for the institutions, communities and companies shaping how advanced AI meets the public good.",
+          "zh": "为塑造先进人工智能如何服务公共利益的机构、社区与企业，提供研究、协调与战略支持。"
+        },
+        {
+          "en": "I am an AI policy researcher, bridgemaker, political organiser and strategist based in Berlin. I focus on systemic analysis and political strategy, particularly geopolitics and technology governance across China and the EU. I bridge across civil society, industry and institutions to centre the critical risks of technology at the forefront of political design. With industry experience in machine learning, and as a visiting researcher to the United Nations Nuclear Non-Proliferation Treaty Conference, I specialise in multilateral and systemic framing of technology and its impacts.",
+          "zh": "我是一位常驻柏林的人工智能政策研究者、桥梁搭建者、政治组织者与战略家。聚焦于系统性分析与政治战略，尤其关注地缘政治与技术治理（中国与欧盟）。跨越公民社会、产业与机构，致力于将技术的关键风险置于政治设计的核心。凭借在机器学习领域的产业经验，以及作为联合国核不扩散条约大会访问研究员的经历，专长于以多边与系统性的视角审视技术及其影响。"
         }
       ]
     },

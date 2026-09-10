@@ -94,7 +94,26 @@ try {
 /* seal key -> the moment it starts opening, or -1 for "open, no animation". */
 const revealed = new Map();
 
-const DPR_CAP = 2;
+/* Render at the display's own pixels, up to 3.
+
+   It was 2, with no reason written down, and on a phone that is where the
+   text was losing its edge: a 390pt iPhone is 1170 physical pixels, the
+   canvas was backing it with 780, and the browser stretched that 1.5x. What
+   arrives is not aliasing, it is an already-antialiased bitmap resampled -
+   measured on the name at 3x, the transition band between ink and paper is
+   three times wider capped at 2 than uncapped (fringe/ink 0.40 against 0.13).
+   Everything downstream of the atlas is exact - glyph quads are snapped to
+   whole device pixels and sample the texture 1:1 - so the stretch at the very
+   end was undoing all of it.
+
+   3 rather than uncapped, because the cost is real: the ground is a
+   full-screen fragment shader and this is 2.25x the fragments. 3 covers every
+   iPhone and essentially every Android flagship; 4 exists, is rare, and would
+   double the bill again for a difference nobody can see.
+
+   Checked before raising: at 3 the atlas peaks at 2048x2048 with room to
+   spare, in both languages, at every width from 320 to 1920. */
+const DPR_CAP = 3;
 /* The ground drifts about 0.005px a frame, so redrawing it sixty times a
    second buys nothing but heat. Five is indistinguishable, and scroll,
    pointer and transitions all set `dirty` and redraw immediately anyway. */
@@ -200,10 +219,17 @@ async function boot(stage) {
     state.grid = built.grid;
 
     /* Atlas overflow means the page needs more texture than this GPU will give
-       us. One lever, not a multi-atlas state machine: halve the resolution and
-       lay out again. */
+       us. One lever, not a multi-atlas state machine: drop a step and lay out
+       again.
+
+       A STEP, not a collapse. This used to go straight to 1, which was
+       survivable while the cap was 2 and is not now: a device that could not
+       fit the atlas at 3 would almost certainly fit it at 2, and sending it to
+       1 would take a page that was merely tight and render it at a third of
+       the resolution of the screen it is on. Each pass drops one, so 3 tries 2
+       before it tries 1. */
     if (atlas.overflow && state.dprCap > 1) {
-      state.dprCap = 1;
+      state.dprCap = Math.max(1, state.dprCap - 1);
       relayout(cut);
       return;
     }
