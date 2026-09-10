@@ -92,7 +92,12 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
     const at = (k) => items.find((i) => i.key.startsWith(k));
     return {
       head: at('index.name').y,
-      cv: at('cv.label').y,          // the CV's threshold
+      /* The FIRST block's threshold, whichever block that is - the page has
+         carried a practice block ahead of the record since this was written,
+         and the shape the assertion is about is "the opening is followed by
+         a named body of material", not "the opening is followed by the CV". */
+      open: items.find((i) => /\.label$/.test(i.key)).y,
+      cv: at('cv.label').y,          // the CV's own threshold
       first: at('cv.0.head').y,      // its first section
       foot: at('foot.mail').y,
       vh: innerHeight,
@@ -102,12 +107,13 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
      is already on the first screen. An earlier version held the CV down to the
      fold, which made the head as tall as the window whatever it contained;
      both bounds here are what stops that returning, from either direction. */
-  ok('the opening is shallow and the CV is on the first screen',
-    shape.head < shape.vh * 0.35 && shape.cv > shape.vh * 0.45 && shape.cv < shape.vh * 0.95,
+  ok('the opening is shallow and the first threshold is on the first screen',
+    shape.head < shape.vh * 0.35 && shape.open > shape.vh * 0.45 && shape.open < shape.vh * 0.95,
     JSON.stringify(shape));
   /* The record and the footer follow it, in that order. */
   ok('the CV and the footer are below it',
-    shape.first > shape.cv && shape.foot > shape.first && d.height > shape.foot, JSON.stringify(d));
+    shape.cv >= shape.open && shape.first > shape.cv && shape.foot > shape.first && d.height > shape.foot,
+    JSON.stringify({ ...d, open: shape.open, cv: shape.cv }));
 
   /* Availability belongs to the head, above the first CV section - it used to
      sit in the body, where four flat facts read as an application. */

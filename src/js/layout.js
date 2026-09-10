@@ -184,6 +184,13 @@ function scale(vw) {
        stem. */
     meta: { family: SANS, size: f(11, 12), lh: 1.35, weight: 500, tracking: 0.01, zh: { k: 0.98, floor: 12 } },
     year: { family: SANS, size: f(11, 12), lh: 1.35, weight: 600, tracking: 0.03, zh: { k: 1, floor: 12 } },
+    /* The practice block. The serif, because it is the only voice on the page
+       that is neither a name nor a record - and a size under the CV's entry
+       titles, because a paragraph set at the size of a heading reads as a
+       manifesto. Leading opens to 1.62: this is the one place on the site
+       that is actually READ rather than scanned, and the CV's 1.38 is set for
+       two-line titles. */
+    prose: { family: SERIF, size: f(15, 17), lh: 1.62, weight: 400, tracking: 0, zh: { k: 0.94, floor: 14 } },
     /* The footer. Set BELOW the CV's entry titles rather than level with them:
        an address is not a heading, and at the serif's body size it was reading
        as one. Small enough to be a footnote, large enough to be a target. */
@@ -1451,11 +1458,51 @@ function block(scene, blk, lang, g, y0, measured) {
      comment above cvMetrics. */
   let n = 0;
 
-  /* A block with no sections is still a block: its threshold is drawn and a
-     band of paper is reserved under it. That is what a placeholder IS here -
-     the page shows where the material will go, at the size it will take, so
-     the interval either side is being judged against the real thing. */
+  /* No sections: either the block carries prose, or it is a placeholder. */
   if (!measured.length) {
+    /* PROSE, where a block carries it instead of sections.
+
+       Same threshold as the CV - one hairline given a shoulder - so the page
+       reads as a sequence of named bodies of material and this is one of
+       them, not a preface to the record. It sits in the same tracks the CV's
+       entries sit in, which is what stops it reading as a caption to the
+       rule above it.
+
+       The first paragraph takes the primary ink and the rest the prose grey.
+       That is the only hierarchy in the block: one statement of what the
+       practice IS, and then the two that qualify it. */
+    if (blk.prose && blk.prose.length) {
+      threshold(scene, blk, lang, g, y, S, u);
+      const role = adapt(S.prose, lang);
+      /* Thirty ems is the reading measure. At one column the track is already
+         inside it; at three the block would otherwise run the full width of
+         the page, which no one reads. */
+      /* At three columns it starts where the CV's entries start - the second
+         track - and runs across two of them. At one it starts at the MARGIN
+         and not at m.x0, which is indented past the CV's index rail: there is
+         no index here to hang beside, and prose set behind a rail that holds
+         nothing reads as a quotation. */
+      const px = m.hang ? m.x0 : g.left;
+      const width = Math.min(m.hang ? m.trackW * 2 + g.gutter : g.contentW, 30 * S.prose.size);
+      const lead = Math.round(S.prose.size * S.prose.lh);
+      const probe = scene.engine.run({ ...role, text: 'H' });
+      y += u * (m.hang ? 4.5 : 5.5);
+      blk.prose.forEach((para, pi) => {
+        const lines = balance(scene.engine, para[lang], role, width);
+        const seal = scene.seal(`${k}.p${pi}`, y, pi * 70);
+        y += probe.ascent;
+        lines.forEach((t, li) => {
+          scene.text(`${k}.p${pi}.${li}`, t, S.prose, px, y + li * lead, pi ? INK_2 : INK, { seal });
+        });
+        y += (lines.length - 1) * lead + probe.descent;
+        if (pi < blk.prose.length - 1) y += u * 2.2;
+      });
+      return y + u * 2;
+    }
+    /* A block with neither is still a block: its threshold is drawn and a
+       band of paper is reserved under it. That is what a placeholder IS here -
+       the page shows where the material will go, at the size it will take, so
+       the interval either side is being judged against the real thing. */
     threshold(scene, blk, lang, g, y, S, u);
     return y + u * 9;
   }
@@ -1709,7 +1756,7 @@ export function buildScene(engine, content, vw, vh, lang = 'en', safeTop = 0, sa
 
   content.blocks.forEach((blk, bi) => {
     if (bi) y = Math.round(y + g.u * 10);
-    y = block(scene, blk, lang, g, y, measureSections(engine, blk.sections, lang, g, S));
+    y = block(scene, blk, lang, g, y, measureSections(engine, blk.sections || [], lang, g, S));
   });
   const cvEnd = y;
 
@@ -1748,7 +1795,8 @@ export function fontSpecs(content, vw, lang) {
     ...content.index.context.map((v) => v[lang]),
     content.index.available.label[lang], content.index.available.value[lang],
     ...content.blocks.map((b) => b.label[lang]
-      + b.sections.map((s) => s.section[lang]
+      + (b.prose || []).map((para) => para[lang]).join('')
+      + (b.sections || []).map((s) => s.section[lang]
         + s.entries.map((e) => (e.year || '') + e.title[lang] + (e.org ? e.org[lang] : '')).join('')).join('')),
     content.labels.zh, content.labels.end,
   ].join('');
