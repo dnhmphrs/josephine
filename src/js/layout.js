@@ -18,7 +18,11 @@
    Three greys against the ground, warm like it, and nothing else.
 
    What sets the two secondary values is the SPACING of the ladder, not the
-   floor. They sat at 5.7 and 4.8 - a fifth of a stop apart from each other and
+   floor, and the third of them is set by STEM as much as by ink: the meta
+   role went to weight 500 at the same time as this value deepened, because
+   small type that reads faint is usually losing its stem to the rasteriser
+   rather than losing its colour, and darkening alone makes it heavier without
+   making it sharper. See the meta role below. They sat at 5.7 and 4.8 - a fifth of a stop apart from each other and
    most of the way across the page from the primary at 10.6 - so the lede, the
    largest block of reading text here and the second thing anyone looks at,
    landed in the same register as the small print under a CV entry. It read as
@@ -37,7 +41,7 @@
    would take the meta line under. */
 export const INK = [0.133, 0.129, 0.118];    // #22211e  primary       10.6:1
 export const INK_2 = [0.230, 0.222, 0.198];  // #3b3932  prose          7.7:1
-export const INK_3 = [0.321, 0.310, 0.269];  // #524f45  labels, meta   5.4:1
+export const INK_3 = [0.287, 0.277, 0.242];  // #49473e  labels, meta   6.2:1
 export const RULE = [0.133, 0.129, 0.118];   // primary, drawn at low alpha
 /* The ground itself, for the one place type is knocked OUT of ink rather than
    laid on it: the selected half of the language switch. Kept in step with
@@ -170,7 +174,15 @@ function scale(vw) {
     nav: { family: SANS, size: f(10.5, 11.5), lh: 1.2, weight: 600, tracking: f(0.17, 0.15), upper: true, zh: { k: 0.98, floor: 12, dw: -100 } },
     section: { family: SANS, size: f(10.5, 12), lh: 1.2, weight: 600, tracking: f(0.17, 0.15), upper: true, zh: { k: 1, floor: 13, dw: -100 } },
     title: { family: SERIF, size: f(16, 18.5), lh: 1.38, weight: 400, tracking: 0, zh: { k: 0.92, floor: 15 } },
-    meta: { family: SANS, size: f(11, 12), lh: 1.35, weight: 400, tracking: 0.01, zh: { k: 0.98, floor: 12 } },
+    /* 500, not 400. This is the smallest text on the page and the only role
+       that was set at the regular weight, and at 12px on a warm ground a
+       grotesque at 400 loses enough of its stem to the rasteriser that the
+       line reads as faded rather than as quiet. The face is variable and
+       carries 400-700, so this is a real weight and not a synthesised one.
+       Weight is the right instrument for it too: darkening alone makes small
+       type heavier without making it sharper, and what was missing was the
+       stem. */
+    meta: { family: SANS, size: f(11, 12), lh: 1.35, weight: 500, tracking: 0.01, zh: { k: 0.98, floor: 12 } },
     year: { family: SANS, size: f(11, 12), lh: 1.35, weight: 600, tracking: 0.03, zh: { k: 1, floor: 12 } },
     /* The footer. Set BELOW the CV's entry titles rather than level with them:
        an address is not a heading, and at the serif's body size it was reading
@@ -872,9 +884,31 @@ function head(scene, content, lang, g) {
     avY = y + lead(roleFit) + Math.round(u * 1.4);
     avX = g.left;
   }
-  scene.place('index.available', avLabel, avX, avY, INK_3, { seal: avSeal, edge: true });
+  /* The band has one dark thing at each end and quiet material between them.
+
+     On the left the role is the primary ink and the city and the languages
+     step back from it, so the eye is told what she IS and then given the
+     qualifiers. The right end had no such division - a label and a value both
+     set in the secondary greys - so it read as one undifferentiated string
+     and anchored nothing.
+
+     The VALUE takes the primary ink, not the label. Both readings were drawn
+     and looked at: with AVAILABLE FOR dark the line reads like a form, the
+     scaffolding louder than what it holds, and the page's right edge goes
+     pale. With the list dark the two darkest marks in the head sit at the two
+     ends of the measure and everything quiet is inboard, which is what makes
+     it a band rather than two corners. It is also just the truth about the
+     sentence: the label is a preposition and the three words after it are the
+     information.
+
+     The label is the SECONDARY ink and not the tertiary, which makes the two
+     halves of the band the same pair of values read in opposite order - role
+     then qualifiers on the left, qualifier then list on the right. Everything
+     between the two dark ends is now one tier, so the band has exactly two
+     weights in it rather than three. */
+  scene.place('index.available', avLabel, avX, avY, INK_2, { seal: avSeal, edge: true });
   scene.place('index.available.value', avValue,
-    avInline ? g.right - avValue.width : avX + avLabel.width + avGap, avY, INK_2, { seal: avSeal });
+    avInline ? g.right - avValue.width : avX + avLabel.width + avGap, avY, INK, { seal: avSeal });
 
   /* The toggle's column, in viewport coordinates, handed to the renderer.
 
