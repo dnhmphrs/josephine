@@ -1476,9 +1476,11 @@ function block(scene, blk, lang, g, y0, measured) {
        entries sit in, which is what stops it reading as a caption to the
        rule above it.
 
-       The first paragraph takes the primary ink and the rest the prose grey.
-       That is the only hierarchy in the block: one statement of what the
-       practice IS, and then the two that qualify it. */
+       Where there is more than one paragraph the first takes the primary ink
+       and the rest the prose grey. A block of ONE takes the grey: there is
+       nothing for it to be primary against, the threshold word above it is
+       already carrying the hierarchy, and set in the primary ink it competes
+       with the sentence under the name instead of following it. */
     if (blk.prose && blk.prose.length) {
       threshold(scene, blk, lang, g, y, S, u);
       const role = adapt(S.prose, lang);
@@ -1500,7 +1502,8 @@ function block(scene, blk, lang, g, y0, measured) {
         const seal = scene.seal(`${k}.p${pi}`, y, pi * 70);
         y += probe.ascent;
         lines.forEach((t, li) => {
-          scene.text(`${k}.p${pi}.${li}`, t, S.prose, px, y + li * lead, pi ? INK_2 : INK, { seal });
+          scene.text(`${k}.p${pi}.${li}`, t, S.prose, px, y + li * lead,
+            (pi || blk.prose.length === 1) ? INK_2 : INK, { seal });
         });
         y += (lines.length - 1) * lead + probe.descent;
         if (pi < blk.prose.length - 1) y += u * 2.2;
