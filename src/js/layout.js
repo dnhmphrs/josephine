@@ -493,6 +493,29 @@ const HAIRLINE = 0.16;
    fixed too, in its own layer outside the scroll proxy; see main.js. */
 function planToggle(scene, content, lang, g) {
   const S = scale(g.vw);
+  /* PINNED ONLY WHERE THERE IS A COLUMN TO PIN IT OVER.
+
+     The control is drawn viewport-anchored and the document slides under it,
+     which works because at two columns and up the track it occupies is empty
+     for the whole length of the page - nothing ever passes beneath it but the
+     right-hand column, and scene.edge takes that column's ink down as it
+     rises. At ONE column that premise is gone: every line runs the full
+     measure, so the thing passing under the control is the sentence being
+     read, and the fade meant to protect the control erases it.
+
+     It was worse than a scroll artefact. The fade band is anchored to the
+     availability line, and on a phone the availability line drops BELOW the
+     dateline - so on a 390 screen the dateline's last segment was faded at
+     rest, before a finger touched the page.
+
+     So below 720 the toggle rejoins the flow and scrolls away with the head.
+     That is the same rule the CV already follows one function down: below
+     three columns there is no column to hang in, so what hung there comes
+     back into the document. A control hanging in a column that does not
+     exist is that case exactly. It costs a reader deep in the page a scroll
+     back to the top to change language - a once-per-visit decision that
+     main.js then persists - and it buys back the whole measure. */
+  const pinned = g.cols > 1;
   const on = S.nav;
   /* Lit and dim differ in weight as well as tone. Tone alone is not enough:
      the dim value still has to clear 4.5:1 like everything else, which leaves
@@ -529,6 +552,7 @@ function planToggle(scene, content, lang, g) {
     width: boxW,
     ascent: padY + ink,
     descent: padY,
+    pinned,
     draw(y) {
       const dpr = scene.engine.dpr;
       const x0 = Math.round(g.right - boxW);
@@ -560,7 +584,7 @@ function planToggle(scene, content, lang, g) {
           cx.fill();
         },
       );
-      scene.sprite('nav.fill', fill, on ? x0 + enW : x0, boxTop, fillW, boxH, LILAC_INK, 1, { fixed: true });
+      scene.sprite('nav.fill', fill, on ? x0 + enW : x0, boxTop, fillW, boxH, LILAC_INK, 1, { fixed: pinned });
 
       /* The outline is what makes the unselected half read as the other half of
          one control rather than as a word standing next to a block. Stroked
@@ -577,19 +601,19 @@ function planToggle(scene, content, lang, g) {
           cx.stroke();
         },
       );
-      scene.sprite('nav.box', box, x0, boxTop, boxW, boxH, RULE, HAIRLINE * 1.6, { fixed: true });
+      scene.sprite('nav.box', box, x0, boxTop, boxW, boxH, RULE, HAIRLINE * 1.6, { fixed: pinned });
 
       scene.place('nav.en', en, Math.round(x0 + (enW - en.width) / 2), y,
-        on ? INK_2 : PAPER, { fixed: true });
+        on ? INK_2 : PAPER, { fixed: pinned });
       scene.place('nav.zh', zh, Math.round(x0 + enW + (zhW - zh.width) / 2), y,
-        on ? PAPER : INK_2, { fixed: true });
+        on ? PAPER : INK_2, { fixed: pinned });
 
       /* ONE hit, and it is the box: both halves do the same thing, and a
          border that is not itself pressable is a lie about where the edge of
          the control is. */
       const span = { width: boxW, lineHeight: boxH, ascent: ink + padY };
       scene.hit('lang:toggle', span, x0, y, {
-        fixed: true,
+        fixed: pinned,
         key: 'nav.box',
         other: lang === 'en' ? 'zh' : 'en',
         lang: lang === 'zh' ? 'zh-Hans' : 'en',
@@ -825,9 +849,32 @@ function head(scene, content, lang, g) {
      Otherwise it drops to its own baseline underneath, still on the right. */
   const avInline = avW + g.gutter <= g.contentW - used;
   let avY = y;
-  if (!avInline) avY = y + lead(roleFit) + Math.round(u * 0.5);
-  scene.place('index.available.value', avValue, g.right - avValue.width, avY, INK_2, { seal: avSeal });
-  scene.place('index.available', avLabel, g.right - avW, avY, INK_3, { seal: avSeal, edge: true });
+  let avX = g.right - avW;
+  if (!avInline) {
+    /* Dropped, and therefore no longer opposite anything.
+
+       It used to keep the right margin when it fell - which is the instinct,
+       because that is where it lives when it fits, and it is wrong. Flush
+       right under a flush-left line is not an alignment, it is two lines
+       agreeing about nothing: the left edge lands wherever the string happens
+       to end up, so the head finished on a step nobody chose, seventy pixels
+       in from a margin every other mark on the page touches. The right edge
+       it was holding is only meaningful while the dateline is holding the
+       left edge of the SAME line. Alone, it is the phone's edge and means
+       nothing.
+
+       So on the rail with everything else, and given a real step down: a
+       whole baseline unit rather than the four pixels it had, which was
+       tighter than the dateline's own wrap leading and welded the two into
+       one stepped block of identical capitals. Now the head is three flush-
+       left lines - name, what she is, what she is open to - which is the same
+       masthead the wide layout sets, read in a narrower window. */
+    avY = y + lead(roleFit) + Math.round(u * 1.4);
+    avX = g.left;
+  }
+  scene.place('index.available', avLabel, avX, avY, INK_3, { seal: avSeal, edge: true });
+  scene.place('index.available.value', avValue,
+    avInline ? g.right - avValue.width : avX + avLabel.width + avGap, avY, INK_2, { seal: avSeal });
 
   /* The toggle's column, in viewport coordinates, handed to the renderer.
 
@@ -848,12 +895,19 @@ function head(scene, content, lang, g) {
      scrolling starts. CLEAR is the frame: the same margin the name's ink
      touches. What passes directly under the toggle lands around a quarter
      alpha - a ghost the control reads cleanly over, rather than a hole cut in
-     the page. */
-  scene.edge = {
+     the page.
+
+     None of which applies when the toggle is not pinned. Below 720 it scrolls
+     away with the head and there is nothing to protect, so the band is null
+     and every mark on the page renders at its own ink - which is the fix for
+     the worst thing this file was doing: on a 390 screen the dateline's last
+     segment was faded AT REST, because the band's bottom is anchored to the
+     availability line and the availability line is the one that drops. */
+  scene.edge = nav.pinned ? {
     x0: Math.round(g.right - nav.width - g.gutter * 0.5),
     clear: Math.round(navY - nav.ascent),
     full: Math.round(avY + avValue.inkDescent + 2),
-  };
+  } : null;
 
   y = avY + runs[0].descent;
 
@@ -902,12 +956,33 @@ function head(scene, content, lang, g) {
    --------------------------------------------------------------------------- */
 function cvMetrics(g) {
   /* The hanging arrangement and the track it produces, in one place, so that
-     measuring and drawing cannot disagree about it. */
+     measuring and drawing cannot disagree about it. The type scale is taken
+     from the viewport here rather than passed in, for the same reason: the
+     cap below is part of the track, and a caller that forgot to hand it over
+     would measure one width and draw another. */
   const hang = g.cols >= 3;
   const x0 = hang ? g.colX(1) : g.left;
   const across = hang ? g.cols - 1 : g.cols;
   const width = g.right - x0;
-  const trackW = (width - g.gutter * (across - 1)) / across;
+  let trackW = (width - g.gutter * (across - 1)) / across;
+  /* At ONE track there is no divisor, and the column count is the only
+     instrument this page has for holding a measure. So between about 470 and
+     720 - a small window, a phone on its side - the CV was setting 39em
+     lines, ninety-one characters, directly under a sentence the head caps at
+     22em. The head was measured and the body was not.
+
+     Capped with the same instrument head() already uses on the lede, at the
+     27em the grid comment names as the ceiling every track is meant to stay
+     inside. It binds only where nothing else is holding the line: at 600 it
+     takes 33.6em to 27, at 719 39.3 to 27, and at every phone width - 320 is
+     17em, 390 is 21.4, 430 is 23.8 - it is inert, so the layout the phone
+     gets is untouched. Two tracks and up it never binds either; the widest
+     the column grid ever produces is 25.1em, at 1599.
+
+     The rules still span the frame while the type stops short of it. That is
+     the same relation the wide layout has, with the empty band on the other
+     side. */
+  if (across === 1) trackW = Math.min(trackW, 27 * scale(g.vw).title.size);
   return { hang, x0, across, trackW };
 }
 
@@ -927,7 +1002,10 @@ function measureSections(engine, sections, lang, g, S) {
        above its entries than the others: without it, CV and NOW stack a
        centimetre apart in the same column and read as one two-line label
        rather than as a heading and the first thing under it. */
-    const topPad = u * 2.4 + (si === 0 ? u * 2.6 : 0);
+    /* Above the section name. Deeper where the name sits ABOVE its entries
+       rather than beside them, because there it needs to be plainly nearer to
+       what it names than to the rule it hangs under - see block(). */
+    const topPad = u * (m.hang ? 2.4 : 4) + (si === 0 ? u * 2.6 : 0);
     const head = engine.run({ ...adapt(S.section, lang), text: sec.section[lang].toUpperCase() });
     const entries = sec.entries.map((e) => {
       const year = e.year || '';
@@ -943,6 +1021,9 @@ function measureSections(engine, sections, lang, g, S) {
         : 0;
       return {
         e, titles, org, year,
+        /* The trailing u*3.4 is the gap to the NEXT entry, carried on the
+           entry rather than added between them so that a row of unequal
+           entries levels correctly. */
         height: probe.ascent + (titles.length - 1) * titleLead + probe.descent + metaH + u * 3.4,
       };
     });
@@ -952,9 +1033,15 @@ function measureSections(engine, sections, lang, g, S) {
     for (let i = 0; i < entries.length; i += m.across) {
       rowH.push(Math.max(...entries.slice(i, i + m.across).map((x) => x.height)));
     }
-    const body = rowH.reduce((a, b) => a + b, 0);
+    /* The last entry's own trailing gap is dropped from the SECTION's height
+       (not from rowH, which still has to position the entries above it), so
+       that what separates one band from the next is the section gap alone
+       rather than the section gap plus a between-entries gap that has no next
+       entry to be between. Only at one track: with two or more, that trailing
+       air is what levels a short entry against a tall one beside it. */
+    const body = rowH.reduce((a, b) => a + b, 0) - (m.across === 1 ? u * 3.4 : 0);
     const height = topPad
-      + (m.hang ? 0 : head.lineHeight + u * 2.6)
+      + (m.hang ? 0 : head.lineHeight + u * 1.4)
       + Math.max(body, m.hang ? head.lineHeight + u * 2 : 0);
     return { sec, head, entries, rowH, height, topPad, probe, metaProbe, titleLead, metaLead };
   });
@@ -1013,7 +1100,20 @@ function block(scene, blk, lang, g, y0, measured) {
     const headSeal = scene.seal(`${k}.${si}.head`, top, 0);
     scene.text(`${k}.${si}.head`, sec.sec.section[lang], S.section, g.left, top + sec.head.ascent, INK_3,
       { seal: headSeal });
-    if (!m.hang) top += sec.head.lineHeight + u * 2.6;
+    /* The name binds DOWN, to the entries it names.
+
+       It was given the same air above and below - nineteen pixels and twenty-
+       one - which is symmetry, and symmetry here means the smallest, lightest
+       mark in the band is attached to nothing: not to the rule above it,
+       which introduces it, and not to the entries under it, which it names.
+       Where there is a column to hang in the question does not arise, because
+       the name and the first entry share a top edge and the arrangement
+       states itself. Stacked, it has to be stated with space: a wide gap
+       above, a narrow one below, so the rule opens the band and the name
+       belongs to the body under it. Paid for out of the section's trailing
+       air, which at one column is the only interval in the CV doing no work -
+       a row of one entry can never be ragged, so nothing is being levelled. */
+    if (!m.hang) top += sec.head.lineHeight + u * 1.4;
 
     sec.entries.forEach((en, ei) => {
       const col = ei % m.across;
@@ -1039,12 +1139,44 @@ function block(scene, blk, lang, g, y0, measured) {
           scene.text(`${k}.${si}.${ei}.org.${j}`, t, S.meta, x, ey + j * sec.metaLead, INK_3, { seal });
         });
         if (en.year) {
-          scene.text(`${k}.${si}.${ei}.year`, en.year, S.year, x + m.trackW, ey, INK_3, { align: 'right', seal });
+          /* At more than one track the year holds the right edge of its own
+             track, which is an interior grid line the entry beside it ends on
+             too - so a column of years reads as the track's edge, stated once.
+
+             At ONE track that same expression is the page margin, and the
+             year stops belonging to its entry: "Berlin" ends thirty pixels in
+             and its date sits three hundred away at the frame, with nothing
+             between them and nothing else in the rail. A reader gets a table
+             with the leader dots taken out. Worse, the footer's end mark
+             lands in that same empty rail, so the mark that closes the
+             document read as one more missing year.
+
+             So when there is no track edge to hold, the year follows its
+             organisation on the line it shares with it, one gutter's worth of
+             space after it. measureSections already subtracts the year's
+             width from the organisation's measure on every line, so the space
+             is reserved and the pair cannot collide. */
+          const inline = m.across === 1;
+          /* Inline, it follows the LAST line of the organisation and sits on
+             that line's baseline - not the first, which is where the run
+             would otherwise be drawn. An organisation that wraps is the whole
+             reason to be careful here: measured against the last line but
+             drawn on the first, the year lands in the middle of the second,
+             which is what it did at 320 until this was written down. */
+          const last = en.org.length ? en.org[en.org.length - 1] : null;
+          const endW = last ? scene.engine.measure(scene.spec(last, S.meta)) : 0;
+          const yearY = inline ? ey + Math.max(0, en.org.length - 1) * sec.metaLead : ey;
+          scene.text(`${k}.${si}.${ei}.year`, en.year, S.year,
+            inline ? x + endW + (last ? u * 2 : 0) : x + m.trackW, yearY, INK_3,
+            { align: inline ? 'left' : 'right', seal });
         }
       }
     });
 
-    y += sec.height + u * 4;
+    /* The half unit is the other half of the trailing-gap trim above: it is
+       added only where that gap was taken away, so two tracks and up are
+       exactly as they were. */
+    y += sec.height + u * (m.across === 1 ? 4.5 : 4);
   });
 
   return y;
@@ -1086,7 +1218,20 @@ function footer(scene, content, lang, g, y0) {
   const mailRun = scene.prepare(c.contact.email, S.link);
   const liRun = scene.prepare(c.contact.linkedin.label, S.link);
   const y = y0 + u * 3.2 + mailRun.ascent;
-  const liY = m.hang ? y : Math.round(y + lead(S.link) * 1.15);
+  /* Stacked, the two links were set 1.15 of a line apart - which is to within
+     half a pixel the distance a CV entry puts between its title and the
+     organisation under it. So the last line of the page read as one more
+     entry, and the two quietest words on it as a heading and its subtitle
+     rather than as two places to go.
+
+     It was also a real fault and not only a reading of one. Scene.hit gives
+     every target a 44px box - the floor a finger needs - so two baselines 22px
+     apart produced two boxes overlapping by 22px, with the later sibling
+     winning the overlap: half of the address was pressable only as LinkedIn.
+     The interline here is therefore the TARGET's measure and not the type's,
+     and u*6 is the smallest multiple of the page's own baseline unit that
+     clears it across the whole one-column band. */
+  const liY = m.hang ? y : Math.round(y + Math.max(u * 6, lead(S.link) * 1.15));
   const liX = m.hang ? m.x0 : g.left;
   const seal = scene.seal('foot.links', y - mailRun.ascent, 0);
 
@@ -1108,7 +1253,15 @@ function footer(scene, content, lang, g, y0) {
      Here it does what a printer's mark actually does - closes a document, at
      the end of it, with nothing after. That is the whole difference between
      this one and the one tried in the void and taken out; there, nothing was
-     ending. */
+     ending.
+
+     It very nearly had to go on a phone, and what saved it was fixing
+     something else. While the CV set its years hard against the same right
+     margin, this mark landed in that rail wearing the same glyph, size and
+     ink - so at one column it read as one more entry whose year was missing.
+     The years are inline now, the rail is empty for the length of the page,
+     and the mark at the foot of it is the only thing that ever holds that
+     edge. Which is what it was for. */
   const end = scene.prepare(content.labels.end, S.year);
   scene.place('foot.end', end, g.right - end.width, liY, INK_3, { seal });
 
@@ -1139,8 +1292,18 @@ export function buildScene(engine, content, vw, vh, lang = 'en', safeTop = 0, sa
 
      Between blocks the gap is a little over half that: enough that a threshold
      is never mistaken for the section rules inside the block above it, not so
-     much that the page comes apart into three separate documents. */
-  let y = Math.round(headEnd + g.u * 17);
+     much that the page comes apart into three separate documents.
+
+     The multiple is smaller at one column, and the reason is that u is the
+     wrong instrument for this one interval. u falls by a quarter between a
+     phone and a laptop while the measure falls by three quarters, so a gap
+     stated in u is proportionally three times deeper on a phone: seventeen of
+     them is 40% of the measure there against 14% here, and the reader spends
+     a quarter of the first screen crossing it to reach a hairline and two
+     seven-pixel words. Twelve keeps it comfortably the deepest interval on
+     the page - which is the property that makes it read as a division rather
+     than as leftover paper - without spending a screen on it. */
+  let y = Math.round(headEnd + g.u * (g.cols === 1 ? 12 : 17));
 
   /* Nothing goes in the void, and that is the decision rather than the
      absence of one. A mark was tried here and taken out: the square already
@@ -1158,7 +1321,9 @@ export function buildScene(engine, content, vw, vh, lang = 'en', safeTop = 0, sa
   const cvEnd = y;
 
   const footEnd = footer(scene, content, lang, g, cvEnd + g.u * 2);
-  scene.height = Math.round(footEnd + Math.max(g.margin, g.u * 5));
+  /* The tail. Deeper below three columns, where the footer is two lines
+     rather than one and needs a closing gesture in proportion to it. */
+  scene.height = Math.round(footEnd + Math.max(g.margin, g.u * (g.cols < 3 ? 8 : 5)));
   return { scene, grid: g };
 }
 
