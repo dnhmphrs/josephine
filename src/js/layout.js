@@ -793,9 +793,15 @@ function head(scene, content, lang, g) {
      than none of them doing it, because two lines out of three agreeing looks
      like the third has failed rather than like a different arrangement. So
      the rule travels together: below the ceiling all three span, above it all
-     three sit at their natural widths. */
-  const spans = display && dispSize < NAME_CAP;
+     three sit at their natural widths.
 
+     Which means the test has to be what the name ACTUALLY REACHES, not what
+     it was asked to reach. The size is solved on the English name in both
+     languages, so in Chinese the name is set at that size and 沈菲菲 covers
+     about two-fifths of the measure - and asserting it anyway stretched the
+     availability line's gap to a hundred and fifty pixels to reach an edge
+     the name was nowhere near, leaving a hole in the middle of one line under
+     a dateline that stopped two-thirds of the way across. Struck below. */
   const natural = scene.engine.measure(scene.spec(c.name[lang], S.name));
   const name = display
     ? { ...dispRole, size: dispSize }
@@ -810,6 +816,11 @@ function head(scene, content, lang, g) {
     width: Math.max(...nameRuns.map((r) => r.width)),
     inkDescent: nameRuns[nameRuns.length - 1].inkDescent,
   };
+  /* Struck here rather than above, because it can only be answered once the
+     name has been set: does it reach the frame? A few pixels of tolerance,
+     since the fit lands on a device-pixel staircase and stops a pixel or two
+     short as often as it lands exactly. */
+  const spans = display && dispSize < NAME_CAP && nameRun.width >= g.contentW - 6;
 
   /* Placed by INK, not by the font box: a Latin cap height is about 0.73em
      against a box of 1.0, while the Han glyphs falling back into the same run
