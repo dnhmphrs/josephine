@@ -121,7 +121,15 @@ export function grid(vw, safeTop = 0, safeSide = 0) {
   const margin = Math.max(safeSide, clamp(vw * 0.038, 24, 96));
   const contentW = Math.round(vw - margin * 2);
   const left = Math.round(margin);
-  const gutter = Math.round(clamp(contentW * 0.028, 20, 56));
+  /* The gutter. Raised from 0.028/56: at 1440 that gave 37px between tracks
+     against a 419px track, which is under a tenth of the column and too fine
+     to separate two entries that each run to several lines - the CV read as
+     one wide block of text with faint vertical seams rather than as columns.
+     0.042 puts it at the 56 cap by 1440 and takes the track to 406, a three
+     percent cost for a gap that is now visibly a division. The cap itself
+     goes to 72, because it was already binding by 1500 and a wide display was
+     getting the same gutter as a laptop. */
+  const gutter = Math.round(clamp(contentW * 0.042, 24, 72));
   const track = (contentW - gutter * (cols - 1)) / cols;
   return {
     vw, safeTop, cols, margin, contentW, left, gutter,
