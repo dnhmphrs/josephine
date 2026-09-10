@@ -121,7 +121,15 @@ export function grid(vw, safeTop = 0, safeSide = 0) {
   const margin = Math.max(safeSide, clamp(vw * 0.038, 24, 96));
   const contentW = Math.round(vw - margin * 2);
   const left = Math.round(margin);
-  const gutter = Math.round(clamp(contentW * 0.028, 20, 56));
+  /* The gutter. Raised from 0.028/56: at 1440 that gave 37px between tracks
+     against a 419px track, which is under a tenth of the column and too fine
+     to separate two entries that each run to several lines - the CV read as
+     one wide block of text with faint vertical seams rather than as columns.
+     0.042 puts it at the 56 cap by 1440 and takes the track to 406, a three
+     percent cost for a gap that is now visibly a division. The cap itself
+     goes to 72, because it was already binding by 1500 and a wide display was
+     getting the same gutter as a laptop. */
+  const gutter = Math.round(clamp(contentW * 0.042, 24, 72));
   const track = (contentW - gutter * (cols - 1)) / cols;
   return {
     vw, safeTop, cols, margin, contentW, left, gutter,
@@ -184,6 +192,13 @@ function scale(vw) {
        stem. */
     meta: { family: SANS, size: f(11, 12), lh: 1.35, weight: 500, tracking: 0.01, zh: { k: 0.98, floor: 12 } },
     year: { family: SANS, size: f(11, 12), lh: 1.35, weight: 600, tracking: 0.03, zh: { k: 1, floor: 12 } },
+    /* The practice block. The serif, because it is the only voice on the page
+       that is neither a name nor a record - and a size under the CV's entry
+       titles, because a paragraph set at the size of a heading reads as a
+       manifesto. Leading opens to 1.62: this is the one place on the site
+       that is actually READ rather than scanned, and the CV's 1.38 is set for
+       two-line titles. */
+    prose: { family: SERIF, size: f(15, 17), lh: 1.62, weight: 400, tracking: 0, zh: { k: 0.94, floor: 14 } },
     /* The footer. Set BELOW the CV's entry titles rather than level with them:
        an address is not a heading, and at the serif's body size it was reading
        as one. Small enough to be a footnote, large enough to be a target. */
@@ -793,9 +808,15 @@ function head(scene, content, lang, g) {
      than none of them doing it, because two lines out of three agreeing looks
      like the third has failed rather than like a different arrangement. So
      the rule travels together: below the ceiling all three span, above it all
-     three sit at their natural widths. */
-  const spans = display && dispSize < NAME_CAP;
+     three sit at their natural widths.
 
+     Which means the test has to be what the name ACTUALLY REACHES, not what
+     it was asked to reach. The size is solved on the English name in both
+     languages, so in Chinese the name is set at that size and 沈菲菲 covers
+     about two-fifths of the measure - and asserting it anyway stretched the
+     availability line's gap to a hundred and fifty pixels to reach an edge
+     the name was nowhere near, leaving a hole in the middle of one line under
+     a dateline that stopped two-thirds of the way across. Struck below. */
   const natural = scene.engine.measure(scene.spec(c.name[lang], S.name));
   const name = display
     ? { ...dispRole, size: dispSize }
@@ -810,6 +831,11 @@ function head(scene, content, lang, g) {
     width: Math.max(...nameRuns.map((r) => r.width)),
     inkDescent: nameRuns[nameRuns.length - 1].inkDescent,
   };
+  /* Struck here rather than above, because it can only be answered once the
+     name has been set: does it reach the frame? A few pixels of tolerance,
+     since the fit lands on a device-pixel staircase and stops a pixel or two
+     short as often as it lands exactly. */
+  const spans = display && dispSize < NAME_CAP && nameRun.width >= g.contentW - 6;
 
   /* Placed by INK, not by the font box: a Latin cap height is about 0.73em
      against a box of 1.0, while the Han glyphs falling back into the same run
@@ -1440,11 +1466,51 @@ function block(scene, blk, lang, g, y0, measured) {
      comment above cvMetrics. */
   let n = 0;
 
-  /* A block with no sections is still a block: its threshold is drawn and a
-     band of paper is reserved under it. That is what a placeholder IS here -
-     the page shows where the material will go, at the size it will take, so
-     the interval either side is being judged against the real thing. */
+  /* No sections: either the block carries prose, or it is a placeholder. */
   if (!measured.length) {
+    /* PROSE, where a block carries it instead of sections.
+
+       Same threshold as the CV - one hairline given a shoulder - so the page
+       reads as a sequence of named bodies of material and this is one of
+       them, not a preface to the record. It sits in the same tracks the CV's
+       entries sit in, which is what stops it reading as a caption to the
+       rule above it.
+
+       The first paragraph takes the primary ink and the rest the prose grey.
+       That is the only hierarchy in the block: one statement of what the
+       practice IS, and then the two that qualify it. */
+    if (blk.prose && blk.prose.length) {
+      threshold(scene, blk, lang, g, y, S, u);
+      const role = adapt(S.prose, lang);
+      /* Thirty ems is the reading measure. At one column the track is already
+         inside it; at three the block would otherwise run the full width of
+         the page, which no one reads. */
+      /* At three columns it starts where the CV's entries start - the second
+         track - and runs across two of them. At one it starts at the MARGIN
+         and not at m.x0, which is indented past the CV's index rail: there is
+         no index here to hang beside, and prose set behind a rail that holds
+         nothing reads as a quotation. */
+      const px = m.hang ? m.x0 : g.left;
+      const width = Math.min(m.hang ? m.trackW * 2 + g.gutter : g.contentW, 30 * S.prose.size);
+      const lead = Math.round(S.prose.size * S.prose.lh);
+      const probe = scene.engine.run({ ...role, text: 'H' });
+      y += u * (m.hang ? 4.5 : 5.5);
+      blk.prose.forEach((para, pi) => {
+        const lines = balance(scene.engine, para[lang], role, width);
+        const seal = scene.seal(`${k}.p${pi}`, y, pi * 70);
+        y += probe.ascent;
+        lines.forEach((t, li) => {
+          scene.text(`${k}.p${pi}.${li}`, t, S.prose, px, y + li * lead, pi ? INK_2 : INK, { seal });
+        });
+        y += (lines.length - 1) * lead + probe.descent;
+        if (pi < blk.prose.length - 1) y += u * 2.2;
+      });
+      return y + u * 2;
+    }
+    /* A block with neither is still a block: its threshold is drawn and a
+       band of paper is reserved under it. That is what a placeholder IS here -
+       the page shows where the material will go, at the size it will take, so
+       the interval either side is being judged against the real thing. */
     threshold(scene, blk, lang, g, y, S, u);
     return y + u * 9;
   }
@@ -1698,7 +1764,7 @@ export function buildScene(engine, content, vw, vh, lang = 'en', safeTop = 0, sa
 
   content.blocks.forEach((blk, bi) => {
     if (bi) y = Math.round(y + g.u * 10);
-    y = block(scene, blk, lang, g, y, measureSections(engine, blk.sections, lang, g, S));
+    y = block(scene, blk, lang, g, y, measureSections(engine, blk.sections || [], lang, g, S));
   });
   const cvEnd = y;
 
@@ -1737,7 +1803,8 @@ export function fontSpecs(content, vw, lang) {
     ...content.index.context.map((v) => v[lang]),
     content.index.available.label[lang], content.index.available.value[lang],
     ...content.blocks.map((b) => b.label[lang]
-      + b.sections.map((s) => s.section[lang]
+      + (b.prose || []).map((para) => para[lang]).join('')
+      + (b.sections || []).map((s) => s.section[lang]
         + s.entries.map((e) => (e.year || '') + e.title[lang] + (e.org ? e.org[lang] : '')).join('')).join('')),
     content.labels.zh, content.labels.end,
   ].join('');
