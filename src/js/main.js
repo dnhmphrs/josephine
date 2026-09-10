@@ -321,7 +321,13 @@ async function boot(stage) {
      Tab order follows DOM order, so the fixed container sits after the proxy
      in the document and the toggle is the last stop rather than the first.
      That is the right end for it: the reading order is the page, then the
-     control that changes the page's language. */
+     control that changes the page's language.
+
+     Below 720 the toggle is not drawn fixed at all (see planToggle), so its
+     hit lands in the proxy with everything else and becomes the FIRST stop
+     instead. That is the right end for it there too, and for the same reason
+     read the other way round: it is no longer a control floating over the
+     document, it is the first thing in the head. */
 
   function syncHits() {
     const all = state.scene.hits;
