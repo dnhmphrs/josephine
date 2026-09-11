@@ -158,34 +158,6 @@
         },
         {
           "section": {
-            "en": "Research",
-            "zh": "研究"
-          },
-          "entries": [
-            {
-              "title": {
-                "en": "Artificial intelligence in international security",
-                "zh": "国际安全中的人工智能"
-              },
-              "org": {
-                "en": "Non-proliferation, regulation",
-                "zh": "防扩散与监管"
-              }
-            },
-            {
-              "title": {
-                "en": "Public-interest AI, labour and social movements",
-                "zh": "公共利益人工智能、劳工与社会运动"
-              },
-              "org": {
-                "en": "Civil society",
-                "zh": "公民社会"
-              }
-            }
-          ]
-        },
-        {
-          "section": {
             "en": "Convening",
             "zh": "召集"
           },
