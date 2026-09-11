@@ -955,8 +955,19 @@ function cvMetrics(g) {
      cap below is part of the track, and a caller that forgot to hand it over
      would measure one width and draw another. */
   const hang = g.cols >= 3;
-  const rail = g.cols === 1 ? g.u * 4 : 0;
-  const x0 = hang ? g.colX(1) : g.left + rail;
+  /* ONE COLUMN NO LONGER INDENTS.
+
+     There was a rail here - u*4 of empty paper before every entry - and it
+     was the column the index digits stood in. The digits are gone (see the
+     Writing band), and an indent that once held numbers and now holds nothing
+     is not a second edge, it is a margin that moved. Two left edges say
+     something only while there is something on both of them.
+
+     `stacked` is what the flag was always testing. At one column a section's
+     name sits ABOVE its entries rather than beside them, and that - not an
+     offset - is what the five tests below actually want to know. */
+  const stacked = g.cols === 1;
+  const x0 = hang ? g.colX(1) : g.left;
   const across = hang ? g.cols - 1 : g.cols;
   const width = g.right - x0;
   let trackW = (width - g.gutter * (across - 1)) / across;
@@ -978,7 +989,7 @@ function cvMetrics(g) {
      the same relation the wide layout has, with the empty band on the other
      side. */
   if (across === 1) trackW = Math.min(trackW, 27 * scale(g.vw).title.size);
-  return { hang, rail, x0, across, trackW };
+  return { hang, stacked, x0, across, trackW };
 }
 
 /* The two roles the one-column record needs, derived rather than added: the
@@ -1029,7 +1040,7 @@ const sectionRole = (S, g) => (g.cols === 1
    layout whose measuring and drawing disagree by four pixels is a layout that
    drifts. Wider where the name is larger, so that the ratio holding it to its
    entries rather than to the rule above it survives the size change. */
-const headGap = (m, u) => u * (m.rail ? 1.8 : 1.4);
+const headGap = (m, u) => u * (m.stacked ? 1.8 : 1.4);
 
 function measureSections(engine, sections, lang, g, S) {
   const u = g.u;
@@ -1056,7 +1067,7 @@ function measureSections(engine, sections, lang, g, S) {
        it, and this is the interval that says how far apart the five sections
        are. It comes out of the entry gaps, not out of the page - see the
        trailing air below. */
-    const topPad = u * (m.hang ? 2.4 : m.rail ? 5 : 4) + (si === 0 ? u * 2.6 : 0);
+    const topPad = u * (m.hang ? 2.4 : m.stacked ? 5 : 4) + (si === 0 ? u * 2.6 : 0);
     const head = engine.run({ ...adapt(sectionRole(S, g), lang), text: sec.section[lang].toUpperCase() });
     const entries = sec.entries.map((e) => {
       const year = e.year || '';
@@ -1075,7 +1086,7 @@ function measureSections(engine, sections, lang, g, S) {
          a run of small text wraps. Two tracks and up nothing changes: those
          measures are set by the column grid and the orgs rarely reach them. */
       const org = e.org && e.org[lang]
-        ? (m.rail ? balance : wrap)(engine, e.org[lang], metaRole, orgW)
+        ? (m.stacked ? balance : wrap)(engine, e.org[lang], metaRole, orgW)
         : [];
       /* Balanced at one column, for the same reason as the organisation above
          and one worse case: greedy, the longest title here sets four full
@@ -1088,7 +1099,7 @@ function measureSections(engine, sections, lang, g, S) {
          of the track rather than filling it. On a phone that is a gain, not a
          loss - ten entries each running the full measure is the slab this
          layout is being taken out of, and a block with a rag has an outline. */
-      const titles = (m.rail ? balance : wrap)(engine, e.title[lang], titleRole, m.trackW);
+      const titles = (m.stacked ? balance : wrap)(engine, e.title[lang], titleRole, m.trackW);
       const metaH = (org.length || year)
         ? u * 1.4 + metaProbe.ascent + (Math.max(org.length, 1) - 1) * metaLead + metaProbe.descent
         : 0;
@@ -1227,21 +1238,20 @@ function block(scene, blk, lang, g, y0, measured, labels) {
        around it moves - the two states are the same box. */
     if (blk.pieces && blk.pieces.length) {
       threshold(scene, blk, lang, g, y, S, u);
-      /* TWO LEFT EDGES, at one column.
+      /* ONE LEFT EDGE at one column, and one only.
 
-         The voice holds the frame - the masthead, About, the foot - and the
-         RECORD hangs off a rail one indent in. That rail is the same u*4 the
-         CV already sets at one column, and it is the desktop's empty first
-         track compressed: labels and sentences at 24, everything that is an
-         entry at 56. Which edge a thing takes is its rank, so the page keeps
-         the grid's argument after the grid itself is gone.
+         This band was briefly indented past a rail, on the argument that the
+         page could keep the desktop's two edges after the columns went: names
+         at the frame, entries one indent in. It could not. The rail was the
+         index digits' column, the digits went with them, and what was left
+         was an offset holding nothing - which does not read as rank, it reads
+         as a margin that moved. An indent has to be indented PAST something.
 
-         What the rail does NOT hold any more is numbers. The CV was indexed
-         01-10 down the page, and carried into a band of two written pieces it
-         made them list items - which is the one thing they were taken out of
-         the CV to stop being. The indent survives the digits because the
-         indent was never what the digits were for. */
-      const px = m.hang ? m.x0 : m.x0;
+         So the frame carries everything and the distinctions are made where
+         they were already being made: the band label is tracked capitals on a
+         rule, the kind of piece is tracked capitals under one, and the title
+         is a serif. Three voices, no geometry. */
+      const px = m.x0;
       const wide = m.hang ? m.trackW * 2 + g.gutter : g.right - px;
       const descW = m.hang ? Math.min(wide, 30 * S.prose.size) : wide;
       const proseRole = adapt(S.prose, lang);
@@ -1391,14 +1401,14 @@ function block(scene, blk, lang, g, y0, measured, labels) {
     let top = y + sec.topPad;
 
     const headSeal = scene.seal(`${k}.${si}.head`, top, 0);
-    /* At one column the name keeps the MARGIN while its entries move in past
-       the rail, which is the hanging arrangement again: the name is the only
-       thing in the band that reaches the frame, so it hangs off the left of
-       the material it names instead of sitting on top of it. It overruns the
-       rail - BACKGROUND is four rail-widths long - and that is what a hanging
-       head does; what matters is where it starts. */
+    /* Stacked at one column, hanging above three: the name sits on top of the
+       material it names rather than beside it, because there is no column
+       beside it to sit in. It takes the frame, like everything else here, and
+       what separates it from the titles underneath is that it is tracked
+       capitals a size up in the primary ink where they are a serif - see
+       sectionRole. */
     scene.text(`${k}.${si}.head`, sec.sec.section[lang], sectionRole(S, g), g.left, top + sec.head.ascent,
-      m.rail ? INK : INK_3, { seal: headSeal });
+      m.stacked ? INK : INK_3, { seal: headSeal });
     /* The name binds DOWN, to the entries it names.
 
        It was given the same air above and below - nineteen pixels and twenty-
