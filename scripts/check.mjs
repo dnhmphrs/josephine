@@ -234,8 +234,14 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
   await p.evaluate(()=>document.activeElement && document.activeElement.blur());
   const order=[];
   for (let i=0;i<8;i++){ await p.keyboard.press('Tab'); const id=await p.evaluate(()=>document.activeElement&&document.activeElement.dataset?document.activeElement.dataset.id:null); if(id&&!order.includes(id)) order.push(id); }
-  const want=['lang:toggle','mail','linkedin'];
-  const rotated=order.length===3 && want.some((_,k)=>JSON.stringify(order)===JSON.stringify(want.slice(k).concat(want.slice(0,k))));
+  /* Read the expected sequence off the hit layer itself rather than naming it
+     here. The point of the assertion is that tabbing follows the DOM, and the
+     DOM follows the scene; hard-coding three ids meant that adding a fourth
+     control - the studio credit in the colophon - failed a test about ORDER
+     for a reason that had nothing to do with order. A url on either written
+     piece adds two more, and this still holds. */
+  const want=await p.$$eval('#scroll .hit, #fixed .hit', els=>els.map(e=>e.dataset.id));
+  const rotated=order.length===want.length && want.some((_,k)=>JSON.stringify(order)===JSON.stringify(want.slice(k).concat(want.slice(0,k))));
   ok('tab order is reading order', rotated, JSON.stringify(order));
   /* The hit layer carries no text of its own - no labels, no accessible
      names. That is the cost of the zero-text decision and it is asserted here
