@@ -178,7 +178,7 @@ function scale(vw) {
        the one role whose size barely moves across the range, because a
        standing head is not a proportion of the measure, it is a fixed small
        thing sitting on the frame. */
-    slug: { family: SANS, size: f(13, 15), lh: 1.2, weight: 600, tracking: f(0.20, 0.235), upper: true, zh: { k: 0.94, floor: 15, dw: -100, track: 0.14 } },
+    slug: { family: SANS, size: f(11, 15), lh: 1.2, weight: 600, tracking: f(0.20, 0.235), upper: true, zh: { k: 0.94, floor: 15, dw: -100, track: 0.14 } },
     /* The sentence under the rules, and the only large thing on the page. The
        size here is a CEILING, not a setting: fitLines() solves the real one
        against the measure, and this is only where the walk starts. 64 is what
@@ -187,7 +187,7 @@ function scale(vw) {
        The serif, because the sentence is spoken rather than labelled, and
        because the grotesque is already carrying the frame - the slug, the
        dateline, every tracked capital. Nothing is set in both. */
-    display: { family: SERIF, size: f(30, 64), lh: 1.18, weight: 400, tracking: -0.004, zh: { k: 1 } },
+    display: { family: SERIF, size: f(32, 64), lh: 1.18, weight: 400, tracking: -0.004, zh: { k: 1 } },
     /* The dateline, and the availability line opposite it. Smaller and tighter
        than the rest of the tracked capitals: at 12px on +0.15em these read as
        a caption stretched to fill a width, and a caption that has been let out
@@ -788,17 +788,34 @@ function head(scene, content, lang, g) {
   y += u * 2;
   const dlBase = Math.round(y + runs[0].ascent);
   const credSeal = scene.seal('head.cred', y, 0);
-  let x = g.left;
+  /* Packed into as many lines as it needs, which is one at every width from
+     about 360 up and two below it. At 320 the three segments and their two
+     hairlines measure 293px against a 272px frame, and a dateline that runs
+     off the side of the smallest screen there is is not a dateline. */
+  const dlRows = [[]];
+  let used = 0;
   runs.forEach((r, i) => {
-    if (i) {
-      /* The same hairline the toggle is built from, drawn to the ink height of
-         the capitals rather than to the leading. One device used twice is a
-         page with a vocabulary; two devices are a page with a habit. */
-      scene.rect(`index.cred.${i}`, Math.round(x + sep), Math.round(dlBase - barH), 1, barH, RULE, 0.3);
-      x += sep * 2 + 1;
-    }
-    scene.place(creds[i].key, r, x, dlBase, creds[i].color, { seal: credSeal });
-    x += r.width;
+    const first = dlRows[dlRows.length - 1].length === 0;
+    const add = r.width + (first ? 0 : sep * 2 + 1);
+    if (!first && used + add > g.contentW) { dlRows.push([]); used = r.width; } else { used += add; }
+    dlRows[dlRows.length - 1].push(i);
+  });
+  let dlBottom = dlBase;
+  dlRows.forEach((row, ri) => {
+    const by = dlBase + ri * lead(S.role);
+    dlBottom = by;
+    let x = g.left;
+    row.forEach((i, kk) => {
+      if (kk) {
+        /* The same hairline the toggle is built from, drawn to the ink height
+           of the capitals rather than to the leading. One device used twice is
+           a page with a vocabulary; two devices are a page with a habit. */
+        scene.rect(`index.cred.${ri}.${kk}`, Math.round(x + sep), Math.round(by - barH), 1, barH, RULE, 0.3);
+        x += sep * 2 + 1;
+      }
+      scene.place(creds[i].key, runs[i], x, by, creds[i].color, { seal: credSeal });
+      x += runs[i].width;
+    });
   });
 
   /* Opposite, while there is room for it opposite. Below about 780 the two
@@ -808,15 +825,23 @@ function head(scene, content, lang, g) {
      edge lands wherever the string happens to end and the head finishes on a
      step nobody chose. The right edge is only meaningful while the dateline is
      holding the left edge of the same line. */
+  /* THE AVAILABILITY IS NOT IN THE PHONE'S HEAD.
+
+     Opposite the dateline it is one line and the head is a band. At one column
+     there is nothing to be opposite, so it drops underneath and breaks - and
+     her full wording is seventy characters, so the head opens with four rows
+     of tracked capitals before a single word is said. Four rows of label is
+     not a masthead, it is a form.
+
+     So below two columns it leaves, and comes back above the address in the
+     foot, which is where an offer belongs and where it finally has a measure
+     wide enough to hold it. See footer(). */
+  const avInHead = g.cols > 1;
   const avInline = leftW + g.gutter + availRun.width <= g.contentW;
-  /* Dropped, it also has to BREAK. Her full wording is seventy characters and
-     a phone measure is 342px: set as one run it left the frame by 123px and
-     ran off the side of the page. It only fits on one line while it is sitting
-     opposite the dateline, which is the same condition that puts it there. */
   const avRole = adapt(S.role, lang);
   const avText = S.role.upper ? c.available[lang].toUpperCase() : c.available[lang];
-  const avLines = avInline ? [avText] : wrap(scene.engine, avText, avRole, g.contentW);
-  const avBase = avInline ? dlBase : Math.round(dlBase + lead(S.role) + u * 1.4);
+  const avLines = !avInHead ? [] : avInline ? [avText] : wrap(scene.engine, avText, avRole, g.contentW);
+  const avBase = avInline ? dlBase : Math.round(dlBottom + lead(S.role) + u * 1.4);
   const avSeal = avInline ? credSeal : scene.seal('head.avail', avBase, 90);
   avLines.forEach((t, i) => {
     const r = scene.prepare(t, S.role);
@@ -824,9 +849,9 @@ function head(scene, content, lang, g) {
       avInline ? g.right - r.width : g.left, avBase + i * lead(S.role), INK_3,
       { seal: avSeal, edge: true });
   });
-  const avBottom = avBase + (avLines.length - 1) * lead(S.role);
+  const avBottom = avLines.length ? avBase + (avLines.length - 1) * lead(S.role) : dlBottom;
 
-  y = Math.round(avBottom + Math.max(availRun.inkDescent, runs[0].inkDescent) + u * 2);
+  y = Math.round(avBottom + runs[0].inkDescent + u * 2);
   scene.rect('head.rule.1', g.left, y, g.contentW, 1, RULE, HAIRLINE);
 
   /* The sentence. Everything above is the masthead; this is the page saying
@@ -839,7 +864,7 @@ function head(scene, content, lang, g) {
      equal. Filled first line, ragged second: a masthead, not a pull quote. */
   const dispRole = adapt({ ...S.display, lh: lang === 'zh' ? 1.28 : S.display.lh }, lang);
   const dispSize = fitLines(scene.engine, c.statement[lang], dispRole, g.contentW,
-    g.cols === 1 ? 4 : 2, S.display.size);
+    g.cols === 1 ? 6 : 2, S.display.size);
   const disp = { ...dispRole, size: dispSize };
   const dispLead = Math.round(dispSize * disp.lh);
   const dispProbe = scene.engine.run({ ...disp, text: 'H' });
@@ -998,7 +1023,6 @@ function cvMetrics(g) {
 const sectionRole = (S, g) => (g.cols === 1
   ? { ...S.section, size: S.section.size * 1.45, tracking: 0.115, zh: { ...S.section.zh, k: 1.12 } }
   : S.section);
-const indexRole = (S) => ({ ...S.section, tracking: 0.1 });
 
 /* The gap between a stacked section name and the first entry under it. In one
    place because measureSections reserves it and block() steps over it, and a
@@ -1126,9 +1150,6 @@ function block(scene, blk, lang, g, y0, measured, labels) {
   const m = cvMetrics(g);
   const k = blk.key;
   let y = y0;
-  /* The index runs through the block, not through the section. See the rail
-     comment above cvMetrics. */
-  let n = 0;
 
   /* No sections: either the block carries prose, or it is a placeholder. */
   if (!measured.length) {
@@ -1206,9 +1227,23 @@ function block(scene, blk, lang, g, y0, measured, labels) {
        around it moves - the two states are the same box. */
     if (blk.pieces && blk.pieces.length) {
       threshold(scene, blk, lang, g, y, S, u);
-      const px = m.hang ? m.x0 : g.left;
-      const wide = m.hang ? m.trackW * 2 + g.gutter : g.contentW;
-      const descW = Math.min(m.hang ? m.trackW * 2 + g.gutter : g.contentW, 30 * S.prose.size);
+      /* TWO LEFT EDGES, at one column.
+
+         The voice holds the frame - the masthead, About, the foot - and the
+         RECORD hangs off a rail one indent in. That rail is the same u*4 the
+         CV already sets at one column, and it is the desktop's empty first
+         track compressed: labels and sentences at 24, everything that is an
+         entry at 56. Which edge a thing takes is its rank, so the page keeps
+         the grid's argument after the grid itself is gone.
+
+         What the rail does NOT hold any more is numbers. The CV was indexed
+         01-10 down the page, and carried into a band of two written pieces it
+         made them list items - which is the one thing they were taken out of
+         the CV to stop being. The indent survives the digits because the
+         indent was never what the digits were for. */
+      const px = m.hang ? m.x0 : m.x0;
+      const wide = m.hang ? m.trackW * 2 + g.gutter : g.right - px;
+      const descW = m.hang ? Math.min(wide, 30 * S.prose.size) : wide;
       const proseRole = adapt(S.prose, lang);
       const titleRole = adapt(S.title, lang);
       const titleLead = Math.round(S.title.size * S.title.lh);
@@ -1226,62 +1261,51 @@ function block(scene, blk, lang, g, y0, measured, labels) {
       y += u * 4.5;
       blk.pieces.forEach((p, pi) => {
         const seal = scene.seal(`${k}.${pi}`, y, pi * 70);
-        if (pi) y += u * 5;
+        if (pi) y += u * (m.hang ? 5 : 6.5);
 
-        /* The kind of piece, in the rail. Not a label for the title - it is
-           the title's own first fact, and it sits where every section name on
-           the page sits. */
         const typeRun = scene.prepare(p.type[lang], S.role);
-        /* The year sits at the end of the title's first line, so the title is
-           measured against what is LEFT of the row rather than against the
-           whole of it. Reserved across every line, not only the first: a title
-           that ran full width underneath a date it had ducked around on line
-           one would be a shape nobody chose. */
         const yearRun = scene.prepare(p.year || labels.year[lang], p.year ? S.year : S.role);
+        const drawYear = (baseline) => {
+          if (p.year) {
+            scene.place(`${k}.${pi}.year`, yearRun, px + wide, baseline, INK_3, { align: 'right', seal });
+            return;
+          }
+          scene.rect(`${k}.${pi}.year.mark`, Math.round(px + wide - mark), Math.round(baseline - mark),
+            mark, mark, INK_3, HAIRLINE * 4, { stroke: 1 });
+          scene.place(`${k}.${pi}.year`, yearRun,
+            Math.round(px + wide - mark - slotGap * 0.6), baseline, INK_3, { align: 'right' });
+        };
+
+        /* Wide, the year sits at the end of the title's first line and the
+           title is measured against what is left of the row. Narrow, there is
+           nothing left of the row: the title takes the whole measure and the
+           year takes a line of its own above it, which is also where a date
+           belongs when it is the first fact rather than a hanging one. */
         const yearW = yearRun.width + (p.year ? 0 : mark + slotGap * 0.6) + g.gutter;
+        let ty;
+        if (m.hang) {
+          ty = y + titleProbe.ascent;
+          scene.place(`${k}.${pi}.type`, typeRun, g.left, ty, INK_3, { seal });
+          drawYear(ty);
+        } else {
+          const yy = y + yearRun.ascent;
+          drawYear(yy);
+          ty = yy + yearRun.descent + u * 1.8 + titleProbe.ascent;
+        }
+
         /* Balanced, not greedy. These titles are two lines of sentence, and a
            greedy break leaves the second one a single word: the briefing sets
-           as ninety characters and then "Change". The masthead wants its
-           first line full and gets wrap(); a title wants two lines that look
-           like a pair. */
-        const titles = balance(scene.engine, p.title[lang], titleRole, wide - yearW);
-        let ty = y + titleProbe.ascent;
-        scene.place(`${k}.${pi}.type`, typeRun, g.left,
-          m.hang ? ty : ty - titleProbe.ascent - u * 0.4 + typeRun.ascent, INK_3, { seal });
-        if (!m.hang) ty += typeRun.lineHeight + u * 1.2;
-
+           as ninety characters and then "Change". The masthead wants its first
+           line full and gets wrap(); a title wants lines that look like a set. */
+        const titles = balance(scene.engine, p.title[lang], titleRole, m.hang ? wide - yearW : wide);
         titles.forEach((t, i) => {
           scene.text(`${k}.${pi}.title.${i}`, t, S.title, px, ty + i * titleLead, INK, { seal });
         });
-
-        /* The year, on the title's first line at the far end of it - the same
-           edge the CV hangs its years on, so the two bands agree about where a
-           date lives. Neither piece has one yet, so what stands there is the
-           word and the hollow square: the fact is expected, and saying so is
-           more honest than a gap that looks like a decision. Supply the year
-           and the word and the square both go, leaving a date exactly where
-           the CV puts one. */
-        const yearRight = px + wide;
-        if (p.year) {
-          scene.place(`${k}.${pi}.year`, yearRun, yearRight, ty, INK_3, { align: 'right', seal });
-        } else {
-          scene.rect(`${k}.${pi}.year.mark`,
-            Math.round(yearRight - mark), Math.round(ty - mark), mark, mark, INK_3, HAIRLINE * 4,
-            { stroke: 1 });
-          scene.place(`${k}.${pi}.year`, yearRun,
-            Math.round(yearRight - mark - slotGap * 0.6), ty, INK_3, { align: 'right' });
-        }
-
         y = ty + (titles.length - 1) * titleLead;
 
-        /* Her abstract, at the reading measure. Set across both tracks it
-           would run past a hundred characters, which nobody reads; taken down
-           to a single track it went to eleven lines against an empty track
-           beside it. Thirty ems
-           is the reading measure - the same thirty ems the rest of the site
-           sets prose at - which is about seventy characters and leaves the
-           trim end of the row to the slot, so the thing you press has somewhere
-           to sit rather than floating under the last line. */
+        /* Her abstract. Wide, the reading measure leaves the trim end of the
+           row to the slot; narrow, the measure IS the row and the slot goes
+           under it. */
         const desc = wrap(scene.engine, p.description[lang], proseRole, descW);
         y += u * 2 + proseProbe.ascent;
         let lastLine = null;
@@ -1291,32 +1315,43 @@ function block(scene, blk, lang, g, y0, measured, labels) {
         });
         const descBottom = y + (desc.length - 1) * proseLead + proseProbe.descent;
 
-        /* The slot. Filled when there is somewhere to go, outlined when there
-           is not, and the same rectangle either way - so supplying a url
-           changes the fill and moves nothing. Bottom-aligned to the last line
-           of the abstract, which is the only edge in the row it could honestly
-           share. */
         const has = !!p.url;
         const slotRun = scene.prepare(has ? labels.read[lang] : labels.awaiting[lang], S.role);
         const slotInk = Math.round(slotRun.inkAscent || slotRun.capHeight);
         const slotH = slotInk + slotPadY * 2;
         const slotW = slotPadX * 2 + slotRun.width + slotGap + mark;
-        /* Beside the last line where there is room beside it, underneath where
-           there is not. On a phone the abstract runs the whole measure, so a
-           slot hung at the trim lands on top of the words it belongs to - and
-           a control printed over a sentence is worse than one that has moved.
-           Under it, flush left, it is the same object one line lower. */
-        const room = g.right - slotW - g.gutter * 0.5 >= px + (lastLine ? lastLine.width : 0);
-        const slotX = Math.round(room ? g.right - slotW : px);
-        const slotTop = Math.round(room ? descBottom - slotH : descBottom + u * 1.8);
+
+        let slotX;
+        let slotTop;
+        if (m.hang) {
+          /* Beside the last line where there is room beside it, underneath
+             where there is not. A control printed over a sentence is worse
+             than one that has moved. */
+          const room = g.right - slotW - g.gutter * 0.5 >= px + (lastLine ? lastLine.width : 0);
+          slotX = Math.round(room ? g.right - slotW : px);
+          slotTop = Math.round(room ? descBottom - slotH : descBottom + u * 1.8);
+        } else {
+          /* THE PIECE IS CLOSED, not trailed off. Twelve grey lines ending
+             wherever the words happen to stop, then a small box, read as an
+             abstract that had run out rather than as an entry that had
+             finished. A hairline across the measure ends it, and the two marks
+             that belong to the whole piece rather than to its prose - what KIND
+             of thing it is, and where to read it - sit on the line under that
+             rule facing each other. It is the CV's own row, one band up. */
+          scene.rect(`${k}.${pi}.rule`, px, Math.round(descBottom + u * 2.4),
+            Math.round(g.right - px), 1, RULE, HAIRLINE);
+          slotTop = Math.round(descBottom + u * 2.4 + u * 1.6);
+          slotX = Math.round(g.right - slotW);
+          scene.place(`${k}.${pi}.type`, typeRun, px,
+            slotTop + slotPadY + slotInk, INK_3, { seal });
+        }
         const slotBase = slotTop + slotPadY + slotInk;
         scene.rect(`${k}.${pi}.slot`, slotX, slotTop, slotW, slotH,
           has ? INK : RULE, has ? 1 : HAIRLINE * 1.6, { stroke: has ? 0 : 1 });
         /* Unsealed, like the rules and the box it sits in. A seal is a group,
-           and this object's group is the RECTANGLE - which is a rect and
-           cannot carry one - so sealing only the word inside it showed an
-           empty outlined box for the length of the reveal. Structure arrives
-           with structure; the reveal is for the reading matter. */
+           and this object's group is the RECTANGLE - which is a rect and cannot
+           carry one - so sealing only the word inside it showed an empty
+           outlined box for the length of the reveal. */
         scene.place(`${k}.${pi}.slot.label`, slotRun, slotX + slotPadX, slotBase,
           has ? PAPER : INK_3);
         scene.rect(`${k}.${pi}.slot.mark`,
@@ -1404,10 +1439,6 @@ function block(scene, blk, lang, g, y0, measured, labels) {
 
          It is drawn before the title, so the rail comes first in the item
          list and reads as the column it is. */
-      if (m.rail) {
-        scene.text(`${k}.${si}.${ei}.index`, String(++n).padStart(2, '0'), indexRole(S),
-          g.left, ey, INK_3, { seal });
-      }
       en.titles.forEach((t, j) => {
         scene.text(`${k}.${si}.${ei}.title.${j}`, t, S.title, x, ey + j * sec.titleLead, INK, { seal });
       });
@@ -1437,6 +1468,23 @@ function block(scene, blk, lang, g, y0, measured, labels) {
              its year is not empty any more; it is the width of the record. */
           scene.text(`${k}.${si}.${ei}.year`, en.year, S.year,
             x + m.trackW, ey, INK_3, { align: 'right', seal });
+        } else {
+          /* AND THE HOLLOW ONE WHERE THERE IS NO YEAR YET.
+
+             One entry has none - the NPT Conference, whose date she still has
+             to supply - and it was drawing nothing, so the row read as an
+             entry that did not have a date rather than one whose date has not
+             arrived. The Writing band one block up already says the difference
+             with this mark, and content.json's own note promises it, so the
+             two bands were disagreeing about the same fact.
+
+             Sized and placed exactly as the year it stands in for: same right
+             edge, same ink, and the filled square's own dimensions - it is the
+             glyph an open-ended year ends with, drawn open. */
+          const mark = Math.max(6, Math.round(S.year.size * 0.62));
+          scene.rect(`${k}.${si}.${ei}.year.mark`,
+            Math.round(x + m.trackW - mark), Math.round(ey - mark), mark, mark,
+            INK_3, HAIRLINE * 4, { stroke: 1 });
         }
       }
     });
@@ -1491,7 +1539,39 @@ function footer(scene, content, lang, g, y0) {
   const m = cvMetrics(g);
   const mailRun = scene.prepare(c.contact.email, S.link);
   const liRun = scene.prepare(c.contact.linkedin.label, S.link);
-  const y = y0 + u * 3.2 + mailRun.ascent;
+
+  /* THE AVAILABILITY, WHERE THE PHONE PUTS IT.
+
+     It lives opposite the dateline from two columns up, because there it is
+     one line and the head closes as a band. At one column there is nothing to
+     be opposite: it drops under the dateline, breaks across two lines, and the
+     page opens with four rows of tracked capitals before a word is said - a
+     form, not a masthead. So below two columns it comes here instead.
+
+     This is the better address for it anyway, and the argument is older than
+     the phone: what she is open to is an OFFER, and an offer belongs beside
+     the way to answer it rather than in the masthead. It went to the head
+     originally only because the foot at the time was one unlabelled rule with
+     an email under it and nothing there could hold it. The foot has a name
+     now. Set at a 1.75 leading rather than the dateline's 1.2 - two rows of
+     capitals set solid weld into a grey block, and this is the one place they
+     are read as a sentence rather than scanned as a label. */
+  let top = y0 + u * 3.2;
+  if (g.cols === 1) {
+    const avRole = adapt(S.role, lang);
+    const avText = S.role.upper ? c.available[lang].toUpperCase() : c.available[lang];
+    const avLines = wrap(scene.engine, avText, avRole, g.contentW);
+    const avLead = Math.round(S.role.size * 1.75);
+    const probe = scene.engine.run({ ...avRole, text: 'H' });
+    const avSeal = scene.seal('foot.avail', top, 0);
+    top += probe.ascent;
+    avLines.forEach((t, i) => {
+      scene.text(i ? `index.available.${i}` : 'index.available', t, S.role,
+        g.left, top + i * avLead, INK_3, { seal: avSeal });
+    });
+    top += (avLines.length - 1) * avLead + probe.descent + u * 4;
+  }
+  const y = top + mailRun.ascent;
   /* Stacked, the two links were set 1.15 of a line apart - which is to within
      half a pixel the distance a CV entry puts between its title and the
      organisation under it. So the last line of the page read as one more
