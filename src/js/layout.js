@@ -1540,29 +1540,31 @@ function footer(scene, content, lang, g, y0) {
      The years are inline now, the rail is empty for the length of the page,
      and the mark at the foot of it is the only thing that ever holds that
      edge. Which is what it was for. */
-  const end = scene.prepare(content.labels.end, S.year);
-  scene.place('foot.end', end, g.right - end.width, liY, INK_3, { seal });
 
-  /* The colophon: where and when, and who built it. Below a lighter rule than
-     any other on the page, because it is not a division inside the document -
-     it is what comes after the document, and a hairline at full strength there
-     would read as a fifth section about to start.
+  /* The colophon: where and when, and the mark that closes the document.
+     Below a lighter rule than any other on the page, because it is not a
+     division inside the document - it is what comes after it, and a hairline
+     at full strength there would read as a fifth section about to start.
 
-     It is the only place either edge of the page carries something that is not
-     hers, which is the right weight for a studio credit: present, at the very
-     bottom, in the dateline's own capitals and no darker than the address
-     above it. */
+     THE MARK MOVED DOWN HERE, and did not gain a twin. It used to sit on the
+     address line, back when the address line was the last thing on the page;
+     once a colophon was set under it the mark was closing a document that had
+     two more rows to run. A printer's mark does one thing - it says there is
+     nothing after this - and it can only say it from the end. Two of them on
+     one margin, three rows apart, would say it twice and mean it neither
+     time.
+
+     It is the same run the years above it are set in - the glyph an
+     open-ended year is closed with - so nothing here is a new shape. Both
+     edges of the last line are hers now: where she is on the left, the end of
+     the document on the right. */
   let fy = Math.max(y, liY) + mailRun.descent + u * 7;
   scene.rect('foot.colophon.rule', g.left, Math.round(fy), g.contentW, 1, RULE, HAIRLINE * 0.7);
   const place = scene.prepare(c.place[lang], S.role);
-  const studio = scene.prepare(c.studio.label, S.role);
+  const end = scene.prepare(content.labels.end, S.year);
   fy = Math.round(fy + u * 2 + place.ascent);
   scene.place('foot.place', place, g.left, fy, INK_3, { seal });
-  scene.place('foot.studio', studio, g.right - studio.width, fy, INK_3, { seal });
-  scene.rect('foot.studio.rule', Math.round(g.right - studio.width), Math.round(fy + 3),
-    Math.round(studio.width), 1, RULE, HAIRLINE);
-  scene.hit('studio', studio, g.right - studio.width, fy,
-    { key: 'foot.studio', go: c.studio.url, external: true });
+  scene.place('foot.end', end, g.right - end.width, fy, INK_3, { seal });
   return fy + place.descent;
 }
 
@@ -1651,7 +1653,7 @@ export function fontSpecs(content, vw, lang) {
   const strings = [
     content.index.name[lang], content.index.role[lang], content.index.statement[lang],
     ...content.index.context.map((v) => v[lang]),
-    content.index.available[lang], content.index.place[lang], content.index.studio.label,
+    content.index.available[lang], content.index.place[lang],
     content.index.contact.label[lang],
     ...content.blocks.map((b) => b.label[lang]
       + (b.prose || []).map((para) => para[lang]).join('')
