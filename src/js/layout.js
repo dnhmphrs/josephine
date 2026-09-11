@@ -809,13 +809,24 @@ function head(scene, content, lang, g) {
      step nobody chose. The right edge is only meaningful while the dateline is
      holding the left edge of the same line. */
   const avInline = leftW + g.gutter + availRun.width <= g.contentW;
+  /* Dropped, it also has to BREAK. Her full wording is seventy characters and
+     a phone measure is 342px: set as one run it left the frame by 123px and
+     ran off the side of the page. It only fits on one line while it is sitting
+     opposite the dateline, which is the same condition that puts it there. */
+  const avRole = adapt(S.role, lang);
+  const avText = S.role.upper ? c.available[lang].toUpperCase() : c.available[lang];
+  const avLines = avInline ? [avText] : wrap(scene.engine, avText, avRole, g.contentW);
   const avBase = avInline ? dlBase : Math.round(dlBase + lead(S.role) + u * 1.4);
   const avSeal = avInline ? credSeal : scene.seal('head.avail', avBase, 90);
-  scene.place('index.available', availRun,
-    avInline ? g.right - availRun.width : g.left, avBase, INK_3,
-    { seal: avSeal, edge: true });
+  avLines.forEach((t, i) => {
+    const r = scene.prepare(t, S.role);
+    scene.place(i ? `index.available.${i}` : 'index.available', r,
+      avInline ? g.right - r.width : g.left, avBase + i * lead(S.role), INK_3,
+      { seal: avSeal, edge: true });
+  });
+  const avBottom = avBase + (avLines.length - 1) * lead(S.role);
 
-  y = Math.round(avBase + Math.max(availRun.inkDescent, runs[0].inkDescent) + u * 2);
+  y = Math.round(avBottom + Math.max(availRun.inkDescent, runs[0].inkDescent) + u * 2);
   scene.rect('head.rule.1', g.left, y, g.contentW, 1, RULE, HAIRLINE);
 
   /* The sentence. Everything above is the masthead; this is the page saying
@@ -852,7 +863,7 @@ function head(scene, content, lang, g) {
   scene.edge = nav.pinned ? {
     x0: Math.round(g.right - nav.width - g.gutter * 0.5),
     clear: Math.round(top),
-    full: Math.round(avBase + availRun.inkDescent + 2),
+    full: Math.round(avBottom + availRun.inkDescent + 2),
   } : null;
 
   return y;
@@ -1273,8 +1284,10 @@ function block(scene, blk, lang, g, y0, measured, labels) {
            to sit rather than floating under the last line. */
         const desc = wrap(scene.engine, p.description[lang], proseRole, descW);
         y += u * 2 + proseProbe.ascent;
+        let lastLine = null;
         desc.forEach((t, i) => {
-          scene.text(`${k}.${pi}.desc.${i}`, t, S.prose, px, y + i * proseLead, INK_2, { seal });
+          const r = scene.text(`${k}.${pi}.desc.${i}`, t, S.prose, px, y + i * proseLead, INK_2, { seal });
+          if (i === desc.length - 1) lastLine = r;
         });
         const descBottom = y + (desc.length - 1) * proseLead + proseProbe.descent;
 
@@ -1288,8 +1301,14 @@ function block(scene, blk, lang, g, y0, measured, labels) {
         const slotInk = Math.round(slotRun.inkAscent || slotRun.capHeight);
         const slotH = slotInk + slotPadY * 2;
         const slotW = slotPadX * 2 + slotRun.width + slotGap + mark;
-        const slotX = Math.round(g.right - slotW);
-        const slotTop = Math.round(descBottom - slotH);
+        /* Beside the last line where there is room beside it, underneath where
+           there is not. On a phone the abstract runs the whole measure, so a
+           slot hung at the trim lands on top of the words it belongs to - and
+           a control printed over a sentence is worse than one that has moved.
+           Under it, flush left, it is the same object one line lower. */
+        const room = g.right - slotW - g.gutter * 0.5 >= px + (lastLine ? lastLine.width : 0);
+        const slotX = Math.round(room ? g.right - slotW : px);
+        const slotTop = Math.round(room ? descBottom - slotH : descBottom + u * 1.8);
         const slotBase = slotTop + slotPadY + slotInk;
         scene.rect(`${k}.${pi}.slot`, slotX, slotTop, slotW, slotH,
           has ? INK : RULE, has ? 1 : HAIRLINE * 1.6, { stroke: has ? 0 : 1 });
