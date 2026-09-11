@@ -171,6 +171,23 @@ function scale(vw) {
      px, and a weight step. See adapt(). */
   return {
     name: { family: SANS, size: f(32, 54), lh: 1.05, weight: 500, tracking: f(-0.018, -0.028), zh: { k: 0.94, dw: -100, track: 0.02 } },
+    /* The name, now that it is a masthead slug rather than the display. The
+       widest tracking on the page by some way: at 15px a name has to read as a
+       STANDING HEAD - the thing at the top of every page of a publication -
+       and letting it out is what separates that from a small heading. It is
+       the one role whose size barely moves across the range, because a
+       standing head is not a proportion of the measure, it is a fixed small
+       thing sitting on the frame. */
+    slug: { family: SANS, size: f(13, 15), lh: 1.2, weight: 600, tracking: f(0.20, 0.235), upper: true, zh: { k: 0.94, floor: 15, dw: -100, track: 0.14 } },
+    /* The sentence under the rules, and the only large thing on the page. The
+       size here is a CEILING, not a setting: fitLines() solves the real one
+       against the measure, and this is only where the walk starts. 64 is what
+       the head set before the sentence took over from the name, which makes it
+       the largest size anyone has looked at on this page and a safe roof.
+       The serif, because the sentence is spoken rather than labelled, and
+       because the grotesque is already carrying the frame - the slug, the
+       dateline, every tracked capital. Nothing is set in both. */
+    display: { family: SERIF, size: f(30, 64), lh: 1.18, weight: 400, tracking: -0.004, zh: { k: 1 } },
     /* The dateline, and the availability line opposite it. Smaller and tighter
        than the rest of the tracked capitals: at 12px on +0.15em these read as
        a caption stretched to fill a width, and a caption that has been let out
@@ -650,558 +667,194 @@ function planToggle(scene, content, lang, g) {
 }
 
 /* ---- the head -------------------------------------------------------------
-   Name, one credential line, one sentence. Three things, at the top of the
-   page, and then a great deal of nothing.
+   A name, a dateline, and the sentence the page is about. Two rules between
+   them, and nothing else.
 
-   What was here before was a SPEC SHEET: four labelled fields - BASED,
-   LANGUAGES, CURRENTLY, AVAILABLE FOR - ruled across the measure under the
-   sentence. That is the format of an application, not of a page by someone who
-   already holds the position, and no amount of spacing fixes it, because the
-   form itself is what speaks. A grid of labelled cells says: here are my
-   particulars, assess them.
+   What was here before made the NAME the display element: set to the measure,
+   as large as it would go, with a dateline fitted to its width underneath.
+   That is right on a phone, where "Josephine Shen" measures 343px in a 342px
+   measure and fills it exactly. It cannot be right at 1440. The name is capped
+   at 58px there and covers a quarter of the frame, so the head opened with
+   three short lines pinned left, one small line pinned right, and six hundred
+   pixels of nothing between them - and everything below inherited it, because
+   a head that does not reach the frame gives the page no width to answer to.
 
-   So the four facts are reduced to the two that are load-bearing and folded
-   into ONE line under the name, without labels, next to the role:
+   The fix is not a larger name. A name cannot span in both languages:
+   "Josephine Shen" is fourteen characters and 沈菲菲 is three, so fitting each
+   to the same measure sets the Chinese at twice the English size and the two
+   languages stop being one design. Only a SENTENCE carries enough material to
+   reach the frame in both scripts - 130 Latin characters or 40 Han - and it
+   reaches it by re-wrapping rather than by growing.
 
-       AI POLICY RESEARCHER | BERLIN | ENGLISH, 中文
+   So the two swap jobs. The name becomes what a masthead's name usually is,
+   small tracked capitals on the frame with the control opposite it, and her
+   opening line becomes the display. That sentence was already on the page, one
+   band lower, opening ABOUT; the tagline that used to sit here said the same
+   thing in different words, and one of the two had to go. Read 200px apart
+   they were plainly a restatement.
 
-   Nobody needs to be told that Berlin is where she is BASED; the word in that
-   position is the label. Set inline, it is a dateline - the line under a
-   masthead that says who is writing and from where - which is exactly the
-   register wanted, because a dateline is context and a field is a claim.
-
-   The other two facts leave the head entirely. CURRENTLY was already on the
-   page: "Fellow, AIxist" is the first entry of the CV, with the year attached,
-   forty lines further down and better said there. And AVAILABLE FOR goes to
-   the footer, next to the address - the head now states who she is and the
-   foot states how to reach her, which is the whole difference between a
-   settled researcher and an application.
-
-   The line's first segment is set in the primary ink and the rest in the
-   quiet grey: the role is what she is, the two facts after it are the
-   circumstances. Hierarchy inside one line, at one size.
+   THE DISPLAY SIZE IS SOLVED, NOT CHOSEN. See fitLines below. It lands near
+   49.5px in English and 60px in Chinese, and neither is a value anybody picked
+   - they are what "exactly two lines, the first one full" costs in each
+   script. Which is also why the head survives the language switch: what the
+   two share is the shape, not the size.
    --------------------------------------------------------------------------- */
+
+/* The largest size at which `text` sets in at most `want` lines inside `maxW`.
+
+   Walking down from the ceiling half a pixel at a time would answer it in
+   about ninety wraps; one division answers it to within a few percent, because
+   a run's total advance is very nearly linear in size and the number of lines
+   it needs is that total divided by the measure. So: measure once, estimate,
+   then walk down from just above the estimate until the wrap actually fits.
+
+   The first size that fits is the answer rather than a candidate. Coming down
+   from too-large, the size where the line count drops to `want` is by
+   definition the largest one that sets it that way, which is also the one that
+   leaves line 1 fullest against the trim - the property the head is after. The
+   rag on the last line is then whatever the words happen to leave, which is
+   the right thing to let the words decide. */
+function fitLines(engine, text, role, maxW, want, ceiling) {
+  /* measure() takes a SPEC - a role with its text on it - not a role. Passing
+     the bare role read as a run of `undefined`, which Intl.Segmenter quietly
+     coerces to the string and the fallback path does not: without it the whole
+     page fell back to bare ground. Caught by the check, which is what it is
+     for. */
+  const total = engine.measure({ ...role, size: role.size, text });
+  if (!total) return role.size;
+  /* 0.93 rather than 1: a greedy break leaves each line short by up to a word,
+     so the advance that fills `want` lines is a little under `want` measures.
+     Overshooting is free - the walk comes down - but undershooting would stop
+     above the answer and set the sentence smaller than it needs to be. */
+  let size = clamp(role.size * ((want * maxW * 0.93) / total), 14, ceiling);
+  for (let i = 0; i < 80 && size > 14; i++) {
+    if (wrap(engine, text, { ...role, size }, maxW).length <= want) break;
+    size -= 0.5;
+  }
+  return Math.min(size, ceiling);
+}
+
 function head(scene, content, lang, g) {
   const S = scale(g.vw);
   const c = content.index;
   const u = g.u;
 
   const nav = planToggle(scene, content, lang, g);
-
-  /* ONE COLUMN: THE NAME IS THE PAGE.
-
-     What follows forks, and the fork is the toggle. From two columns up the
-     control is PINNED in a column nothing else uses, so it can share the
-     name's line at the far edge of the measure and the head opens as one band.
-     At one column there is no such column: the switch sits in the flow, at the
-     right margin, on the name's line - and so the name has to be MEASURED
-     AGAINST IT and taken down to fit. On a 390 screen that leaves 248px of a
-     342px measure and sets the name at 32px. The name was small because the
-     switch was standing next to it.
-
-     So on a phone the switch takes its own line above the name, still at the
-     right margin, and the whole measure comes back. What the name can then be
-     is not a value off the scale but a FITTING: as large as the measure
-     allows, one word to a line. That is the difference between a name at the
-     top of a page and a name that IS the top of the page, and it is the one
-     thing the wide layout has that the narrow one had lost.
-
-     Nothing in this branch runs above one column. */
-  const display = g.cols === 1;
-
   const top = Math.max(26, Math.round(g.margin)) + g.safeTop;
 
-  /* The name may not run into the toggle and may not wrap on a phone into
-     something ragged, so it is measured against the space actually left beside
-     the toggle and taken down if it would not fit. No floor: nothing
-     downstream clips, and a name that overflows simply runs off the page.
+  /* The name, with the control opposite it. Both are small now, so they share
+     a baseline - the ordinary thing to do with two marks of similar ink, and
+     exactly the wrong thing when one of them was 54px and the other 11. The
+     box still stands a little proud of the capitals, which is what a control
+     should do and a word should not.
 
-     Only where the two share a line. At one column they no longer do. */
-  const clear = Math.max(g.gutter, u * 4);
-  const avail = g.contentW - nav.width - clear;
+     Placed by INK rather than by the font box, so the capitals touch the top
+     margin instead of floating a quarter of an em below it. */
+  const slugRun = scene.prepare(c.name[lang], S.slug);
+  const slugBase = Math.round(top + (slugRun.inkAscent || slugRun.capHeight));
+  scene.place('index.name', slugRun, g.left, slugBase, INK);
+  nav.draw(slugBase);
 
-  /* DISPLAY SIZE IS A FIT, NOT A SCALE VALUE.
+  let y = Math.round(slugBase + Math.max(slugRun.inkDescent, nav.descent) + u * 2);
+  scene.rect('head.rule.0', g.left, y, g.contentW, 1, RULE, HAIRLINE);
 
-     The name is set to the MEASURE: one line, as large as it can be while
-     ending exactly on the right margin. So do the two lines under it - the
-     dateline and the availability line are both fitted to the same width - and
-     the head therefore opens as three lines that begin and end together. That
-     is the whole of it. A name that merely sits at the top of a page is a
-     heading; three lines sharing both edges are a masthead.
+  /* The dateline, and what she is open to hung off the other end of it.
 
-     It was briefly set over two lines at the largest size the measure allowed,
-     which is a bolder thing and the wrong one here: at 78px "Josephine" and
-     "Shen" are two blocks stacked, and the two rows of tracked capitals
-     beneath them stop being the line that closes a masthead and become the
-     small print under a poster. One line keeps the name in proportion to what
-     it introduces.
+       AI POLICY RESEARCHER · BERLIN, DE · ENGLISH · 中文    AVAILABLE FOR …
 
-     Solvable by correction rather than in one step, for the same reason the
-     dateline is: width is linear in size in principle, but a run is rasterised
-     at whole device pixels, so the real function is a staircase and one
-     division lands several pixels out. Four passes take it inside one, and a
-     half-pixel walk-down guarantees it never overflows - a name that runs off
-     the page is the one failure a masthead cannot survive.
+     Nobody needs to be told that Berlin is where she is BASED; the word in
+     that position is the label. Set inline it is a dateline - the line under a
+     masthead saying who is writing and from where - and a dateline is context
+     where a labelled field is a claim.
 
-     Tracking closes to -0.03 from the scale's -0.018 because it is the size
-     doing the talking: at 50px the scale's value opens the letterfit enough
-     that the name reads as spaced rather than set.
+     The role takes the primary ink and everything after it the quiet grey, so
+     the eye is told what she IS and then given the circumstances. The
+     availability keeps the grey: it is the same register as the rest of the
+     line, at the same size, and making it darker would turn the head's right
+     edge into a second announcement.
 
-     No ceiling inside the one-column band. The rule is "as wide as the
-     measure", and a ceiling would break it at exactly the widths where the
-     measure is widest - a 719px window would get a name that stopped short of
-     the frame for no reason a reader could see. The clamp below is an
-     absurdity guard, not a design value.
-
-     THE FIT IS SOLVED ON THE ENGLISH NAME IN BOTH LANGUAGES, and that is the
-     one place the rule bends. "Josephine Shen" is fourteen characters and 沈菲菲
-     is three, so fitting each to the same measure sets the Chinese at about
-     110px against the English 50 - rendered, it is a poster rather than a
-     masthead, and the Han glyphs, which fill their em box where Latin fills
-     about three-quarters of it, arrive with roughly three times the ink. The
-     two languages would be two different designs.
-
-     So the measure decides ONE size, taken from the longer name, and both
-     languages are set at it. Chinese then stops short of the right margin -
-     three characters cannot reach it and stay a name - and what the two share
-     is their SIZE rather than their width. That is the right invariant: a
-     reader switching languages should see the same page, not the same
-     rectangle. adapt()'s Han correction still steps it back a further 6%,
-     because a character that fills its box does not need the same nominal
-     size to carry the same weight. */
-  const NAME_CAP = 58;
-  const dispRole = { ...S.name, tracking: -0.03 };
-  const dispSize = (() => {
-    const w = (size) => scene.engine.measure(scene.spec(c.name.en, { ...dispRole, size }));
-    let size = S.name.size;
-    for (let k = 0; k < 4; k++) {
-      const got = w(size);
-      if (!got) break;
-      size = clamp(size * (g.contentW / got), 12, 160);
-    }
-    while (size > 12 && w(size) > g.contentW) size -= 0.5;
-    /* AND A CEILING, WHICH IS THE ONE PLACE THE MEASURE STOPS DECIDING.
-
-       The rule is "as wide as the measure", and past a phone that rule turns
-       on itself: at a 660px window it sets the name at 97px, and the two lines
-       under it are 10px capitals that would have to be blown to 21px to reach
-       the same edge - which is not a dateline any more, it is a second
-       headline, and the fit refuses it for exactly that reason. So the head
-       came apart above about 450: a name across the whole frame with a
-       dateline stopping halfway.
-
-       58 is what the fit reaches at 430, the widest phone there is. Below it
-       nothing is capped and the three lines span together, which is the design
-       and the thing that was asked for. Above it the name holds still, the
-       dateline sits at its own size, and the head is an ordinary left-aligned
-       one - which is the right thing for a narrow desktop window, and is what
-       every width from 720 up already gets. */
-    return Math.min(size, NAME_CAP);
-  })();
-
-  /* THE MEASURE DECIDES ALL THREE LINES, OR NONE OF THEM.
-
-     The head shares both edges only while the name is being set BY the
-     measure. Once the ceiling binds, the name stops at 58px and stops
-     reaching the frame - and a dateline and an availability line still
-     stretched to that frame under a name that no longer touches it is worse
-     than none of them doing it, because two lines out of three agreeing looks
-     like the third has failed rather than like a different arrangement. So
-     the rule travels together: below the ceiling all three span, above it all
-     three sit at their natural widths.
-
-     Which means the test has to be what the name ACTUALLY REACHES, not what
-     it was asked to reach. The size is solved on the English name in both
-     languages, so in Chinese the name is set at that size and 沈菲菲 covers
-     about two-fifths of the measure - and asserting it anyway stretched the
-     availability line's gap to a hundred and fifty pixels to reach an edge
-     the name was nowhere near, leaving a hole in the middle of one line under
-     a dateline that stopped two-thirds of the way across. Struck below. */
-  const natural = scene.engine.measure(scene.spec(c.name[lang], S.name));
-  const name = display
-    ? { ...dispRole, size: dispSize }
-    : (natural > avail ? { ...S.name, size: S.name.size * (avail / natural) } : S.name);
-  const nameLines = [c.name[lang]];
-  const nameRuns = nameLines.map((t) => scene.prepare(t, name));
-  /* What the rest of the head measures itself against is the name's WIDEST
-     line and its LAST descender - which for a one-line name is the run itself.
-     Standing in for it here keeps the dateline's fit, the availability line
-     and the sentence written once for both layouts. */
-  const nameRun = {
-    width: Math.max(...nameRuns.map((r) => r.width)),
-    inkDescent: nameRuns[nameRuns.length - 1].inkDescent,
-  };
-  /* Struck here rather than above, because it can only be answered once the
-     name has been set: does it reach the frame? A few pixels of tolerance,
-     since the fit lands on a device-pixel staircase and stops a pixel or two
-     short as often as it lands exactly. */
-  const spans = display && dispSize < NAME_CAP && nameRun.width >= g.contentW - 6;
-
-  /* Placed by INK, not by the font box: a Latin cap height is about 0.73em
-     against a box of 1.0, while the Han glyphs falling back into the same run
-     reach 0.88 above the baseline. Setting a name by the box leaves the
-     English floating; setting it by cap height drops 沈 into the line below.
-
-     The top of that INK - not the top of the font box, which would leave a
-     quarter of an em of nothing above it - sits exactly one side margin down,
-     so the page has one frame and the name touches it on two edges. This is
-     the whole of note (a): the head is now as high as the frame allows, and
-     the toggle came down to meet it. */
-  /* On a phone the frame holds the SWITCH instead, and the name starts a
-     measured distance below it - see the interval below. */
-  const navY = display
-    ? Math.round(top + nav.ascent)
-    : Math.round(top + (nav.ascent - nav.descent) / 2);
-  if (display) nav.draw(navY);
-
-  /* THE GAP UNDER THE SWITCH IS THE HEAD'S FIRST BREATH.
-
-     Six units - 48px - from the bottom of the control to the top of the
-     name's ink, which makes it the deepest interval in the head. It is
-     doing what the top padding did on the page this one replaces: that opened
-     on clamp(28px, 5vw, 64px) of paper, then a small mark, then the name, and
-     the name was the better for arriving late. A masthead that starts at the
-     margin is a header; one that starts a little way down the page is a
-     masthead. */
-  const y0 = display
-    ? Math.round(navY + nav.descent + u * 6 + (nameRuns[0].inkAscent || nameRuns[0].capHeight))
-    : Math.round(top + (nameRuns[0].inkAscent || nameRuns[0].capHeight));
-  const nameLead = Math.round(name.size * name.lh);
-  nameRuns.forEach((r, i) => {
-    scene.place(i ? `index.name.${i}` : 'index.name', r, g.left, y0 + i * nameLead, INK);
-  });
-  const nameBase = y0 + (nameRuns.length - 1) * nameLead;
-  /* The toggle hangs from the TOP of the name, not from its baseline.
-
-     Sharing a baseline is the obvious alignment and the wrong one: an 11px
-     tracked capital and a 54px name have nothing like the same ink, so setting
-     their feet level leaves the toggle at the bottom of the name's visual
-     block, reading as something that has slipped. Matching their centres is
-     better and still not right - it leaves the toggle floating in the middle
-     of a space with no edge to hold it to.
-
-     Now that it is a bordered box the alignment is the BOX's, not the ink's,
-     and what the box is hung on is the frame: its optical centre sits on the
-     name's cap-top line, which is the top margin, which is how the head is
-     placed to begin with. So the line that starts the page passes through the
-     middle of the control - the only alignment in the head that refers to
-     something other than itself. The box stands a little proud of that line,
-     which is what a control should do and a word should not. */
-  if (!display) nav.draw(navY);
-
-
-  /* The credential line. Segments are measured first, then packed into as many
-     lines as they need - one at every width this site sees, two on a narrow
-     phone in Chinese - and separated by the same hairline the toggle uses,
-     drawn to the ink height of the capitals rather than to the leading. One
-     device, used twice, is a page with a vocabulary; two devices are a page
-     with a habit. */
+     This is also where her FULL wording came back. It read "Research,
+     advisory, speaking" for as long as the head was a poster, because that was
+     all that fitted beside a name set to the measure; with the name small the
+     line has 500px to sit in and she gets the sentence she actually wrote. */
   const creds = [{ key: 'index.role', text: c.role[lang], color: INK }]
-    .concat(c.context.map((v, i) => ({ key: `index.context.${i}`, text: v[lang], color: INK_2 })));
+    .concat(c.context.map((v, i) => ({ key: `index.context.${i}`, text: v[lang], color: INK_3 })));
+  const runs = creds.map((x) => scene.prepare(x.text, S.role));
+  const availRun = scene.prepare(c.available[lang], S.role);
   const sep = Math.round(Math.max(10, u * 1.1));
-
-  /* The dateline is set to the NAME'S WIDTH. Not near it - to it.
-
-     Two things stacked at the top left of a page either share an edge or they
-     do not, and a dateline that stops a little short of the name above it
-     reads as a measurement nobody took. Made exactly as wide, it reads as one
-     object: the name, and the line that underwrites it.
-
-     Solvable in closed form because width is linear in size - tracking is an
-     em fraction, so every segment scales - and the only fixed term is the
-     separators, which are struck from the layout unit rather than the type.
-     So: measure once, subtract what does not scale, and divide.
-
-     It applies only when the answer is close to the size the scale already
-     wanted. Below 0.85 or above 1.45 the fit is refused and the base size
-     stands, which is what happens on a phone and in Chinese - the name is
-     three characters there and its dateline is sixteen, so matching them
-     would set the dateline at half its legible size. The rule is "share the edge where the
-     edge can be shared", not "share it at any cost".
-
-     UNDER A DISPLAY NAME THE EDGE TO SHARE IS THE MEASURE, not the name.
-
-     A name set to a ceiling reaches most of the measure and not all of it -
-     "Josephine" at 60px is 264 of 342 - and fitting the dateline to that 264
-     drops it to 8.8px, which is smaller than the scale wanted and sets the
-     head's own bottom edge at a width nothing else on the page uses. Fitted to
-     the measure instead it comes UP, to a shade under 12px, and the head
-     closes on two full-width lines of tracked capitals under a two-line name:
-     a masthead with a rule under it, which is what the border-bottom on the
-     page this replaces was for. Nothing else here draws a line across the
-     measure, so the type is the line.
-
-     The second of those two lines is the availability, set from the same fit,
-     and it is the LONGER of the two - so the fit has to answer to it as well
-     or the head would gain the exact overflow it was reaching for. Whichever
-     of the two runs out of measure first sets the size for both. */
-  const fitTo = spans ? g.contentW - 1 : nameRun.width;
-  const roleFit = (() => {
-    const fixed = (sep * 2 + 1) * (creds.length - 1);
-    const total = (role) => creds.reduce((a, x) => a + scene.engine.measure(scene.spec(x.text, role)), 0);
-    /* Solved by correction rather than in one step. Width is linear in size in
-       principle, but a run is rasterised at whole DEVICE pixels, so the real
-       function is a staircase and one division lands up to a dozen pixels out.
-       Four passes take it inside one. measure() reserves no atlas space, so
-       the extra passes cost nothing but arithmetic. */
-    let size = S.role.size;
-    for (let i = 0; i < 4; i++) {
-      const w = total({ ...S.role, size });
-      if (Math.abs(w + fixed - fitTo) < 0.5) break;
-      size *= (fitTo - fixed) / Math.max(1, w);
-    }
-    if (spans) {
-      /* The availability line shares this size - one register, two rows - so
-         it has to be checked against the same measure. But it is only taken
-         DOWN, and only when its two words plus the smallest gap that can sit
-         between them would overrun. Where it is SHORT the size is left alone
-         and the gap does the work; see avGap below. Shrinking for that case
-         was the bug: the availability is the shorter line at most widths, so
-         the size came down to suit it and dragged the dateline short with it,
-         and the head ended on three different right edges. */
-      const avc = c.available;
-      const at = (str, sz) => scene.engine.measure(scene.spec(str, { ...S.role, size: sz }));
-      const solid = (sz) => at(avc.label[lang], sz) + at(avc.value[lang], sz);
-      const floor = Math.round(Math.max(8, u * 0.7));
-      if (solid(size) + floor > fitTo) size *= (fitTo - floor) / solid(size);
-    }
-    const k = size / S.role.size;
-    return k >= 0.85 && k <= 1.45 ? { ...S.role, size } : S.role;
-  })();
-
-  const runs = creds.map((x) => scene.prepare(x.text, roleFit));
   const barH = Math.round(Math.max(...runs.map((r) => r.inkAscent || r.capHeight)));
+  const leftW = runs.reduce((a, r) => a + r.width, 0) + (runs.length - 1) * (sep * 2 + 1);
 
-  /* The last few pixels go into the SEPARATORS, not the type. Rasterising at
-     whole device pixels leaves the fitted row a handful of pixels out, and
-     the honest place to spend that is the gap between segments - a hairline
-     moved a pixel is invisible, where a type size chased to the pixel is a
-     size nobody chose. Only when the fit was taken, and never tighter than a
-     gap that still reads as one. */
-  const gaps = creds.length - 1;
-  const sepFit = roleFit !== S.role && gaps > 0
-    ? Math.max(sep * 0.7, (fitTo - runs.reduce((a, r) => a + r.width, 0) - gaps) / (2 * gaps))
-    : sep;
-
-  const rows = [[]];
-  let used = 0;
-  runs.forEach((r, i) => {
-    const first = rows[rows.length - 1].length === 0;
-    const add = r.width + (first ? 0 : sepFit * 2 + 1);
-    if (!first && used + add > g.contentW) { rows.push([]); used = r.width; } else { used += add; }
-    rows[rows.length - 1].push(i);
-  });
-
-  /* Closer to the name than it was. The dateline belongs to the name - it is
-     the line under a masthead, not the first line of the body - and a gap wide
-     enough to be read as a paragraph break was saying otherwise. */
-  /* Under a display name the interval has to grow with it. The dateline still
-     belongs to the name - it is the line under a masthead, not the first line
-     of the body - but 1.1 units struck under a 32px name is a different
-     proportion from 1.1 units struck under a 78px one, and under the larger it
-     reads as the dateline having been shoved up against the descender. Four
-     units keeps the pair one object and still lets the name finish.
-
-     The availability line under it takes two units rather than 1.4 for the
-     same reason: at the fitted size both lines run the full measure, and two
-     rows of tracked capitals set that close weld into one grey band. */
-  let y = nameBase + nameRun.inkDescent + u * (display ? 4 : 1.1) + runs[0].ascent;
-
-  /* The fingerprint, on the credential line's baseline at the other end of the
-     measure. It is the first 32 hex digits of a hash of the content (see
-     rollup.config.mjs), and it is here because a page that has removed its own
-     title, its description and every other way of being identified still has
-     to be able to say WHICH document it is. A name would undo the whole
-     exercise; a checksum says the same thing to a machine and nothing at all
-     to an index. It also does the compositional work the head was missing -
-     the right side of the page was empty from the toggle down, and this closes
-     it with a mark that is deliberately unreadable. */
-  /* Three seals across the head, not one per line. The redaction is a device
-     for the page arriving, and a device that fires twenty times at once is a
-     flicker; three bands opening a beat apart is a document being cleared. */
+  y += u * 2;
+  const dlBase = Math.round(y + runs[0].ascent);
   const credSeal = scene.seal('head.cred', y, 0);
-
-
-  rows.forEach((row, ri) => {
-    let x = g.left;
-    row.forEach((i, k) => {
-      if (k) {
-        scene.rect(`index.cred.${ri}.${k}`, Math.round(x + sepFit), Math.round(y - barH), 1, barH, RULE, 0.3);
-        x += sepFit * 2 + 1;
-      }
-      scene.place(creds[i].key, runs[i], x, y, creds[i].color, { seal: credSeal });
-      x += runs[i].width;
-    });
-    if (ri < rows.length - 1) y += lead(roleFit);
+  let x = g.left;
+  runs.forEach((r, i) => {
+    if (i) {
+      /* The same hairline the toggle is built from, drawn to the ink height of
+         the capitals rather than to the leading. One device used twice is a
+         page with a vocabulary; two devices are a page with a habit. */
+      scene.rect(`index.cred.${i}`, Math.round(x + sep), Math.round(dlBase - barH), 1, barH, RULE, 0.3);
+      x += sep * 2 + 1;
+    }
+    scene.place(creds[i].key, r, x, dlBase, creds[i].color, { seal: credSeal });
+    x += r.width;
   });
 
-  /* Availability, at the other end of the dateline's last baseline.
+  /* Opposite, while there is room for it opposite. Below about 780 the two
+     runs and a gutter no longer fit on one line, and the availability drops to
+     its own baseline - flush LEFT, not right. Flush right under a flush-left
+     line is not an alignment, it is two lines agreeing about nothing: the left
+     edge lands wherever the string happens to end and the head finishes on a
+     step nobody chose. The right edge is only meaningful while the dateline is
+     holding the left edge of the same line. */
+  const avInline = leftW + g.gutter + availRun.width <= g.contentW;
+  const avBase = avInline ? dlBase : Math.round(dlBase + lead(S.role) + u * 1.4);
+  const avSeal = avInline ? credSeal : scene.seal('head.avail', avBase, 90);
+  scene.place('index.available', availRun,
+    avInline ? g.right - availRun.width : g.left, avBase, INK_3,
+    { seal: avSeal, edge: true });
 
-     Two things were wrong with it beside the sentence. It was ORPHANED - the
-     only thing on the page aligned to nothing, floating in the white to the
-     right of the lede with no baseline under it and no edge but the margin.
-     And it was set in the same tracked capitals as the dateline, at the same
-     weight, so it read as a second dateline that had come adrift, which is
-     the one thing it must not be.
+  y = Math.round(avBase + Math.max(availRun.inkDescent, runs[0].inkDescent) + u * 2);
+  scene.rect('head.rule.1', g.left, y, g.contentW, 1, RULE, HAIRLINE);
 
-     Both are fixed by giving it a baseline that already exists and a form of
-     its own. The rail is the right margin, which the toggle already occupies
-     directly above, so the top of the page closes as a band: what she is on
-     the left, what she is open to on the right, the control above them both.
+  /* The sentence. Everything above is the masthead; this is the page saying
+     what it is for, and it is the only thing here allowed to be large.
 
-     The form is a caption, not a banner. AVAILABLE FOR stays in the small
-     tracked capitals - it is a label and should look like one - and the value goes
-     into the SERIF, in sentence case, which is the register of something said
-     rather than something declared. A list of three in tracked capitals is a
-     banner however quietly it is set; the same three words in a roman are a
-     note in the margin. That is the whole difference between "looking for
-     work" and "settled, and available". */
-  /* ONE REGISTER. The label and the value are both set in the dateline's own
-     tracked capitals, at its size, in its quiet grey - so the top of the page
-     is one band with a matching weight at each end, rather than a line of
-     capitals facing a line of roman.
+     Greedy breaking, not balanced. A balanced pair of lines is the better
+     setting almost everywhere else on this site and the wrong one here,
+     because what makes the head sit inside the frame is line 1 REACHING the
+     frame - and balance() spends exactly that width making the two lines
+     equal. Filled first line, ragged second: a masthead, not a pull quote. */
+  const dispRole = adapt({ ...S.display, lh: lang === 'zh' ? 1.28 : S.display.lh }, lang);
+  const dispSize = fitLines(scene.engine, c.statement[lang], dispRole, g.contentW,
+    g.cols === 1 ? 4 : 2, S.display.size);
+  const disp = { ...dispRole, size: dispSize };
+  const dispLead = Math.round(dispSize * disp.lh);
+  const dispProbe = scene.engine.run({ ...disp, text: 'H' });
+  const dispLines = wrap(scene.engine, c.statement[lang], disp, g.contentW);
 
-     Three earlier versions failed on the same fault in different ways. Beside
-     the sentence in micro capitals it was orphaned - the only thing on the
-     page aligned to nothing. On this baseline with the value in the serif, the
-     two halves of one statement were set in two voices at two sizes, so the
-     label read as a small prefix hanging off the front of a serif phrase
-     rather than as its label. What was wrong was never the position. It was
-     that the line kept being made of two different things. */
-  const av = c.available;
-  const avLabel = scene.prepare(av.label[lang], roleFit);
-  const avValue = scene.prepare(av.value[lang], roleFit);
-  /* The gap is the elastic, exactly as the dateline's separators are.
+  y += u * 6 + dispProbe.ascent;
+  const dispSeal = scene.seal('head.statement', y - dispProbe.ascent, 90);
+  dispLines.forEach((t, i) => {
+    scene.text(`index.statement.${i}`, t, disp, g.left, y + i * dispLead, INK, { seal: dispSeal });
+  });
+  y += (dispLines.length - 1) * dispLead + dispProbe.descent;
 
-     Both rows are set at one size, so their two strings will not span the same
-     measure by themselves - one is thirteen pixels short here and three over
-     there, which is what made the head end on three different edges. The
-     dateline already solves this by absorbing its slack into the hairlines
-     between its segments; this line has one gap and puts all of it there. Its
-     floor is the size the gap would have taken anyway, and roleFit above
-     guarantees the two words fit inside the measure with that floor to spare,
-     so the clamp can never be the thing that overruns. */
-  const avFloor = Math.round(Math.max(8, u * 0.7));
-  const avGap = spans
-    ? Math.max(avFloor, Math.round(g.contentW - avLabel.width - avValue.width))
-    : avFloor;
-  const avW = avLabel.width + avGap + avValue.width;
-  const avSeal = scene.seal('head.avail', y, 90);
-  /* Only if it clears the dateline it shares the line with, by a full gutter.
-     Otherwise it drops to its own baseline underneath, still on the right. */
-  const avInline = avW + g.gutter <= g.contentW - used;
-  let avY = y;
-  let avX = g.right - avW;
-  if (!avInline) {
-    /* Dropped, and therefore no longer opposite anything.
-
-       It used to keep the right margin when it fell - which is the instinct,
-       because that is where it lives when it fits, and it is wrong. Flush
-       right under a flush-left line is not an alignment, it is two lines
-       agreeing about nothing: the left edge lands wherever the string happens
-       to end up, so the head finished on a step nobody chose, seventy pixels
-       in from a margin every other mark on the page touches. The right edge
-       it was holding is only meaningful while the dateline is holding the
-       left edge of the SAME line. Alone, it is the phone's edge and means
-       nothing.
-
-       So on the rail with everything else, and given a real step down: a
-       whole baseline unit rather than the four pixels it had, which was
-       tighter than the dateline's own wrap leading and welded the two into
-       one stepped block of identical capitals. Now the head is three flush-
-       left lines - name, what she is, what she is open to - which is the same
-       masthead the wide layout sets, read in a narrower window. */
-    avY = y + lead(roleFit) + Math.round(u * (display ? 2 : 1.4));
-    avX = g.left;
-  }
-  /* The band has one dark thing at each end and quiet material between them.
-
-     On the left the role is the primary ink and the city and the languages
-     step back from it, so the eye is told what she IS and then given the
-     qualifiers. The right end had no such division - a label and a value both
-     set in the secondary greys - so it read as one undifferentiated string
-     and anchored nothing.
-
-     The VALUE takes the primary ink, not the label. Both readings were drawn
-     and looked at: with AVAILABLE FOR dark the line reads like a form, the
-     scaffolding louder than what it holds, and the page's right edge goes
-     pale. With the list dark the two darkest marks in the head sit at the two
-     ends of the measure and everything quiet is inboard, which is what makes
-     it a band rather than two corners. It is also just the truth about the
-     sentence: the label is a preposition and the three words after it are the
-     information.
-
-     The label is the SECONDARY ink and not the tertiary, which makes the two
-     halves of the band the same pair of values read in opposite order - role
-     then qualifiers on the left, qualifier then list on the right. Everything
-     between the two dark ends is now one tier, so the band has exactly two
-     weights in it rather than three. */
-  scene.place('index.available', avLabel, avX, avY, INK_2, { seal: avSeal, edge: true });
-  scene.place('index.available.value', avValue,
-    avInline ? g.right - avValue.width : avX + avLabel.width + avGap, avY, INK, { seal: avSeal });
-
-  /* The toggle's column, in viewport coordinates, handed to the renderer.
-
-     The toggle is fixed, so the document slides under it, and a control
-     sitting on a half-read line is what would give the whole page away. The
-     answer is not to fade the top of the page - that was the first attempt and
-     it was wrong in the most obvious way, because the name is AT the toggle's
-     height, so the head went out the instant the page moved a pixel. Nothing
-     is faded except what actually passes beneath the control: a mark is in
-     scope only if its right edge reaches into x0, which is the toggle's own
-     left edge less half a gutter. The name, the dateline, the sentence and
-     every left-hand column are never touched at all.
-
-     Inside that column a mark loses its ink as it rises: whole at FULL, gone
-     at CLEAR. FULL is the availability line's own ink, because that is the
-     topmost thing in this column when the page is at rest - so at rest
-     everything here is at full strength and there is no step the moment
-     scrolling starts. CLEAR is the frame: the same margin the name's ink
-     touches. What passes directly under the toggle lands around a quarter
-     alpha - a ghost the control reads cleanly over, rather than a hole cut in
-     the page.
-
-     None of which applies when the toggle is not pinned. Below 720 it scrolls
-     away with the head and there is nothing to protect, so the band is null
-     and every mark on the page renders at its own ink - which is the fix for
-     the worst thing this file was doing: on a 390 screen the dateline's last
-     segment was faded AT REST, because the band's bottom is anchored to the
-     availability line and the availability line is the one that drops. */
+  /* The band the pinned toggle reads over. A mark is in scope only if its
+     right edge reaches into x0 - the control's own left edge less half a
+     gutter - so the name, the dateline, the sentence and every left-hand
+     column are never touched. Inside that column ink fades out as it rises:
+     whole at FULL, which is the availability line's own baseline because that
+     is the topmost thing in the column at rest, and gone at CLEAR, which is
+     the frame the capitals touch. Null when the toggle is not pinned: below
+     720 it scrolls away with the head and there is nothing to protect. */
   scene.edge = nav.pinned ? {
     x0: Math.round(g.right - nav.width - g.gutter * 0.5),
-    clear: Math.round(navY - nav.ascent),
-    full: Math.round(avY + avValue.inkDescent + 2),
+    clear: Math.round(top),
+    full: Math.round(avBase + availRun.inkDescent + 2),
   } : null;
 
-  y = avY + runs[0].descent;
-
-  /* The sentence. Tied to the grid, but capped at 22em - about fifty
-     characters, and short enough that the block reads as a statement rather
-     than as a paragraph. It was 34em, which is eighty characters and most of
-     the window: one very long line and then a stub. Twenty-two sets it as two
-     balanced lines in both languages, with a shape of its own on the right.
-     That is note (b), and it is also most of the answer to (f): the head is
-     sharper because the sentence stops. */
-  const span = g.cols >= 5 ? 3 : g.cols >= 3 ? 2 : g.cols;
-  const ledeRole = adapt(S.lede, lang);
-  const ledeW = Math.min(g.colX(span - 1) + g.colW - g.left, 22 * ledeRole.size);
-  const ledeRun = scene.engine.run({ ...ledeRole, text: 'H' });
-  const ledeLead = lead(S.lede);
-  const lines = balance(scene.engine, c.line[lang], ledeRole, ledeW);
-
-  /* Closer, now that the dateline has been pulled up and tightened. The gap
-     was struck against a looser, larger line sitting further down; against
-     this one it read as a hole. */
-  /* Deeper below a masthead, for the same reason the gap above the dateline
-     is: the three flush-left lines above are now a caption to something large,
-     and the sentence is the next voice rather than the next line. */
-  y += u * (display ? 5 : 3.1) + ledeRun.ascent;
-  const ledeSeal = scene.seal('head.lede', y, 90);
-  lines.forEach((t, i) => {
-    scene.text(`index.lede.${i}`, t, S.lede, g.left, y + i * ledeLead, INK_2, { seal: ledeSeal });
-  });
-
-  y += (lines.length - 1) * ledeLead + ledeRun.descent;
   return y;
 }
 
@@ -1456,7 +1109,7 @@ function threshold(scene, blk, lang, g, y, S, u) {
   return ruleX;
 }
 
-function block(scene, blk, lang, g, y0, measured) {
+function block(scene, blk, lang, g, y0, measured, labels) {
   const S = scale(g.vw);
   const u = g.u;
   const m = cvMetrics(g);
@@ -1483,30 +1136,179 @@ function block(scene, blk, lang, g, y0, measured) {
        with the sentence under the name instead of following it. */
     if (blk.prose && blk.prose.length) {
       threshold(scene, blk, lang, g, y, S, u);
-      const role = adapt(S.prose, lang);
-      /* Thirty ems is the reading measure. At one column the track is already
-         inside it; at three the block would otherwise run the full width of
-         the page, which no one reads. */
-      /* At three columns it starts where the CV's entries start - the second
-         track - and runs across two of them. At one it starts at the MARGIN
-         and not at m.x0, which is indented past the CV's index rail: there is
-         no index here to hang beside, and prose set behind a rail that holds
-         nothing reads as a quotation. */
+      /* THE LEDE'S SIZE, NOT THE PROSE'S, AND THE WHOLE OF THE TWO TRACKS.
+
+         This block used to be set at the CV's reading size and capped at
+         thirty ems, which at 1440 stopped it 366px short of the third track's
+         edge - so it sat in the middle third of the page with an empty column
+         on either side, eight lines deep, and read as a paragraph that had got
+         lost. Both halves of that were wrong. Thirty ems of a 17px serif is a
+         narrow column, and this is the only thing on the site that is actually
+         READ rather than scanned.
+
+         Set at the lede's size across both tracks it comes to about seventy
+         characters, which is the measure a paragraph wants, and it ends where
+         the CV's entries end. The cap survives only as a guard for the middle
+         widths, where two tracks are wider than any line should be.
+
+         The empty first track is then not a hole: it is the same rail WRITING
+         and every CV section keep below, with the block's own name at the top
+         of it. What made the old arrangement read as an omission was that the
+         prose stopped short of the frame on the RIGHT as well - bounded on
+         neither side. */
+      const role = adapt(S.lede, lang);
       const px = m.hang ? m.x0 : g.left;
-      const width = Math.min(m.hang ? m.trackW * 2 + g.gutter : g.contentW, 30 * S.prose.size);
-      const lead = Math.round(S.prose.size * S.prose.lh);
+      const width = Math.min(m.hang ? m.trackW * 2 + g.gutter : g.contentW, 34 * role.size);
+      const lead = Math.round(S.lede.size * S.lede.lh);
       const probe = scene.engine.run({ ...role, text: 'H' });
       y += u * (m.hang ? 4.5 : 5.5);
       blk.prose.forEach((para, pi) => {
-        const lines = balance(scene.engine, para[lang], role, width);
+        const lines = wrap(scene.engine, para[lang], role, width);
         const seal = scene.seal(`${k}.p${pi}`, y, pi * 70);
         y += probe.ascent;
         lines.forEach((t, li) => {
-          scene.text(`${k}.p${pi}.${li}`, t, S.prose, px, y + li * lead,
-            (pi || blk.prose.length === 1) ? INK_2 : INK, { seal });
+          scene.text(`${k}.p${pi}.${li}`, t, S.lede, px, y + li * lead, INK_2, { seal });
         });
         y += (lines.length - 1) * lead + probe.descent;
         if (pi < blk.prose.length - 1) y += u * 2.2;
+      });
+      return y + u * 2;
+    }
+    /* WRITING. Two pieces, out of the CV and into a band of their own.
+
+       They were CV rows until now and they were the wrong shape for one: a CV
+       row is a thing you can list - a title, where, and when - and a paper is
+       a thing you READ. Its title is a sentence, it has an argument, and the
+       only useful thing a reader can do with it is open it. So it gets the
+       room a row cannot give it: the title across both tracks, her abstract
+       under it in one, and a place to press at the end.
+
+       The row is the same rail as everything else - the kind of piece in the
+       first track, the material in the two beside it - so the band joins the
+       page's system rather than introducing a second one.
+
+       WHAT IS MISSING IS DRAWN, NOT HIDDEN. Neither piece has a year yet and
+       neither has a url. A page that silently omits both looks finished and is
+       not; the hollow square says the fact is expected and has not arrived,
+       which is the same thing the open-ended years say with the filled one.
+       When a url lands, the outlined slot becomes a filled one and nothing
+       around it moves - the two states are the same box. */
+    if (blk.pieces && blk.pieces.length) {
+      threshold(scene, blk, lang, g, y, S, u);
+      const px = m.hang ? m.x0 : g.left;
+      const wide = m.hang ? m.trackW * 2 + g.gutter : g.contentW;
+      const descW = Math.min(m.hang ? m.trackW * 2 + g.gutter : g.contentW, 30 * S.prose.size);
+      const proseRole = adapt(S.prose, lang);
+      const titleRole = adapt(S.title, lang);
+      const titleLead = Math.round(S.title.size * S.title.lh);
+      const proseLead = Math.round(S.prose.size * S.prose.lh);
+      const titleProbe = scene.engine.run({ ...titleRole, text: 'H' });
+      const proseProbe = scene.engine.run({ ...proseRole, text: 'H' });
+      /* The two terminators are the same object at two weights: filled means
+         open-ended and still running, hollow means expected and not yet here.
+         Sized off the year's own type, because that is the role they close. */
+      const mark = Math.max(6, Math.round(S.year.size * 0.62));
+      const slotPadX = Math.round(Math.max(9, u * 0.85));
+      const slotPadY = Math.round(Math.max(6, u * 0.55));
+      const slotGap = Math.round(Math.max(10, u));
+
+      y += u * 4.5;
+      blk.pieces.forEach((p, pi) => {
+        const seal = scene.seal(`${k}.${pi}`, y, pi * 70);
+        if (pi) y += u * 5;
+
+        /* The kind of piece, in the rail. Not a label for the title - it is
+           the title's own first fact, and it sits where every section name on
+           the page sits. */
+        const typeRun = scene.prepare(p.type[lang], S.role);
+        /* The year sits at the end of the title's first line, so the title is
+           measured against what is LEFT of the row rather than against the
+           whole of it. Reserved across every line, not only the first: a title
+           that ran full width underneath a date it had ducked around on line
+           one would be a shape nobody chose. */
+        const yearRun = scene.prepare(p.year || labels.year[lang], p.year ? S.year : S.role);
+        const yearW = yearRun.width + (p.year ? 0 : mark + slotGap * 0.6) + g.gutter;
+        /* Balanced, not greedy. These titles are two lines of sentence, and a
+           greedy break leaves the second one a single word: the briefing sets
+           as ninety characters and then "Change". The masthead wants its
+           first line full and gets wrap(); a title wants two lines that look
+           like a pair. */
+        const titles = balance(scene.engine, p.title[lang], titleRole, wide - yearW);
+        let ty = y + titleProbe.ascent;
+        scene.place(`${k}.${pi}.type`, typeRun, g.left,
+          m.hang ? ty : ty - titleProbe.ascent - u * 0.4 + typeRun.ascent, INK_3, { seal });
+        if (!m.hang) ty += typeRun.lineHeight + u * 1.2;
+
+        titles.forEach((t, i) => {
+          scene.text(`${k}.${pi}.title.${i}`, t, S.title, px, ty + i * titleLead, INK, { seal });
+        });
+
+        /* The year, on the title's first line at the far end of it - the same
+           edge the CV hangs its years on, so the two bands agree about where a
+           date lives. Neither piece has one yet, so what stands there is the
+           word and the hollow square: the fact is expected, and saying so is
+           more honest than a gap that looks like a decision. Supply the year
+           and the word and the square both go, leaving a date exactly where
+           the CV puts one. */
+        const yearRight = px + wide;
+        if (p.year) {
+          scene.place(`${k}.${pi}.year`, yearRun, yearRight, ty, INK_3, { align: 'right', seal });
+        } else {
+          scene.rect(`${k}.${pi}.year.mark`,
+            Math.round(yearRight - mark), Math.round(ty - mark), mark, mark, INK_3, HAIRLINE * 4,
+            { stroke: 1 });
+          scene.place(`${k}.${pi}.year`, yearRun,
+            Math.round(yearRight - mark - slotGap * 0.6), ty, INK_3, { align: 'right' });
+        }
+
+        y = ty + (titles.length - 1) * titleLead;
+
+        /* Her abstract, at the reading measure. Set across both tracks it
+           would run past a hundred characters, which nobody reads; taken down
+           to a single track it went to eleven lines against an empty track
+           beside it. Thirty ems
+           is the reading measure - the same thirty ems the rest of the site
+           sets prose at - which is about seventy characters and leaves the
+           trim end of the row to the slot, so the thing you press has somewhere
+           to sit rather than floating under the last line. */
+        const desc = wrap(scene.engine, p.description[lang], proseRole, descW);
+        y += u * 2 + proseProbe.ascent;
+        desc.forEach((t, i) => {
+          scene.text(`${k}.${pi}.desc.${i}`, t, S.prose, px, y + i * proseLead, INK_2, { seal });
+        });
+        const descBottom = y + (desc.length - 1) * proseLead + proseProbe.descent;
+
+        /* The slot. Filled when there is somewhere to go, outlined when there
+           is not, and the same rectangle either way - so supplying a url
+           changes the fill and moves nothing. Bottom-aligned to the last line
+           of the abstract, which is the only edge in the row it could honestly
+           share. */
+        const has = !!p.url;
+        const slotRun = scene.prepare(has ? labels.read[lang] : labels.awaiting[lang], S.role);
+        const slotInk = Math.round(slotRun.inkAscent || slotRun.capHeight);
+        const slotH = slotInk + slotPadY * 2;
+        const slotW = slotPadX * 2 + slotRun.width + slotGap + mark;
+        const slotX = Math.round(g.right - slotW);
+        const slotTop = Math.round(descBottom - slotH);
+        const slotBase = slotTop + slotPadY + slotInk;
+        scene.rect(`${k}.${pi}.slot`, slotX, slotTop, slotW, slotH,
+          has ? INK : RULE, has ? 1 : HAIRLINE * 1.6, { stroke: has ? 0 : 1 });
+        /* Unsealed, like the rules and the box it sits in. A seal is a group,
+           and this object's group is the RECTANGLE - which is a rect and
+           cannot carry one - so sealing only the word inside it showed an
+           empty outlined box for the length of the reveal. Structure arrives
+           with structure; the reveal is for the reading matter. */
+        scene.place(`${k}.${pi}.slot.label`, slotRun, slotX + slotPadX, slotBase,
+          has ? PAPER : INK_3);
+        scene.rect(`${k}.${pi}.slot.mark`,
+          Math.round(slotX + slotW - slotPadX - mark), Math.round(slotBase - mark), mark, mark,
+          has ? PAPER : INK_3, has ? 1 : HAIRLINE * 4, { stroke: has ? 0 : 1 });
+        if (has) {
+          scene.hit(`${k}.${pi}.read`, { width: slotW, lineHeight: slotH, ascent: slotBase - slotTop },
+            slotX, slotBase, { key: `${k}.${pi}.slot`, go: p.url, external: true });
+        }
+
+        y = Math.max(descBottom, slotTop + slotH);
       });
       return y + u * 2;
     }
@@ -1651,7 +1453,13 @@ function footer(scene, content, lang, g, y0) {
 
   /* The rules are NEVER sealed. The frame of the document is always drawn,
      whatever is or is not legible inside it. */
-  scene.rect('foot.rule', g.left, Math.round(y0), g.contentW, 1, RULE, HAIRLINE);
+  /* The foot is a named band now, not an unlabelled rule. Every other body on
+     the page announces itself on its own hairline - ABOUT, WRITING, CV - and
+     the one place a reader actually needs a word was the one place that had
+     none: a bare rule with an address under it says "the page has ended", not
+     "this is how to reach her". Same threshold, same interrupted rule, fourth
+     use of one device. */
+  threshold(scene, { key: 'foot', label: content.index.contact.label }, lang, g, y0, S, u);
 
   /* The foot sits on the CV's own grid rather than on the two edges of the
      measure. The address holds the left margin, the link starts where every
@@ -1716,7 +1524,27 @@ function footer(scene, content, lang, g, y0) {
   const end = scene.prepare(content.labels.end, S.year);
   scene.place('foot.end', end, g.right - end.width, liY, INK_3, { seal });
 
-  return Math.max(y, liY) + mailRun.descent;
+  /* The colophon: where and when, and who built it. Below a lighter rule than
+     any other on the page, because it is not a division inside the document -
+     it is what comes after the document, and a hairline at full strength there
+     would read as a fifth section about to start.
+
+     It is the only place either edge of the page carries something that is not
+     hers, which is the right weight for a studio credit: present, at the very
+     bottom, in the dateline's own capitals and no darker than the address
+     above it. */
+  let fy = Math.max(y, liY) + mailRun.descent + u * 7;
+  scene.rect('foot.colophon.rule', g.left, Math.round(fy), g.contentW, 1, RULE, HAIRLINE * 0.7);
+  const place = scene.prepare(c.place[lang], S.role);
+  const studio = scene.prepare(c.studio.label, S.role);
+  fy = Math.round(fy + u * 2 + place.ascent);
+  scene.place('foot.place', place, g.left, fy, INK_3, { seal });
+  scene.place('foot.studio', studio, g.right - studio.width, fy, INK_3, { seal });
+  scene.rect('foot.studio.rule', Math.round(g.right - studio.width), Math.round(fy + 3),
+    Math.round(studio.width), 1, RULE, HAIRLINE);
+  scene.hit('studio', studio, g.right - studio.width, fy,
+    { key: 'foot.studio', go: c.studio.url, external: true });
+  return fy + place.descent;
 }
 
 /* ---- entry point ----------------------------------------------------------
@@ -1754,7 +1582,7 @@ export function buildScene(engine, content, vw, vh, lang = 'en', safeTop = 0, sa
      seven-pixel words. Twelve keeps it comfortably the deepest interval on
      the page - which is the property that makes it read as a division rather
      than as leftover paper - without spending a screen on it. */
-  let y = Math.round(headEnd + g.u * (g.cols === 1 ? 12 : 17));
+  let y = Math.round(headEnd + g.u * 12);
 
   /* Nothing goes in the void, and that is the decision rather than the
      absence of one. A mark was tried here and taken out: the square already
@@ -1767,7 +1595,7 @@ export function buildScene(engine, content, vw, vh, lang = 'en', safeTop = 0, sa
 
   content.blocks.forEach((blk, bi) => {
     if (bi) y = Math.round(y + g.u * 10);
-    y = block(scene, blk, lang, g, y, measureSections(engine, blk.sections || [], lang, g, S));
+    y = block(scene, blk, lang, g, y, measureSections(engine, blk.sections || [], lang, g, S), content.labels);
   });
   const cvEnd = y;
 
@@ -1802,14 +1630,17 @@ export function fontSpecs(content, vw, lang) {
      sans for it leaves the first paint rendering Chinese in whatever the
      system happens to have. */
   const strings = [
-    content.index.name[lang], content.index.role[lang], content.index.line[lang],
+    content.index.name[lang], content.index.role[lang], content.index.statement[lang],
     ...content.index.context.map((v) => v[lang]),
-    content.index.available.label[lang], content.index.available.value[lang],
+    content.index.available[lang], content.index.place[lang], content.index.studio.label,
+    content.index.contact.label[lang],
     ...content.blocks.map((b) => b.label[lang]
       + (b.prose || []).map((para) => para[lang]).join('')
+      + (b.pieces || []).map((w) => w.type[lang] + w.title[lang] + w.description[lang]).join('')
       + (b.sections || []).map((s) => s.section[lang]
         + s.entries.map((e) => (e.year || '') + e.title[lang] + (e.org ? e.org[lang] : '')).join('')).join('')),
     content.labels.zh, content.labels.end,
+    content.labels.year[lang], content.labels.read[lang], content.labels.awaiting[lang],
   ].join('');
   const exotic = [...new Set([...strings])].filter((c) => c.codePointAt(0) > 0x7f).join('');
 

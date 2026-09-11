@@ -1,5 +1,5 @@
 {
-  "_readme": "ALL text on the site lives here, in English (en) and Chinese (zh). Nothing is rendered from HTML - every string is drawn into a canvas by the GPU - so this file is the only place to edit wording, and it is the only readable copy that exists. The build XORs and base64s it into the bundle and prunes the keys below, so none of this ships as text. Keep both languages filled: the toggle is a cut between them and a missing value leaves a hole on screen. Do not rename keys. Plain text only - no HTML tags, no <br/>: line breaks are decided by the layout engine. Opening runs carry no terminal punctuation - a page that states does not narrate. An entry marked \"placeholder\": true is a real thing with a fact still missing; read its \"note\", fill the value in, then delete both keys. _readme, note and placeholder are stripped at build and never leave the repository. After adding any NEW Chinese character, run `npm run fonts` - the CJK webfonts are subset to exactly the characters this file uses.",
+  "_readme": "ALL text on the site lives here, in English (en) and Chinese (zh). Nothing is rendered from HTML - every string is drawn into a canvas by the GPU - so this file is the only place to edit wording, and it is the only readable copy that exists. The build XORs and base64s it into the bundle and prunes the keys below, so none of this ships as text. Keep both languages filled: the toggle is a cut between them and a missing value leaves a hole on screen. Do not rename keys. Plain text only - no HTML tags, no <br/>: line breaks are decided by the layout engine. Opening runs carry no terminal punctuation - a page that states does not narrate. An entry marked \"placeholder\": true is a real thing with a fact still missing; read its \"note\", fill the value in, then delete both keys. A blank \"year\" or \"url\" is drawn as the hollow square - the page shows where the fact will go rather than hiding that it is missing. _readme, note and placeholder are stripped at build and never leave the repository. After adding any NEW Chinese character, run `npm run fonts` - the CJK webfonts are subset to exactly the characters this file uses.",
   "labels": {
     "cv": {
       "en": "CV",
@@ -7,7 +7,19 @@
     },
     "en": "EN",
     "zh": "中",
-    "end": "■"
+    "end": "■",
+    "year": {
+      "en": "Year",
+      "zh": "年份"
+    },
+    "read": {
+      "en": "Read",
+      "zh": "阅读"
+    },
+    "awaiting": {
+      "en": "Awaiting url",
+      "zh": "链接待补"
+    }
   },
   "index": {
     "name": {
@@ -18,9 +30,9 @@
       "en": "AI Policy Researcher",
       "zh": "人工智能政策研究者"
     },
-    "line": {
-      "en": "Research, Speaker, Strategy Design across Society, Security & States.",
-      "zh": "横跨人工智能、安全与国家的研究、协调与战略。"
+    "statement": {
+      "en": "Research, facilitation and strategy for the institutions, communities and companies shaping how advanced AI meets the public good.",
+      "zh": "为塑造先进人工智能如何服务公共利益的机构、社区与企业，提供研究、协调与战略支持。"
     },
     "context": [
       {
@@ -33,14 +45,8 @@
       }
     ],
     "available": {
-      "label": {
-        "en": "Available for",
-        "zh": "开放合作"
-      },
-      "value": {
-        "en": "Research, advisory, speaking",
-        "zh": "研究、政策咨询、公开演讲"
-      }
+      "en": "Available for Research Collaboration, Policy Advisory and Speaker roles",
+      "zh": "开放合作"
     },
     "contact": {
       "label": {
@@ -52,6 +58,14 @@
         "label": "LinkedIn",
         "url": "https://linkedin.com/in/josephinesb"
       }
+    },
+    "place": {
+      "en": "Berlin • 2026",
+      "zh": "柏林 • 2026"
+    },
+    "studio": {
+      "label": "AUFBAU",
+      "url": "https://aufbau.io"
     }
   },
   "blocks": [
@@ -63,12 +77,53 @@
       },
       "prose": [
         {
-          "en": "Research, facilitation and strategy for the institutions, communities and companies shaping how advanced AI meets the public good.",
-          "zh": "为塑造先进人工智能如何服务公共利益的机构、社区与企业，提供研究、协调与战略支持。"
-        },
-        {
           "en": "I am an AI policy researcher, bridgemaker, political organiser and strategist based in Berlin. I focus on systemic analysis and political strategy, particularly geopolitics and technology governance across China and the EU. I bridge across civil society, industry and institutions to centre the critical risks of technology at the forefront of political design. With industry experience in machine learning, and as a visiting researcher to the United Nations Nuclear Non-Proliferation Treaty Conference, I specialise in multilateral and systemic framing of technology and its impacts.",
           "zh": "我是一位常驻柏林的人工智能政策研究者、桥梁搭建者、政治组织者与战略家。聚焦于系统性分析与政治战略，尤其关注地缘政治与技术治理（中国与欧盟）。跨越公民社会、产业与机构，致力于将技术的关键风险置于政治设计的核心。凭借在机器学习领域的产业经验，以及作为联合国核不扩散条约大会访问研究员的经历，专长于以多边与系统性的视角审视技术及其影响。"
+        }
+      ]
+    },
+    {
+      "key": "writing",
+      "label": {
+        "en": "Writing",
+        "zh": "论述"
+      },
+      "pieces": [
+        {
+          "type": {
+            "en": "Working paper",
+            "zh": "工作论文"
+          },
+          "title": {
+            "en": "Ontological Insecurity: Sovereignty, Nationalism and how the EU navigates the China-US Competition for Market Dominance of Artificial Intelligence",
+            "zh": "本体性不安全：主权、民族主义，以及欧盟如何在中美争夺人工智能市场主导权的竞争中寻路"
+          },
+          "description": {
+            "en": "This Working Paper provides an analysis of how the emergence of soverignty narrative around technological infrastructure and AI is a symptom of geopolitical insecurity as market forces are concentrated in the China-US bind. Consequently, as nationalism and defense heightens across European countries, the soverignty arguement leverages this approach as it races to find security. From this lens, taking on theories and frameworks from social movement strategies, the paper provides pointers for how institutions and movements can prepare capabilties and infrastructure for protecting public interest.",
+            "zh": "主权叙事与中美竞争格局"
+          },
+          "year": "",
+          "url": "",
+          "placeholder": true,
+          "note": "Three facts still missing: the year, the url, and her Chinese description. The English is her own text, verbatim, including her spellings (soverignty, arguement, capabilties) - do not correct them. The Chinese standing in is the short line this piece already carried in the CV; replace it with her own abstract when she writes one. A blank year or url draws the hollow square rather than nothing."
+        },
+        {
+          "type": {
+            "en": "Briefing",
+            "zh": "简报"
+          },
+          "title": {
+            "en": "Artificial Intelligence in Nuclear Regulation Frameworks: Trends in Security Narratives and Regulatory Change",
+            "zh": "核监管框架中的人工智能：安全叙事与监管变革的趋势"
+          },
+          "description": {
+            "en": "This article provides a snapshot on how Artificial Intelligence emerges as a dominante topic in traditional international security environments and outlines the impact of these topics and how it is interacting with a rapidly changing regulartory environment.",
+            "zh": "人工智能作为国际安全的新兴议题"
+          },
+          "year": "",
+          "url": "",
+          "placeholder": true,
+          "note": "Three facts still missing: the year, the url, and her Chinese description. The English is her own text, verbatim, including her spellings (dominante, regulartory) - do not correct them. The Chinese standing in is the short line this piece already carried in the CV. A blank year or url draws the hollow square rather than nothing."
         }
       ]
     },
@@ -139,40 +194,6 @@
         },
         {
           "section": {
-            "en": "Writing",
-            "zh": "论述"
-          },
-          "entries": [
-            {
-              "year": "",
-              "title": {
-                "en": "Ontological Insecurity: Sovereignty, Nationalism and how the EU navigates the China-US Competition for Market Dominance of Artificial Intelligence",
-                "zh": "本体性不安全：主权、民族主义，以及欧盟如何在中美争夺人工智能市场主导权的竞争中寻路"
-              },
-              "org": {
-                "en": "Working paper – sovereignty narratives and the China–US bind",
-                "zh": "工作论文 – 主权叙事与中美竞争格局"
-              },
-              "placeholder": true,
-              "note": "Add the year, and the venue if it is published. Title is verbatim - do not shorten it."
-            },
-            {
-              "year": "",
-              "title": {
-                "en": "Artificial Intelligence in Nuclear Regulation Frameworks: Trends in Security Narratives and Regulatory Change",
-                "zh": "核监管框架中的人工智能：安全叙事与监管变革的趋势"
-              },
-              "org": {
-                "en": "Briefing – AI as a rising subject in international security",
-                "zh": "简报 – 人工智能作为国际安全的新兴议题"
-              },
-              "placeholder": true,
-              "note": "Add the year, and the venue if it is published. Title is verbatim - do not shorten it."
-            }
-          ]
-        },
-        {
-          "section": {
             "en": "Convening",
             "zh": "召集"
           },
@@ -218,7 +239,7 @@
                 "zh": "联合国核不扩散条约大会"
               },
               "placeholder": true,
-              "note": "Add the year of the NPT Conference attended."
+              "note": "Add the year of the NPT Conference attended. Blank, it draws the hollow square."
             },
             {
               "year": "2020–22",
