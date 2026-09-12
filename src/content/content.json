@@ -4,10 +4,6 @@
     "en": "EN",
     "zh": "中",
     "end": "■",
-    "year": {
-      "en": "Year",
-      "zh": "年份"
-    },
     "read": {
       "en": "Read",
       "zh": "阅读"
@@ -94,10 +90,9 @@
             "en": "This Working Paper provides an analysis of how the emergence of soverignty narrative around technological infrastructure and AI is a symptom of geopolitical insecurity as market forces are concentrated in the China-US bind. Consequently, as nationalism and defense heightens across European countries, the soverignty arguement leverages this approach as it races to find security. From this lens, taking on theories and frameworks from social movement strategies, the paper provides pointers for how institutions and movements can prepare capabilties and infrastructure for protecting public interest.",
             "zh": "主权叙事与中美竞争格局"
           },
-          "year": "",
           "url": "",
           "placeholder": true,
-          "note": "Three facts still missing: the year, the url, and her Chinese description. The English is her own text, verbatim, including her spellings (soverignty, arguement, capabilties) - do not correct them. The Chinese standing in is the short line this piece already carried in the CV; replace it with her own abstract when she writes one. A blank year or url draws the hollow square rather than nothing."
+          "note": "Two facts still missing: the url, and her Chinese description. The English is her own text, verbatim, including her spellings (soverignty, arguement, capabilties) - do not correct them. The Chinese standing in is the short line this piece already carried in the CV; replace it with her own abstract when she writes one. A blank url draws the outlined slot rather than nothing. A piece of writing carries no year: the CV dates posts because a post is a span, and a paper is not."
         },
         {
           "type": {
@@ -112,10 +107,9 @@
             "en": "This article provides a snapshot on how Artificial Intelligence emerges as a dominante topic in traditional international security environments and outlines the impact of these topics and how it is interacting with a rapidly changing regulartory environment.",
             "zh": "人工智能作为国际安全的新兴议题"
           },
-          "year": "",
           "url": "",
           "placeholder": true,
-          "note": "Three facts still missing: the year, the url, and her Chinese description. The English is her own text, verbatim, including her spellings (dominante, regulartory) - do not correct them. The Chinese standing in is the short line this piece already carried in the CV. A blank year or url draws the hollow square rather than nothing."
+          "note": "Two facts still missing: the url, and her Chinese description. The English is her own text, verbatim, including her spellings (dominante, regulartory) - do not correct them. The Chinese standing in is the short line this piece already carried in the CV. A blank url draws the outlined slot rather than nothing. A piece of writing carries no year: the CV dates posts because a post is a span, and a paper is not."
         }
       ]
     },

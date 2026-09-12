@@ -115,31 +115,20 @@ const ok=(n,v,extra='')=>{results.push(`${v?'PASS':'FAIL'}  ${n}${extra?'  '+ext
     shape.cv >= shape.open && shape.first > shape.cv && shape.foot > shape.first && d.height > shape.foot,
     JSON.stringify({ ...d, open: shape.open, cv: shape.cv }));
 
-  /* Availability belongs to the FOOT, under the contact rule and above the
-     address - not to the head.
-
-     It has now been in three places and the assertion has moved with it, which
-     is the point of keeping it: in the body as one of four labelled fields,
-     where it read as an application; opposite the dateline, where it was set
-     at the height of her name and read as asking rather than stating; and here,
-     beside the way to answer it. What is asserted is the ORDER - after the last
-     block, before the address - because that is what makes it an offer rather
-     than a claim, and it is the part a layout change could silently undo. */
+  /* Availability belongs to the head, above the first CV section - it used to
+     sit in the body, where four flat facts read as an application. */
   {
-    const foot = await p.evaluate(() => {
+    const head = await p.evaluate(() => {
       const items = window.__stage.items();
       const at = (k) => items.find((i) => i.key.startsWith(k));
       return {
         avail: at('index.available') ? at('index.available').y : null,
-        contact: at('foot.label').y,
-        mail: at('foot.mail').y,
         cv: at('cv.label').y,
+        toggleY: (at('nav.') || {}).y,
       };
     });
-    ok('availability is in the foot, under CONTACT and above the address',
-      foot.avail !== null && foot.avail > foot.cv
-        && foot.avail > foot.contact && foot.avail < foot.mail,
-      JSON.stringify(foot));
+    ok('availability is in the head, above the first block',
+      head.avail !== null && head.avail < head.cv, JSON.stringify(head));
   }
 
   /* Sticky. The toggle is drawn viewport-anchored and its target lives in the
