@@ -1253,7 +1253,21 @@ function block(scene, blk, lang, g, y0, measured, labels) {
          is a serif. Three voices, no geometry. */
       const px = m.x0;
       const wide = m.hang ? m.trackW * 2 + g.gutter : g.right - px;
-      const descW = m.hang ? Math.min(wide, 30 * S.prose.size) : wide;
+      /* WIDER THAN THE READING MEASURE, AND ON PURPOSE.
+
+         Thirty ems is where prose is set everywhere else on this site and it
+         is the right measure for reading - about sixty-seven characters here.
+         It was also leaving the abstract in a column half the width of the
+         title above it, with the rest of the row empty, which is what the
+         client saw. Forty-two ems is about eighty-five characters: past the
+         comfortable measure and short of the full two tracks, which at ninety-
+         five would be a line you lose your place in.
+
+         What buys the difference is that this is an ABSTRACT - five or six
+         lines that are scanned to decide whether to open the paper - rather
+         than the page's reading matter. About is the thing that is read, and
+         it keeps its measure. */
+      const descW = m.hang ? Math.min(wide, 42 * S.prose.size) : wide;
       const proseRole = adapt(S.prose, lang);
       const titleRole = adapt(S.title, lang);
       const titleLead = Math.round(S.title.size * S.title.lh);
@@ -1274,40 +1288,32 @@ function block(scene, blk, lang, g, y0, measured, labels) {
         if (pi) y += u * (m.hang ? 5 : 6.5);
 
         const typeRun = scene.prepare(p.type[lang], S.role);
-        const yearRun = scene.prepare(p.year || labels.year[lang], p.year ? S.year : S.role);
-        const drawYear = (baseline) => {
-          if (p.year) {
-            scene.place(`${k}.${pi}.year`, yearRun, px + wide, baseline, INK_3, { align: 'right', seal });
-            return;
-          }
-          scene.rect(`${k}.${pi}.year.mark`, Math.round(px + wide - mark), Math.round(baseline - mark),
-            mark, mark, INK_3, HAIRLINE * 4, { stroke: 1 });
-          scene.place(`${k}.${pi}.year`, yearRun,
-            Math.round(px + wide - mark - slotGap * 0.6), baseline, INK_3, { align: 'right' });
-        };
+        /* NO YEAR ON A PIECE OF WRITING.
 
-        /* Wide, the year sits at the end of the title's first line and the
-           title is measured against what is left of the row. Narrow, there is
-           nothing left of the row: the title takes the whole measure and the
-           year takes a line of its own above it, which is also where a date
-           belongs when it is the first fact rather than a hanging one. */
-        const yearW = yearRun.width + (p.year ? 0 : mark + slotGap * 0.6) + g.gutter;
+           The CV dates things because a post is a span - it started, it may
+           still be running, and when it stopped is the fact. A paper is not a
+           span. It has a date of publication and neither of these has one yet,
+           so the row carried the word YEAR and a hollow square at the end of
+           its title: a form field, at the top of the page's most considered
+           band, saying nothing except that something was missing. The client's
+           read - they do not need it - is also the truthful one. What a reader
+           wants from a paper is what it argues and where to read it, and the
+           band says both.
+
+           The title therefore takes the whole row, at both column counts. */
         let ty;
         if (m.hang) {
           ty = y + titleProbe.ascent;
           scene.place(`${k}.${pi}.type`, typeRun, g.left, ty, INK_3, { seal });
-          drawYear(ty);
         } else {
-          const yy = y + yearRun.ascent;
-          drawYear(yy);
-          ty = yy + yearRun.descent + u * 1.8 + titleProbe.ascent;
+          ty = y + titleProbe.ascent;
         }
 
         /* Balanced, not greedy. These titles are two lines of sentence, and a
            greedy break leaves the second one a single word: the briefing sets
            as ninety characters and then "Change". The masthead wants its first
            line full and gets wrap(); a title wants lines that look like a set. */
-        const titles = balance(scene.engine, p.title[lang], titleRole, m.hang ? wide - yearW : wide);
+        const titles = balance(scene.engine, p.title[lang], titleRole, wide);
         titles.forEach((t, i) => {
           scene.text(`${k}.${pi}.title.${i}`, t, S.title, px, ty + i * titleLead, INK, { seal });
         });
@@ -1751,7 +1757,7 @@ export function fontSpecs(content, vw, lang) {
       + (b.sections || []).map((s) => s.section[lang]
         + s.entries.map((e) => (e.year || '') + e.title[lang] + (e.org ? e.org[lang] : '')).join('')).join('')),
     content.labels.zh, content.labels.end,
-    content.labels.year[lang], content.labels.read[lang], content.labels.awaiting[lang],
+    content.labels.read[lang], content.labels.awaiting[lang],
   ].join('');
   const exotic = [...new Set([...strings])].filter((c) => c.codePointAt(0) > 0x7f).join('');
 
