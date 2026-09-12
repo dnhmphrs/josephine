@@ -780,10 +780,8 @@ function head(scene, content, lang, g) {
   const creds = [{ key: 'index.role', text: c.role[lang], color: INK }]
     .concat(c.context.map((v, i) => ({ key: `index.context.${i}`, text: v[lang], color: INK_3 })));
   const runs = creds.map((x) => scene.prepare(x.text, S.role));
-  const availRun = scene.prepare(c.available[lang], S.role);
   const sep = Math.round(Math.max(10, u * 1.1));
   const barH = Math.round(Math.max(...runs.map((r) => r.inkAscent || r.capHeight)));
-  const leftW = runs.reduce((a, r) => a + r.width, 0) + (runs.length - 1) * (sep * 2 + 1);
 
   y += u * 2;
   const dlBase = Math.round(y + runs[0].ascent);
@@ -825,33 +823,22 @@ function head(scene, content, lang, g) {
      edge lands wherever the string happens to end and the head finishes on a
      step nobody chose. The right edge is only meaningful while the dateline is
      holding the left edge of the same line. */
-  /* THE AVAILABILITY IS NOT IN THE PHONE'S HEAD.
+  /* THE AVAILABILITY IS NOT IN THE HEAD AT ALL.
 
-     Opposite the dateline it is one line and the head is a band. At one column
-     there is nothing to be opposite, so it drops underneath and breaks - and
-     her full wording is seventy characters, so the head opens with four rows
-     of tracked capitals before a single word is said. Four rows of label is
-     not a masthead, it is a form.
+     It sat opposite the dateline from two columns up and it was the wrong
+     register for the top of a page. "Available for Research Collaboration,
+     Policy Advisory and Speaker roles", set at the same height as her name and
+     her subject, reads as asking rather than as stating - and a masthead that
+     opens by saying what it would like is a different kind of document from
+     one that opens by saying what it is. The head states; the foot offers.
 
-     So below two columns it leaves, and comes back above the address in the
-     foot, which is where an offer belongs and where it finally has a measure
-     wide enough to hold it. See footer(). */
-  const avInHead = g.cols > 1;
-  const avInline = leftW + g.gutter + availRun.width <= g.contentW;
-  const avRole = adapt(S.role, lang);
-  const avText = S.role.upper ? c.available[lang].toUpperCase() : c.available[lang];
-  const avLines = !avInHead ? [] : avInline ? [avText] : wrap(scene.engine, avText, avRole, g.contentW);
-  const avBase = avInline ? dlBase : Math.round(dlBottom + lead(S.role) + u * 1.4);
-  const avSeal = avInline ? credSeal : scene.seal('head.avail', avBase, 90);
-  avLines.forEach((t, i) => {
-    const r = scene.prepare(t, S.role);
-    scene.place(i ? `index.available.${i}` : 'index.available', r,
-      avInline ? g.right - r.width : g.left, avBase + i * lead(S.role), INK_3,
-      { seal: avSeal, edge: true });
-  });
-  const avBottom = avLines.length ? avBase + (avLines.length - 1) * lead(S.role) : dlBottom;
-
-  y = Math.round(avBottom + runs[0].inkDescent + u * 2);
+     So it goes to the foot at every width, above the address, which is where
+     an offer belongs and where it is read by someone who has already decided
+     to look for a way to answer it. See footer(). The phone had already sent
+     it there for its own reason - under a 342px dateline it broke to two lines
+     and opened the page with four rows of capitals before a word was said -
+     and the two reasons turn out to be one reason seen at two widths. */
+  y = Math.round(dlBottom + runs[0].inkDescent + u * 2);
   scene.rect('head.rule.1', g.left, y, g.contentW, 1, RULE, HAIRLINE);
 
   /* The sentence. Everything above is the masthead; this is the page saying
@@ -888,7 +875,7 @@ function head(scene, content, lang, g) {
   scene.edge = nav.pinned ? {
     x0: Math.round(g.right - nav.width - g.gutter * 0.5),
     clear: Math.round(top),
-    full: Math.round(avBottom + availRun.inkDescent + 2),
+    full: Math.round(dlBottom + runs[0].inkDescent + 2),
   } : null;
 
   return y;
@@ -1550,24 +1537,21 @@ function footer(scene, content, lang, g, y0) {
   const mailRun = scene.prepare(c.contact.email, S.link);
   const liRun = scene.prepare(c.contact.linkedin.label, S.link);
 
-  /* THE AVAILABILITY, WHERE THE PHONE PUTS IT.
+  /* THE AVAILABILITY, WHICH LIVES HERE NOW.
 
-     It lives opposite the dateline from two columns up, because there it is
-     one line and the head closes as a band. At one column there is nothing to
-     be opposite: it drops under the dateline, breaks across two lines, and the
-     page opens with four rows of tracked capitals before a word is said - a
-     form, not a masthead. So below two columns it comes here instead.
+     What she is open to is an OFFER, and an offer belongs beside the way to
+     answer it. Opposite the dateline it was set at the same height as her name
+     and her subject, which reads as asking rather than as stating - and it was
+     only ever put up there because the foot at the time was one unlabelled
+     rule with an email under it and nothing there could hold it. The foot has
+     a name now.
 
-     This is the better address for it anyway, and the argument is older than
-     the phone: what she is open to is an OFFER, and an offer belongs beside
-     the way to answer it rather than in the masthead. It went to the head
-     originally only because the foot at the time was one unlabelled rule with
-     an email under it and nothing there could hold it. The foot has a name
-     now. Set at a 1.75 leading rather than the dateline's 1.2 - two rows of
-     capitals set solid weld into a grey block, and this is the one place they
-     are read as a sentence rather than scanned as a label. */
+     Set at a 1.75 leading rather than the dateline's 1.2, at every width: two
+     rows of capitals set solid weld into a grey block, and this is the one
+     place on the page they are read as a sentence rather than scanned as a
+     label. */
   let top = y0 + u * 3.2;
-  if (g.cols === 1) {
+  {
     const avRole = adapt(S.role, lang);
     const avText = S.role.upper ? c.available[lang].toUpperCase() : c.available[lang];
     const avLines = wrap(scene.engine, avText, avRole, g.contentW);
